@@ -219,39 +219,71 @@ export default function Dashboard() {
   const renderContent = () => {
     if (isEmpty) return <EmptyState />;
 
-    switch (activeTab) {
-      case 'Visão Geral':
-        return (
+    return (
+      <div className="unified-dashboard">
+        <section id="visao-geral" className="dashboard-section">
+          <SummaryKPIs data={data} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="evolucao" className="dashboard-section">
+           <EvolutionSection data={data} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="conformidade" className="dashboard-section">
+           <CategoryGaps data={data} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="processos" className="dashboard-section">
+           <PerformanceRankings data={data} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="reunioes" className="dashboard-section">
+           <MeetingsSection data={data} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="metas" className="dashboard-section">
+           <GoalsSection data={data} filterProducts={activeFilters.products} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="nps" className="dashboard-section">
+           <NPSSupabase auditorias={data.currentAudits} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="churn" className="dashboard-section">
+           <ChurnSection churn={data.currentChurn} />
+        </section>
+
+        {role === 'Administrador' && (
           <>
-            <SummaryKPIs data={data} />
-            <EvolutionSection data={data} />
-            <CategoryGaps data={data} />
-            <PerformanceRankings data={data} />
+            <div className="section-separator" />
+            <section id="time-completo" className="dashboard-section">
+               <div className="section-anchor"><h2>Gestão de Time Completo</h2></div>
+               <AdminManagement
+                consultants={consultores}
+                products={products}
+                onAddConsultant={handleAddConsultant}
+                onToggleConsultant={handleToggleConsultant}
+                onAddProduct={handleAddProduct}
+              />
+            </section>
           </>
-        );
-      case 'Conformidade':
-        return <CategoryGaps data={data} />;
-      case 'Reuniões':
-        return <MeetingsSection data={data} />;
-      case 'Metas':
-        return <GoalsSection data={data} filterProducts={activeFilters.products} />;
-      case 'NPS / CSAT':
-        return <NPSSupabase auditorias={data.currentAudits} />;
-      case 'Churn':
-        return <ChurnSection churn={data.currentChurn} />;
-      case 'Time Completo':
-        return (
-          <AdminManagement
-            consultants={consultores}
-            products={products}
-            onAddConsultant={handleAddConsultant}
-            onToggleConsultant={handleToggleConsultant}
-            onAddProduct={handleAddProduct}
-          />
-        );
-      default:
-        return <SummaryKPIs data={data} />;
-    }
+        )}
+      </div>
+    );
   };
 
   return (
@@ -264,7 +296,10 @@ export default function Dashboard() {
       <div className="dashboard-body">{renderContent()}</div>
       <style jsx>{`
         .dashboard-wrapper { display: flex; flex-direction: column; }
-        .dashboard-body { display: flex; flex-direction: column; gap: 40px; padding-bottom: 80px; }
+        .dashboard-body { display: flex; flex-direction: column; padding-bottom: 100px; }
+        .unified-dashboard { display: flex; flex-direction: column; gap: 0; }
+        .dashboard-section { padding-top: 40px; }
+        .section-separator { height: 1px; background: linear-gradient(90deg, transparent, var(--card-border), transparent); margin: 60px 0; opacity: 0.5; }
       `}</style>
     </div>
   );

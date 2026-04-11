@@ -22,15 +22,25 @@ export default function Sidebar() {
     { name: 'Auditoria', path: '/auditoria', icon: <ClipboardCheck size={18} /> },
   ];
 
-  const dashboardTabs: { name: DashboardTab; icon: any; adminOnly?: boolean }[] = [
-    { name: 'Visão Geral', icon: <BarChart2 size={16} /> },
-    { name: 'Conformidade', icon: <ClipboardCheck size={16} /> },
-    { name: 'Reuniões', icon: <Users size={16} /> },
-    { name: 'Metas', icon: <Target size={16} /> },
-    { name: 'NPS / CSAT', icon: <MessageSquare size={16} /> },
-    { name: 'Churn', icon: <AlertTriangle size={16} /> },
-    { name: 'Time Completo', icon: <Users2 size={16} />, adminOnly: true },
+  const dashboardTabs: { name: string; id: string; icon: any; adminOnly?: boolean }[] = [
+    { name: 'Visão Geral', id: 'visao-geral', icon: <BarChart2 size={16} /> },
+    { name: 'Evolução', id: 'evolucao', icon: <LineChart size={16} /> },
+    { name: 'Conformidade', id: 'conformidade', icon: <ClipboardCheck size={16} /> },
+    { name: 'Processos', id: 'processos', icon: <ShieldCheck size={16} /> },
+    { name: 'Reuniões', id: 'reunioes', icon: <Users size={16} /> },
+    { name: 'Metas', id: 'metas', icon: <Target size={16} /> },
+    { name: 'NPS / CSAT', id: 'nps', icon: <MessageSquare size={16} /> },
+    { name: 'Churn', id: 'churn', icon: <AlertTriangle size={16} /> },
+    { name: 'Time Completo', id: 'time-completo', icon: <Users2 size={16} />, adminOnly: true },
   ];
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Adicionalmente podemos marcar como ativo se quisermos
+    }
+  };
 
   const isDashboard = pathname === '/';
 
@@ -42,7 +52,7 @@ export default function Sidebar() {
           alt="Vorp Logo" 
           style={{ width: '130px', marginBottom: '8px' }} 
         />
-        <p className="bebas-font" style={{ fontSize: '0.8rem', letterSpacing: '0.15em', opacity: 0.7, color: 'var(--laranja-vorp)' }}>
+        <p style={{ fontSize: '0.8rem', letterSpacing: '0.15em', opacity: 0.7, color: 'var(--laranja-vorp)', fontWeight: 800 }}>
           SISTEMA DE AUDITORIA
         </p>
       </div>
@@ -64,12 +74,11 @@ export default function Sidebar() {
                 <div className="sub-nav">
                   {dashboardTabs.map((tab) => {
                     if (tab.adminOnly && role !== 'Administrador') return null;
-                    const isTabActive = activeTab === tab.name;
                     return (
                       <button
-                        key={tab.name}
-                        onClick={() => setActiveTab(tab.name)}
-                        className={`sub-item ${isTabActive ? 'active' : ''}`}
+                        key={tab.id}
+                        onClick={() => scrollToSection(tab.id)}
+                        className="sub-item"
                       >
                         {tab.icon}
                         <span>{tab.name}</span>
