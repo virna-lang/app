@@ -45,7 +45,7 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
                   {ranking.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.pct_reunioes)} fillOpacity={0.8} />
                   ))}
-                  <LabelList dataKey="pct_reunioes" position="right" fill={COLORS.textMain} formatter={(v: any) => `${v}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
+                  <LabelList dataKey="pct_reunioes" position="insideLeft" fill="#fff" formatter={(v: any) => `${v}%`} style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} offset={10} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

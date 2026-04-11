@@ -82,10 +82,10 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
               <div key={i} className="rank-row-item">
                 <span className="r-pos">#{i+1}</span>
                 <span className="r-name">{r.name}</span>
+                <span className="r-val" style={{ color: getSemaphorColor(r.score), textAlign: 'left' }}>{(r.score || 0).toFixed(0)}%</span>
                 <div className="r-bar-box">
                   <div className="r-bar-fill" style={{ width: `${r.score}%`, background: getSemaphorColor(r.score) }} />
                 </div>
-                <span className="r-val" style={{ color: getSemaphorColor(r.score) }}>{(r.score || 0).toFixed(0)}%</span>
               </div>
             ))}
           </div>
@@ -131,8 +131,8 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                   return (
                     <div key={i} className="rank-item">
                       <span className="rank-name">{consul?.nome}</span>
+                      <span className="rank-val" style={{ color, textAlign: 'left' }}>{score}%</span>
                       <div className="rank-bar-bg"><div className="rank-bar-fill" style={{ width: `${score}%`, background: color }} /></div>
-                      <span className="rank-val" style={{ color }}>{score}%</span>
                     </div>
                   );
                 })}

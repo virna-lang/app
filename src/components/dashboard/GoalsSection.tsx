@@ -78,10 +78,10 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
                   <span className="p-name">{p.name}</span>
                   <span className="p-count">{p.count} clientes</span>
                 </div>
+                <span className="p-val" style={{ color: getSemaphorColor(p.value), textAlign: 'left' }}>{(p.value || 0).toFixed(0)}%</span>
                 <div className="p-bar-bg">
                   <div className="p-bar-fill" style={{ width: `${p.value}%`, background: getSemaphorColor(p.value) }} />
                 </div>
-                <span className="p-val" style={{ color: getSemaphorColor(p.value) }}>{(p.value || 0).toFixed(0)}%</span>
               </div>
             ))}
           </div>

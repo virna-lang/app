@@ -44,10 +44,10 @@ export default function PerformanceRankings({ data }: { data: DashboardData }) {
                     <span className="r-idx">#{i+1}</span>
                     <span className="r-name">{r.name}</span>
                   </div>
+                  <span className="r-val" style={{ color: getSemaphorColor(r.score), textAlign: 'left', width: '45px' }}>{(r.score || 0).toFixed(0)}%</span>
                   <div className="r-bar-box">
                     <div className="r-bar-fill" style={{ width: `${r.score}%`, background: getSemaphorColor(r.score) }} />
                   </div>
-                  <span className="r-val" style={{ color: getSemaphorColor(r.score) }}>{(r.score || 0).toFixed(0)}%</span>
                 </div>
              ))}
            </div>
