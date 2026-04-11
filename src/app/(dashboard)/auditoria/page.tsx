@@ -35,6 +35,7 @@ type ItemEditState = {
   qtd_avaliados: number;
   qtd_conformes: number;
   observacao: string;
+  evidencia_url: string;
   saving: boolean;
   saved: boolean;
   error: boolean;
@@ -95,6 +96,7 @@ export default function AuditoriaPage() {
             qtd_avaliados: i.qtd_avaliados,
             qtd_conformes: i.qtd_conformes,
             observacao:    i.observacao ?? '',
+            evidencia_url: i.evidencia_url ?? '',
             saving: false,
             saved:  false,
             error:  false,
@@ -106,7 +108,7 @@ export default function AuditoriaPage() {
     setLoading(false);
   }, [selectedCons, selectedMes]);
 
-  const handleChange = (id: string, field: keyof Pick<ItemEditState, 'qtd_avaliados' | 'qtd_conformes' | 'observacao'>, value: string | number) => {
+  const handleChange = (id: string, field: keyof Pick<ItemEditState, 'qtd_avaliados' | 'qtd_conformes' | 'observacao' | 'evidencia_url'>, value: string | number) => {
     setEditState(prev => ({
       ...prev,
       [id]: { ...prev[id], [field]: value, dirty: true, saved: false, error: false },
@@ -122,6 +124,7 @@ export default function AuditoriaPage() {
       qtd_avaliados: Number(s.qtd_avaliados),
       qtd_conformes: Number(s.qtd_conformes),
       observacao:    s.observacao || null,
+      evidencia_url: s.evidencia_url || null,
     });
 
     setEditState(prev => ({
@@ -159,7 +162,12 @@ export default function AuditoriaPage() {
   };
 
   const [addingTo, setAddingTo] = useState<string | null>(null);
-  const [newQuestion, setNewQuestion] = useState({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any });
+  const [newQuestion, setNewQuestion] = useState({ 
+    categoria: 'ClickUp', 
+    pergunta: '', 
+    tipo_amostragem: '30% da carteira' as any,
+    evidencia_url: '',
+  });
 
   const handleAddItem = async (tipo: string) => {
     if (!auditoria || !newQuestion.pergunta) return;
@@ -173,6 +181,7 @@ export default function AuditoriaPage() {
       qtd_avaliados: 0,
       qtd_conformes: 0,
       observacao: '',
+      evidencia_url: newQuestion.evidencia_url,
     };
 
     const newItem = await addAuditoriaItem(payload);
@@ -184,11 +193,12 @@ export default function AuditoriaPage() {
           qtd_avaliados: 0,
           qtd_conformes: 0,
           observacao: '',
+          evidencia_url: newItem.evidencia_url ?? '',
           saving: false, saved: false, error: false, dirty: false
         }
       }));
       setAddingTo(null);
-      setNewQuestion({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any });
+      setNewQuestion({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any, evidencia_url: '' });
     } else {
       alert('Erro ao adicionar pergunta.');
     }
@@ -326,6 +336,15 @@ export default function AuditoriaPage() {
                         <option value="30% da carteira">30% da carteira</option>
                       </select>
                     </div>
+                    <div className="add-field flex-2">
+                       <label>ENCAMINHAMENTO</label>
+                       <input 
+                         type="text" 
+                         placeholder="URL de evidência..."
+                         value={newQuestion.evidencia_url}
+                         onChange={e => setNewQuestion(prev => ({ ...prev, evidencia_url: e.target.value }))}
+                       />
+                    </div>
                     <button className="btn-confirm-add" onClick={() => handleAddItem(label)}>
                       Confirmar
                     </button>
@@ -342,6 +361,7 @@ export default function AuditoriaPage() {
                       <th className="col-num">Avaliados</th>
                       <th className="col-num">Conformes</th>
                       <th className="col-nota">Nota</th>
+                      <th className="col-encaminhamento">Encaminhamentos</th>
                       <th className="col-obs">Observação</th>
                       <th className="col-acao"></th>
                     </tr>
@@ -384,6 +404,15 @@ export default function AuditoriaPage() {
                             <span className="nota-val" style={{ color: cor }}>
                               {nota.toFixed(1)}%
                             </span>
+                          </td>
+                          <td className="col-encaminhamento">
+                            <input
+                              type="text"
+                              className="url-input"
+                              value={s.evidencia_url}
+                              onChange={e => handleChange(item.id, 'evidencia_url', e.target.value)}
+                              placeholder="Link..."
+                            />
                           </td>
                           <td className="col-obs">
                             <textarea
@@ -505,7 +534,8 @@ export default function AuditoriaPage() {
         .col-pergunta { }
         .col-num     { width: 90px; }
         .col-nota    { width: 70px; }
-        .col-obs     { width: 240px; }
+        .col-encaminhamento { width: 140px; }
+        .col-obs     { width: 220px; }
         .col-acao    { width: 44px; text-align: center; }
 
         .cat-badge {
@@ -524,6 +554,13 @@ export default function AuditoriaPage() {
         .num-input:focus { border-color: var(--laranja-vorp); outline: none; }
 
         .nota-val { font-family: var(--font-bebas); font-size: 1.2rem; }
+
+        .url-input {
+          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+          border-radius: 6px; padding: 8px 10px; color: var(--text-secondary); font-size: 0.75rem;
+          transition: border-color 0.2s;
+        }
+        .url-input:focus { border-color: var(--laranja-vorp); outline: none; }
 
         .obs-input {
           width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
