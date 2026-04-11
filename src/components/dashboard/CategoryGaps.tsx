@@ -18,23 +18,12 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
   const growthData = useMemo(() => {
     return data.currentAudits.map(a => {
       const consul = mockConsultants.find(c => c.id === a.consultor_id);
-      const cScore = a.score_clickup;
-      const dScore = a.score_drive;
-      const mScore = (a.score_metas + a.score_flags) / 2;
-      const rScore = a.score_rastreabilidade;
-      const overall = (cScore + dScore + mScore + rScore) / 4;
       return {
         name: consul?.nome.split(' ')[0] || 'Consul',
-        ClickUp: cScore,
-        CUGap: 100 - cScore,
-        Drive: dScore,
-        DGap: 100 - dScore,
-        Metas: mScore,
-        MGap: 100 - mScore,
-        Rastreabilidade: rScore,
-        RGap: 100 - rScore,
-        Overall: overall,
-        OverallGap: 100 - overall
+        ClickUp: a.score_clickup,
+        'Drive: Gravação': a.score_drive,
+        'Gestão de metas e flags': (a.score_metas + a.score_flags) / 2,
+        Rastreabilidade: a.score_rastreabilidade
       };
     });
   }, [data.currentAudits]);
@@ -56,9 +45,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
     ClickUp: '#00A3E0',
     Drive: '#FC5400',
     Metas: '#FFD700',
-    Rastreabilidade: '#9ACD32',
-    Overall: '#FC5400',
-    Gap: 'rgba(252, 84, 0, 0.15)'
+    Rastreabilidade: '#9ACD32'
   };
 
   return (
@@ -67,63 +54,49 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
           <h2>Conformidade por Categoria</h2>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '20px', marginBottom: '40px' }}>
-        {/* Gráfico 1: GROWTH (Detalhado) */}
-        <div className="card growth-card" style={{ padding: '30px' }}>
-          <div className="growth-header" style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '4px', height: '24px', background: '#FC5400' }} />
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '0.05em', color: '#fff', margin: 0 }}>GROWTH</h1>
-            </div>
-            <p style={{ color: COLORS.textSecondary, fontSize: '0.8rem', marginTop: '4px' }}>Conformidade por consultor e categoria</p>
-          </div>
-
-          <div style={{ height: '350px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={growthData} margin={{ top: 10, right: 100, left: 0, bottom: 20 }}>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#fff', fontSize: 11, fontWeight: 700 }} dy={10} />
-                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#fff', fontSize: 10, fontWeight: 700 }} tickFormatter={(v) => `${v}%`} width={40} />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ background: '#0F1020', borderRadius: '12px', border: '1px solid #1A1A38' }} />
-                <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ paddingLeft: '30px', fontSize: '10px', fontWeight: 600 }} />
-                
-                <Bar dataKey="ClickUp" stackId="ClickUp" fill={CHART_COLORS.ClickUp} barSize={10} />
-                <Bar dataKey="CUGap" stackId="ClickUp" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={10} />
-                
-                <Bar dataKey="Drive" stackId="Drive" fill={CHART_COLORS.Drive} barSize={10} />
-                <Bar dataKey="DGap" stackId="Drive" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={10} />
-                
-                <Bar dataKey="Metas" stackId="Metas" fill={CHART_COLORS.Metas} barSize={10} />
-                <Bar dataKey="MGap" stackId="Metas" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={10} />
-                
-                <Bar dataKey="Rastreabilidade" stackId="Rastreabilidade" fill={CHART_COLORS.Rastreabilidade} barSize={10} />
-                <Bar dataKey="RGap" stackId="Rastreabilidade" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={10} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+      <div className="card growth-card" style={{ marginBottom: '40px', padding: '40px' }}>
+        <div className="growth-header" style={{ marginBottom: '30px' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '4px', height: '24px', background: '#FC5400' }} />
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '0.05em', color: '#fff', margin: 0 }}>GROWTH</h1>
+           </div>
+           <p style={{ color: COLORS.textSecondary, fontSize: '0.9rem', marginTop: '4px' }}>Conformidade por consultor e por categoria</p>
         </div>
 
-        {/* Gráfico 2: GERAL (Média) */}
-        <div className="card growth-card" style={{ padding: '30px' }}>
-          <div className="growth-header" style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '4px', height: '24px', background: '#FC5400' }} />
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '0.05em', color: '#fff', margin: 0 }}>GERAL</h1>
-            </div>
-            <p style={{ color: COLORS.textSecondary, fontSize: '0.8rem', marginTop: '4px' }}>Média de conformidade geral</p>
-          </div>
-
-          <div style={{ height: '350px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={growthData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#fff', fontSize: 11, fontWeight: 700 }} dy={10} />
-                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#fff', fontSize: 10, fontWeight: 700 }} tickFormatter={(v) => `${v}%`} width={40} />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ background: '#0F1020', borderRadius: '12px', border: '1px solid #1A1A38' }} />
-                
-                <Bar dataKey="Overall" stackId="Overall" fill={CHART_COLORS.Overall} barSize={35} />
-                <Bar dataKey="OverallGap" stackId="Overall" fill={CHART_COLORS.Gap} radius={[4, 4, 0, 0]} barSize={35} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <div style={{ height: '400px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={growthData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+              <XAxis 
+                dataKey="name" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#fff', fontSize: 13, fontWeight: 700 }} 
+                dy={10}
+              />
+              <YAxis 
+                domain={[0, 100]} 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#fff', fontSize: 11, fontWeight: 700 }}
+                tickFormatter={(v) => `${v}%`}
+                width={45}
+              />
+              <Tooltip 
+                cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                contentStyle={{ background: '#0F1020', borderRadius: '12px', border: '1px solid #1A1A38' }}
+              />
+              <Legend 
+                verticalAlign="top" 
+                align="center" 
+                iconType="circle"
+                wrapperStyle={{ paddingBottom: '30px', fontSize: '11px', fontWeight: 600 }}
+              />
+              <Bar dataKey="ClickUp" fill={CHART_COLORS.ClickUp} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Drive: Gravação" fill={CHART_COLORS.Drive} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Gestão de metas e flags" fill={CHART_COLORS.Metas} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Rastreabilidade" fill={CHART_COLORS.Rastreabilidade} radius={[2, 2, 0, 0]} barSize={12} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
