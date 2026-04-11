@@ -11,7 +11,7 @@ const Variation = ({ val, label }: { val: number, label?: string }) => {
       background: isPos ? 'rgba(30, 144, 128, 0.1)' : 'rgba(176, 48, 48, 0.1)',
       color: isPos ? COLORS.verde : COLORS.vermelho
     }}>
-      {isPos ? '▲' : '▼'} {Math.abs(val).toFixed(1)}pp
+      {isPos ? '▲' : '▼'} {(Math.abs(val) || 0).toFixed(1)}pp
       {label && <span className="var-label">{label}</span>}
       <style jsx>{`
         .variation-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
@@ -66,7 +66,7 @@ export default function SummaryKPIs({ data }: { data: DashboardData }) {
         <label>Conformidade Geral</label>
         <div className="kpi-main-row">
           <div className="val-col">
-            <span className="val-big">{currentAvg.toFixed(1)}%</span>
+            <span className="val-big">{(currentAvg || 0).toFixed(1)}%</span>
             {data.prevMonth && <Variation val={varScore} />}
           </div>
           <div className="chart-mini-box">
@@ -94,7 +94,7 @@ export default function SummaryKPIs({ data }: { data: DashboardData }) {
         <label>Melhor Categoria</label>
         <div className="val-row">
           <span className="val-big" style={{ fontSize: '1.6rem', fontFamily: 'DM Sans', fontWeight: 800 }}>{bestCat}</span>
-          <span className="val-perc">{bestScore.toFixed(0)}%</span>
+          <span className="val-perc">{(bestScore || 0).toFixed(0)}%</span>
         </div>
         <div className="mini-progress">
           <div className="fill" style={{ width: `${bestScore}%`, background: COLORS.primary }} />
@@ -104,7 +104,7 @@ export default function SummaryKPIs({ data }: { data: DashboardData }) {
       <div className="card kpi-card card-border-top glow-on-hover">
         <label>% de Reuniões Realizadas</label>
         <div className="val-row">
-          <span className="val-big">{currentMeetingsPct.toFixed(0)}%</span>
+          <span className="val-big">{(currentMeetingsPct || 0).toFixed(0)}%</span>
         </div>
         <div className="mini-progress">
           <div className="fill" style={{ width: `${currentMeetingsPct}%`, background: getSemaphorColor(currentMeetingsPct) }} />
@@ -114,7 +114,7 @@ export default function SummaryKPIs({ data }: { data: DashboardData }) {
       <div className="card kpi-card card-border-top glow-on-hover">
         <label>NPS Médio</label>
         <div className="val-row">
-          <span className="val-big">{currentNPS.toFixed(1)}</span>
+          <span className="val-big">{(currentNPS || 0).toFixed(1)}</span>
           <span className="badge" style={{ 
             background: currentNPS >= 90 ? COLORS.verde + '20' : currentNPS >= 75 ? COLORS.primary + '20' : COLORS.vermelho + '20',
             color: currentNPS >= 90 ? COLORS.verde : currentNPS >= 75 ? COLORS.primary : COLORS.vermelho 

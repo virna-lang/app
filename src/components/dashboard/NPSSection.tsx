@@ -49,7 +49,7 @@ export default function NPSSection({ data }: { data: DashboardData }) {
                   cursor={{ stroke: COLORS.primary, strokeWidth: 1, strokeDasharray: '5 5' }}
                   contentStyle={{ background: COLORS.cardBg, borderRadius: '8px', border: `1px solid ${COLORS.cardBorder}`, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
                   itemStyle={{ fontSize: '12px', fontWeight: 700, color: COLORS.primary }}
-                  formatter={(v: any) => [`${Number(v).toFixed(1)} NPS`, 'Média']}
+                  formatter={(v: any) => [`${(Number(v) || 0).toFixed(1)} NPS`, 'Média']}
                  />
                  <Line 
                   type="monotone" 

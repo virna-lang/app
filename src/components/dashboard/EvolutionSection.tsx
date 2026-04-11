@@ -100,7 +100,7 @@ function DirectLabel({ x, y, value, name, color, index, monthsCount }: any) {
   if (value === undefined || index !== monthsCount - 1) return null;
   return (
     <text x={x + 12} y={y + 4} fill={color} style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-body)' }}>
-      {name} {value.toFixed(1)}%
+      {name} {(value || 0).toFixed(1)}%
     </text>
   );
 }
@@ -128,7 +128,7 @@ function TopGrowth({ data, consultants }: { data: DashboardData, consultants: an
           <span className="wn-name">{top.name}</span>
         </div>
         <div className="winner-val">
-          <span className="val">{top.diff >= 0 ? '+' : ''}{top.diff.toFixed(1)}</span>
+          <span className="val">{top.diff >= 0 ? '+' : ''}{(top.diff || 0).toFixed(1)}</span>
           <span className="unit">pp</span>
         </div>
       </div>
@@ -152,7 +152,7 @@ function TopGrowth({ data, consultants }: { data: DashboardData, consultants: an
               </div>
             </div>
             <span className="row-val" style={{ color: g.diff >= 0 ? COLORS.verde : COLORS.vermelho }}>
-              {g.diff >= 0 ? '+' : ''}{g.diff.toFixed(1)}
+              {g.diff >= 0 ? '+' : ''}{(g.diff || 0).toFixed(1)}
             </span>
           </div>
         ))}

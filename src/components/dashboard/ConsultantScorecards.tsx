@@ -24,9 +24,9 @@ export default function ConsultantScorecards({ data, role }: { data: DashboardDa
                   <div className="dot" style={{ background: getSemaphorColor(audit.score_geral) }} />
                 </div>
                 <div className="sc-header-right">
-                  <span className="sc-score">{audit.score_geral.toFixed(1)}%</span>
+                  <span className="sc-score">{(audit.score_geral || 0).toFixed(1)}%</span>
                   <span className="sc-diff" style={{ color: diff >= 0 ? COLORS.verde : COLORS.vermelho }}>
-                    {diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}pp
+                    {diff >= 0 ? '▲' : '▼'} {(Math.abs(diff) || 0).toFixed(1)}pp
                   </span>
                 </div>
               </header>

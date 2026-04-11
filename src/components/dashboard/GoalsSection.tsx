@@ -55,7 +55,7 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
                     {consultantRanking.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.pct)} fillOpacity={0.8} />
                     ))}
-                    <LabelList dataKey="pct" position="top" fill={COLORS.textMain} formatter={(v: any) => `${v.toFixed(0)}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
+                    <LabelList dataKey="pct" position="top" fill={COLORS.textMain} formatter={(v: any) => `${(v || 0).toFixed(0)}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
                   </Bar>
                 </BarChart>
              </ResponsiveContainer>
@@ -74,7 +74,7 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
                 <div className="p-bar-bg">
                   <div className="p-bar-fill" style={{ width: `${p.value}%`, background: getSemaphorColor(p.value) }} />
                 </div>
-                <span className="p-val" style={{ color: getSemaphorColor(p.value) }}>{p.value.toFixed(0)}%</span>
+                <span className="p-val" style={{ color: getSemaphorColor(p.value) }}>{(p.value || 0).toFixed(0)}%</span>
               </div>
             ))}
           </div>

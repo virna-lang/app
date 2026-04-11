@@ -74,25 +74,57 @@ export default function Dashboard() {
     const prevLabel  = getMesAnterior(month);
     const prevMesAno = prevLabel ? labelToMesAno(prevLabel) : null;
 
-    const [auds, reunioes, vMetas, mt, ch] = await Promise.all([
+    const [auds, reunioes, vMetas, mt, ch, conf] = await Promise.all([
       getAuditoriasMensais(mesAno, consultantId),
       getViewReunioes(mesAno, consultantId),
       getViewMetas(mesAno, consultantId),
       getMetas(mesAno),
       getChurn(mesAno),
+      getViewConformidade(mesAno, consultantId)
     ]);
 
     let prevAuds: AuditoriaMensal[] = [];
     let prevMt: MetaMensal[] = [];
+    let prevConf: ViewConformidadeConsultor[] = [];
     if (prevMesAno) {
-      [prevAuds, prevMt] = await Promise.all([
+      const results = await Promise.all([
         getAuditoriasMensais(prevMesAno, consultantId),
         getMetas(prevMesAno),
+        getViewConformidade(prevMesAno, consultantId)
       ]);
+      prevAuds = results[0];
+      prevMt   = results[1];
+      prevConf = results[2];
     }
 
-    setAuditorias(auds);
-    setPrevAuds(prevAuds);
+    // Merge Conformidade into Audits
+    const mapConf = (a: AuditoriaMensal, cData: ViewConformidadeConsultor[]) => {
+      const items = cData.filter(c => c.consultor_id === a.consultor_id);
+      const obj: any = { ...a };
+      const catMap: Record<string, string> = {
+        'ClickUp': 'score_clickup',
+        'Drive': 'score_drive',
+        'WhatsApp': 'score_whatsapp',
+        'Dados': 'score_metas',
+        'Flags': 'score_flags',
+        'Rastreabilidade': 'score_rastreabilidade'
+      };
+      let total = 0;
+      let count = 0;
+      items.forEach(i => {
+        const key = catMap[i.categoria];
+        if (key) {
+          obj[key] = i.score_categoria;
+          total += i.score_categoria;
+          count++;
+        }
+      });
+      obj.score_geral = count > 0 ? total / count : 0;
+      return obj;
+    };
+
+    setAuditorias(auds.map(a => mapConf(a, conf)));
+    setPrevAuds(prevAuds.map(a => mapConf(a, prevConf)));
     setViewReunioes(reunioes);
     setViewMetas(vMetas);
     setMetas(mt);

@@ -47,7 +47,7 @@ export default function PerformanceRankings({ data }: { data: DashboardData }) {
                   <div className="r-bar-box">
                     <div className="r-bar-fill" style={{ width: `${r.score}%`, background: getSemaphorColor(r.score) }} />
                   </div>
-                  <span className="r-val" style={{ color: getSemaphorColor(r.score) }}>{r.score.toFixed(0)}%</span>
+                  <span className="r-val" style={{ color: getSemaphorColor(r.score) }}>{(r.score || 0).toFixed(0)}%</span>
                 </div>
              ))}
            </div>

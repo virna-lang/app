@@ -59,7 +59,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                 {categoryAverages.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.value)} fillOpacity={0.8} />
                 ))}
-                <LabelList dataKey="value" position="top" fill={COLORS.textMain} formatter={(v: number) => `${v.toFixed(0)}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
+                <LabelList dataKey="value" position="top" fill={COLORS.textMain} formatter={(v: any) => `${(Number(v) || 0).toFixed(0)}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -78,7 +78,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                 <div className="r-bar-box">
                   <div className="r-bar-fill" style={{ width: `${r.score}%`, background: getSemaphorColor(r.score) }} />
                 </div>
-                <span className="r-val" style={{ color: getSemaphorColor(r.score) }}>{r.score.toFixed(0)}%</span>
+                <span className="r-val" style={{ color: getSemaphorColor(r.score) }}>{(r.score || 0).toFixed(0)}%</span>
               </div>
             ))}
           </div>

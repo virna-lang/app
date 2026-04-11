@@ -32,10 +32,10 @@ export default function DashboardLanding({ data, onNavigate }: Props) {
   const churnCount = data.currentChurn.length;
 
   const navItems = [
-    { id: 'Conformidade', label: 'Conformidade', icon: <ClipboardCheck size={28} />, desc: 'Auditoria de drive, clickup e whatsapp.', value: `${currentAvg.toFixed(1)}%` },
-    { id: 'Reuniões', label: 'Reuniões', icon: <Users size={28} />, desc: 'Métricas de atendimento e clientes ativos.', value: `${currentMeetingsPct.toFixed(0)}%` },
+    { id: 'Conformidade', label: 'Conformidade', icon: <ClipboardCheck size={28} />, desc: 'Auditoria de drive, clickup e whatsapp.', value: `${(currentAvg || 0).toFixed(1)}%` },
+    { id: 'Reuniões', label: 'Reuniões', icon: <Users size={28} />, desc: 'Métricas de atendimento e clientes ativos.', value: `${(currentMeetingsPct || 0).toFixed(0)}%` },
     { id: 'Metas', label: 'Metas', icon: <Target size={28} />, desc: 'Desempenho projetado vs realizado.', value: 'Ver Detalhes' },
-    { id: 'NPS / CSAT', label: 'NPS / CSAT', icon: <MessageSquare size={28} />, desc: 'Qualidade percebida pelos clientes.', value: currentNPS.toFixed(1) },
+    { id: 'NPS / CSAT', label: 'NPS / CSAT', icon: <MessageSquare size={28} />, desc: 'Qualidade percebida pelos clientes.', value: (currentNPS || 0).toFixed(1) },
     { id: 'Churn', label: 'Churn', icon: <AlertTriangle size={28} />, desc: 'Registro e motivos de perdas.', value: churnCount },
   ];
 
@@ -45,15 +45,15 @@ export default function DashboardLanding({ data, onNavigate }: Props) {
       <div className="kpi-grid">
         <div className="kpi-card mini-card">
           <label>Conformidade Geral</label>
-          <span className="val">{currentAvg.toFixed(1)}%</span>
+          <span className="val">{(currentAvg || 0).toFixed(1)}%</span>
         </div>
         <div className="kpi-card mini-card">
           <label>% Reuniões</label>
-          <span className="val">{currentMeetingsPct.toFixed(0)}%</span>
+          <span className="val">{(currentMeetingsPct || 0).toFixed(0)}%</span>
         </div>
         <div className="kpi-card mini-card">
           <label>Média NPS</label>
-          <span className="val">{currentNPS.toFixed(1)}</span>
+          <span className="val">{(currentNPS || 0).toFixed(1)}</span>
         </div>
         <div className="kpi-card mini-card">
           <label>Churn do Mês</label>
