@@ -16,14 +16,20 @@
   --status-laranja: #FC5400;
   --status-vermelho: #B03030;
   
+  /* Glassmorphism & Glows */
+  --glass-bg: rgba(26, 26, 56, 0.4);
+  --glass-border: rgba(252, 84, 0, 0.1);
+  --glow-primary: rgba(252, 84, 0, 0.15);
+  --sidebar-width: 280px;
+  
   --font-bebas: 'Bebas Neue', cursive;
   --font-body: 'DM Sans', sans-serif;
 
+  /* Standard Next.js / Tailwind mappings */
   --background: var(--preto-vorp);
   --foreground: var(--text-main);
   
-  /* Antigravity Specific */
-  --section-border-width: 3px;
+  --section-border-width: 4px;
 }
 
 * {
