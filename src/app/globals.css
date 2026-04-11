@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
 :root {
   --preto-vorp: #0F0F23;
@@ -22,8 +22,8 @@
   --glow-primary: rgba(252, 84, 0, 0.15);
   --sidebar-width: 280px;
   
-  --font-bebas: 'Bebas Neue', cursive;
-  --font-body: 'DM Sans', sans-serif;
+  --font-bebas: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
 
   /* Standard Next.js / Tailwind mappings */
   --background: var(--preto-vorp);
