@@ -2,7 +2,27 @@
   "permissions": {
     "allow": [
       "Bash(curl -s 'https://euivfkoulfaslbypmqyl.supabase.co/rest/v1/consultores?select=*' -H 'apikey: sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Authorization: Bearer sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v')",
-      "Bash(python3 -m json.tool)"
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST https://euivfkoulfaslbypmqyl.supabase.co/rest/v1/auditoria_mensal -H 'apikey: sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Authorization: Bearer sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d '{:*)",
+      "Bash(curl -s -X POST https://euivfkoulfaslbypmqyl.supabase.co/rest/v1/auditoria_itens -H 'apikey: sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Authorization: Bearer sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Content-Type: application/json' -H 'Prefer: return=minimal' -d '[:*)",
+      "Bash(py --version)",
+      "Read(//c/Users/Virna Rocha/AppData/Local/Programs//**)",
+      "Read(//c/Users/Virna Rocha/AppData/Local//**)",
+      "Bash(node -e ':*)",
+      "Read(//c/tmp/**)",
+      "Bash(npm install:*)",
+      "Bash(python3 -c ':*)",
+      "Read(//c/Users/VirnaRocha/AppData/Local/Programs/**)",
+      "Bash(ls /c/Python*)",
+      "Bash(\"/c/Users/Virna Rocha/AppData/Local/Microsoft/WindowsApps/python\" --version)",
+      "Bash(ls -la *.xlsx)",
+      "Bash(python3 -)",
+      "Bash(ls /c/Python3*)",
+      "Bash(where.exe python:*)",
+      "Read(//c/Program Files/**)",
+      "Bash(\"/c/Users/Virna Rocha/AppData/Local/Microsoft/WindowsApps/python.exe\" --version)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(node -)"
     ]
   }
 }
