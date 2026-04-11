@@ -1,0 +1,223 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { 
+  LayoutDashboard, ClipboardCheck, Users, ShieldCheck, 
+  BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart
+} from 'lucide-react';
+import { useAuth } from './AuthContext';
+import { useDashboard } from '@/context/DashboardContext';
+
+export default function Sidebar() {
+  const pathname = usePathname();
+  const { role } = useAuth();
+  const { activeTab, setActiveTab } = useDashboard();
+
+  type DashboardTab = 'Visão Geral' | 'Conformidade' | 'Reuniões' | 'Metas' | 'NPS / CSAT' | 'Churn' | 'Time Completo';
+
+  const menuItems = [
+    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={18} /> },
+    { name: 'Auditoria', path: '/auditoria', icon: <ClipboardCheck size={18} /> },
+  ];
+
+  const dashboardTabs: { name: DashboardTab; icon: any; adminOnly?: boolean }[] = [
+    { name: 'Visão Geral', icon: <BarChart2 size={16} /> },
+    { name: 'Conformidade', icon: <ClipboardCheck size={16} /> },
+    { name: 'Reuniões', icon: <Users size={16} /> },
+    { name: 'Metas', icon: <Target size={16} /> },
+    { name: 'NPS / CSAT', icon: <MessageSquare size={16} /> },
+    { name: 'Churn', icon: <AlertTriangle size={16} /> },
+    { name: 'Time Completo', icon: <Users2 size={16} />, adminOnly: true },
+  ];
+
+  const isDashboard = pathname === '/';
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        <img 
+          src="/assets/logo-vorp.png" 
+          alt="Vorp Logo" 
+          style={{ width: '130px', marginBottom: '8px' }} 
+        />
+        <p className="bebas-font" style={{ fontSize: '0.8rem', letterSpacing: '0.15em', opacity: 0.7, color: 'var(--laranja-vorp)' }}>
+          SISTEMA DE AUDITORIA
+        </p>
+      </div>
+
+      <nav className="sidebar-nav">
+        {menuItems.map((item) => {
+          const isActive = pathname === item.path;
+          return (
+            <React.Fragment key={item.path}>
+              <Link 
+                href={item.path}
+                className={`nav-item ${isActive ? 'active' : ''}`}
+              >
+                {item.icon}
+                <span>{item.name}</span>
+              </Link>
+              
+              {isActive && isDashboard && (
+                <div className="sub-nav">
+                  {dashboardTabs.map((tab) => {
+                    if (tab.adminOnly && role !== 'Administrador') return null;
+                    const isTabActive = activeTab === tab.name;
+                    return (
+                      <button
+                        key={tab.name}
+                        onClick={() => setActiveTab(tab.name)}
+                        className={`sub-item ${isTabActive ? 'active' : ''}`}
+                      >
+                        {tab.icon}
+                        <span>{tab.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </nav>
+
+      <div className="sidebar-footer">
+        <div className="user-info">
+          <div className="user-icon">
+            {role === 'Administrador' ? <ShieldCheck size={18} /> : <Users size={18} />}
+          </div>
+          <div style={{ overflow: 'hidden' }}>
+            <p className="user-role">{role}</p>
+            <p className="user-handle">@grupovorp</p>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .sidebar {
+          width: 260px;
+          height: 100vh;
+          background-color: var(--preto-vorp);
+          border-right: 1px solid var(--card-border);
+          display: flex;
+          flex-direction: column;
+          position: fixed;
+          left: 0;
+          top: 0;
+          z-index: 100;
+        }
+
+        .sidebar-logo {
+          padding: 40px 24px;
+          border-bottom: 1px solid var(--card-border);
+        }
+
+        .sidebar-nav {
+          flex: 1;
+          padding: 24px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          color: var(--text-secondary);
+          text-decoration: none;
+          border-radius: 8px;
+          transition: all 0.2s;
+          font-weight: 500;
+        }
+
+        .nav-item:hover {
+          background: rgba(255, 255, 255, 0.03);
+          color: var(--text-main);
+        }
+
+        .nav-item.active {
+          background: var(--card-bg);
+          color: var(--laranja-vorp);
+          border: 1px solid var(--card-border);
+        }
+
+        .sub-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding-left: 32px;
+          margin-top: 4px;
+          margin-bottom: 8px;
+        }
+
+        .sub-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 12px;
+          color: var(--text-muted);
+          background: none;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: left;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+
+        .sub-item:hover {
+          color: var(--text-secondary);
+          background: rgba(255, 255, 255, 0.02);
+        }
+
+        .sub-item.active {
+          color: var(--laranja-vorp);
+          font-weight: 700;
+        }
+
+        .sidebar-footer {
+          padding: 24px;
+          border-top: 1px solid var(--card-border);
+        }
+
+        .user-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: var(--card-bg);
+          padding: 12px;
+          border: 1px solid var(--card-border);
+          border-radius: 12px;
+        }
+
+        .user-icon {
+          width: 36px;
+          height: 36px;
+          background: var(--laranja-vorp);
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+
+        .user-role {
+          font-weight: 700;
+          font-size: 0.85rem;
+          margin-bottom: 2px;
+          color: var(--text-main);
+        }
+
+        .user-handle {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+        }
+      `}</style>
+    </aside>
+  );
+}

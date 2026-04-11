@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s 'https://euivfkoulfaslbypmqyl.supabase.co/rest/v1/consultores?select=*' -H 'apikey: sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Authorization: Bearer sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v')",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}
