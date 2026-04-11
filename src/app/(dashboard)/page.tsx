@@ -25,19 +25,13 @@ import type {
   Churn,
 } from '@/lib/supabase';
 
-// Modular Components
-import SummaryKPIs from '@/components/dashboard/SummaryKPIs';
-import EvolutionSection from '@/components/dashboard/EvolutionSection';
-import ConsultantScorecards from '@/components/dashboard/ConsultantScorecards';
-import CategoryGaps from '@/components/dashboard/CategoryGaps';
-import MeetingsSection from '@/components/dashboard/MeetingsSection';
-import GoalsSection from '@/components/dashboard/GoalsSection';
-import NPSSection from '@/components/dashboard/NPSSection';
-import ChurnSection from '@/components/dashboard/ChurnSection';
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader';
 import EmptyState from '@/components/dashboard/EmptyState';
 import AdminManagement from '@/components/dashboard/AdminManagement';
 import { COLORS } from '@/types/dashboard';
+import type { Consultor } from '@/lib/supabase';
+import { getViewConformidade } from '@/lib/api';
+import type { ViewConformidadeConsultor } from '@/lib/supabase';
 
 const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
 
@@ -135,14 +129,6 @@ export default function Dashboard() {
       ? npsItems.reduce((s, a) => s + (a.nps_nota ?? 0), 0) / npsItems.length
       : 0;
 
-    // Conformidade média das auditorias do mês
-    const conformidadeAtual = auditorias.length > 0
-      ? auditorias.reduce((s, a) => {
-          // Usamos a média de todos os itens da auditoria (via auditoria_itens calculado pelo banco)
-          // Por ora, usa o NPS como proxy — será substituído quando view_conformidade estiver populada
-          return s + 0;
-        }, 0) / auditorias.length
-      : 0;
 
     return {
       month: activeFilters.month,
@@ -191,20 +177,9 @@ export default function Dashboard() {
 
     switch (activeTab) {
       case 'Visão Geral':
-        return (
-          <>
-            <SummaryKPIsSupabase data={data} />
-            <EvolutionSection data={data as any} />
-            <ConsultantScorecards data={data as any} role={role} />
-          </>
-        );
+        return <SummaryKPIsSupabase data={data} />;
       case 'Conformidade':
-        return (
-          <>
-            <ConsultantScorecards data={data as any} role={role} />
-            <CategoryGaps data={data as any} />
-          </>
-        );
+        return <ConformidadeSupabase auditorias={data.currentAudits} consultores={consultores} mesAno={labelToMesAno(activeFilters.month)} />;
       case 'Reuniões':
         return <ReunioesSupabase viewReunioes={data.viewReunioes} consultores={consultores} />;
       case 'Metas':
@@ -470,6 +445,66 @@ function ChurnSupabase({ churn }: { churn: Churn[] }) {
         .motivo-badge { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; background: rgba(176,48,48,0.15); color: var(--status-vermelho); letter-spacing: 0.08em; }
         .receita { font-family: var(--font-bebas); font-size: 1.2rem; color: var(--status-vermelho); }
         .detalhes { font-size: 0.85rem; color: var(--text-muted); }
+      `}</style>
+    </div>
+  );
+}
+
+function ConformidadeSupabase({ auditorias, consultores, mesAno }: {
+  auditorias: AuditoriaMensal[];
+  consultores: Consultor[];
+  mesAno: string;
+}) {
+  const [viewData, setViewData] = React.useState<ViewConformidadeConsultor[]>([]);
+
+  React.useEffect(() => {
+    getViewConformidade(mesAno).then(setViewData);
+  }, [mesAno]);
+
+  if (!viewData.length && !auditorias.length) {
+    return (
+      <div className="card" style={{ padding: '40px', textAlign: 'center', color: COLORS.textMuted }}>
+        Nenhuma auditoria registrada neste mês.
+      </div>
+    );
+  }
+
+  const porConsultor: Record<string, ViewConformidadeConsultor[]> = {};
+  viewData.forEach(v => {
+    if (!porConsultor[v.consultor_id]) porConsultor[v.consultor_id] = [];
+    porConsultor[v.consultor_id].push(v);
+  });
+
+  return (
+    <div className="conformidade-section">
+      <h3 style={{ fontFamily: 'var(--font-bebas)', fontSize: '1.8rem', marginBottom: '16px' }}>Conformidade por Consultor</h3>
+      {Object.entries(porConsultor).map(([consultorId, itens]) => (
+        <div key={consultorId} className="card cons-block">
+          <p className="cons-nome">{itens[0]?.consultor ?? consultorId}</p>
+          <div className="cat-grid">
+            {itens.map(i => (
+              <div key={i.categoria} className="cat-item">
+                <span className="cat-label">{i.categoria}</span>
+                <span className="cat-score" style={{ color: getSemaphorColor(i.score_categoria) }}>
+                  {i.score_categoria.toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!viewData.length && auditorias.length > 0 && (
+        <div className="card" style={{ padding: '24px', color: COLORS.textMuted, fontSize: '0.85rem' }}>
+          {auditorias.length} auditoria(s) registrada(s). A view de conformidade será exibida após o banco processar os dados.
+        </div>
+      )}
+      <style jsx>{`
+        .cons-block { padding: 20px; margin-bottom: 12px; }
+        .cons-nome { font-weight: 700; font-size: 1rem; color: var(--text-main); margin-bottom: 16px; }
+        .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 12px; }
+        .cat-item { display: flex; flex-direction: column; gap: 4px; }
+        .cat-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; }
+        .cat-score { font-family: var(--font-bebas); font-size: 2rem; line-height: 1; }
       `}</style>
     </div>
   );
