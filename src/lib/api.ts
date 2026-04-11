@@ -100,6 +100,23 @@ export async function upsertAuditoriaMensal(
   return data;
 }
 
+export async function updateAuditoriaItem(
+  id: string,
+  payload: { qtd_avaliados: number; qtd_conformes: number; observacao?: string | null },
+): Promise<boolean> {
+  const nota = payload.qtd_avaliados > 0
+    ? Math.round((payload.qtd_conformes / payload.qtd_avaliados) * 10000) / 100
+    : 0;
+  const conforme = nota >= 80 ? 'Conforme' : 'Não conforme';
+
+  const { error } = await supabase
+    .from('auditoria_itens')
+    .update({ ...payload, conforme })
+    .eq('id', id);
+  if (error) { console.error('updateAuditoriaItem:', error); return false; }
+  return true;
+}
+
 export async function upsertAuditoriaItem(
   payload: Omit<AuditoriaItem, 'id' | 'nota_pct' | 'created_at'>,
 ): Promise<AuditoriaItem | null> {
