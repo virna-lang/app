@@ -18,12 +18,20 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
   const growthData = useMemo(() => {
     return data.currentAudits.map(a => {
       const consul = mockConsultants.find(c => c.id === a.consultor_id);
+      const cScore = a.score_clickup;
+      const dScore = a.score_drive;
+      const mScore = (a.score_metas + a.score_flags) / 2;
+      const rScore = a.score_rastreabilidade;
       return {
         name: consul?.nome.split(' ')[0] || 'Consul',
-        ClickUp: a.score_clickup,
-        'Drive: Gravação': a.score_drive,
-        'Gestão de metas e flags': (a.score_metas + a.score_flags) / 2,
-        Rastreabilidade: a.score_rastreabilidade
+        ClickUp: cScore,
+        CUGap: 100 - cScore,
+        Drive: dScore,
+        DGap: 100 - dScore,
+        Metas: mScore,
+        MGap: 100 - mScore,
+        Rastreabilidade: rScore,
+        RGap: 100 - rScore
       };
     });
   }, [data.currentAudits]);
@@ -45,7 +53,8 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
     ClickUp: '#00A3E0',
     Drive: '#FC5400',
     Metas: '#FFD700',
-    Rastreabilidade: '#9ACD32'
+    Rastreabilidade: '#9ACD32',
+    Gap: 'rgba(252, 84, 0, 0.15)'
   };
 
   return (
@@ -65,7 +74,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
 
         <div style={{ height: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={growthData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+            <BarChart data={growthData} margin={{ top: 20, right: 120, left: 10, bottom: 20 }}>
               <XAxis 
                 dataKey="name" 
                 axisLine={false} 
@@ -86,15 +95,20 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                 contentStyle={{ background: '#0F1020', borderRadius: '12px', border: '1px solid #1A1A38' }}
               />
               <Legend 
-                verticalAlign="top" 
-                align="center" 
+                layout="vertical"
+                verticalAlign="middle" 
+                align="right" 
                 iconType="circle"
-                wrapperStyle={{ paddingBottom: '30px', fontSize: '11px', fontWeight: 600 }}
+                wrapperStyle={{ paddingLeft: '40px', fontSize: '11px', fontWeight: 600 }}
               />
-              <Bar dataKey="ClickUp" fill={CHART_COLORS.ClickUp} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="Drive: Gravação" fill={CHART_COLORS.Drive} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="Gestão de metas e flags" fill={CHART_COLORS.Metas} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="Rastreabilidade" fill={CHART_COLORS.Rastreabilidade} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="ClickUp" stackId="ClickUp" fill={CHART_COLORS.ClickUp} barSize={12} />
+              <Bar dataKey="CUGap" stackId="ClickUp" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Drive" stackId="Drive" fill={CHART_COLORS.Drive} barSize={12} />
+              <Bar dataKey="DGap" stackId="Drive" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Metas" stackId="Metas" fill={CHART_COLORS.Metas} barSize={12} />
+              <Bar dataKey="MGap" stackId="Metas" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Rastreabilidade" stackId="Rastreabilidade" fill={CHART_COLORS.Rastreabilidade} barSize={12} />
+              <Bar dataKey="RGap" stackId="Rastreabilidade" fill={CHART_COLORS.Gap} radius={[2, 2, 0, 0]} barSize={12} />
             </BarChart>
           </ResponsiveContainer>
         </div>
