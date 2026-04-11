@@ -11,6 +11,7 @@ import {
   getViewMetas,
   getMetas,
   getChurn,
+  getScoresPorTipo,
   addConsultor,
   toggleConsultor,
   labelToMesAno,
@@ -74,27 +75,31 @@ export default function Dashboard() {
     const prevLabel  = getMesAnterior(month);
     const prevMesAno = prevLabel ? labelToMesAno(prevLabel) : null;
 
-    const [auds, reunioes, vMetas, mt, ch, conf] = await Promise.all([
+    const [auds, reunioes, vMetas, mt, ch, conf, tipoScores] = await Promise.all([
       getAuditoriasMensais(mesAno, consultantId),
       getViewReunioes(mesAno, consultantId),
       getViewMetas(mesAno, consultantId),
       getMetas(mesAno),
       getChurn(mesAno),
-      getViewConformidade(mesAno, consultantId)
+      getViewConformidade(mesAno, consultantId),
+      getScoresPorTipo(mesAno, consultantId),
     ]);
 
     let prevAuds: AuditoriaMensal[] = [];
     let prevMt: MetaMensal[] = [];
     let prevConf: ViewConformidadeConsultor[] = [];
+    let prevTipoScores: { consultor_id: string; tipo: string; score: number }[] = [];
     if (prevMesAno) {
       const results = await Promise.all([
         getAuditoriasMensais(prevMesAno, consultantId),
         getMetas(prevMesAno),
-        getViewConformidade(prevMesAno, consultantId)
+        getViewConformidade(prevMesAno, consultantId),
+        getScoresPorTipo(prevMesAno, consultantId),
       ]);
       prevAuds = results[0];
       prevMt   = results[1];
       prevConf = results[2];
+      prevTipoScores = results[3];
     }
 
     // Merge Conformidade into Audits
@@ -124,12 +129,26 @@ export default function Dashboard() {
       return obj;
     };
 
-    const withNome = (a: AuditoriaMensal) => {
-      const consultor = consultores.find(c => c.id === a.consultor_id);
-      return { ...mapConf(a, conf), consultor_nome: consultor?.nome ?? 'Consultor' };
+    const withExtra = (a: AuditoriaMensal, cData: ViewConformidadeConsultor[], tScores: typeof tipoScores) => {
+      const consultor    = consultores.find(c => c.id === a.consultor_id);
+      const resultado    = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Resultado');
+      const conformidade = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Conformidade');
+      const scoreR = resultado?.score   ?? 0;
+      const scoreC = conformidade?.score ?? 0;
+      // score_geral = média simples dos dois tipos (cada tipo tem peso igual)
+      const scoreGeral = (scoreR > 0 && scoreC > 0)
+        ? Math.round(((scoreR + scoreC) / 2) * 10) / 10
+        : scoreR || scoreC;
+      return {
+        ...mapConf(a, cData),
+        consultor_nome: consultor?.nome ?? 'Consultor',
+        score_resultado:    scoreR,
+        score_conformidade: scoreC,
+        score_geral:        scoreGeral,
+      };
     };
-    setAuditorias(auds.map(withNome));
-    setPrevAuds(prevAuds.map(a => ({ ...mapConf(a, prevConf), consultor_nome: consultores.find(c => c.id === a.consultor_id)?.nome ?? 'Consultor' })));
+    setAuditorias(auds.map(a => withExtra(a, conf, tipoScores)));
+    setPrevAuds(prevAuds.map(a => withExtra(a, prevConf, prevTipoScores)));
     setViewReunioes(reunioes);
     setViewMetas(vMetas);
     setMetas(mt);

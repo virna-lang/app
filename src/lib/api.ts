@@ -234,6 +234,49 @@ export async function getViewFlags(
   return data ?? [];
 }
 
+/** Retorna score médio por consultor separado por tipo (Resultado / Conformidade).
+ *  Usa média simples das notas de cada item — cada pergunta tem peso igual,
+ *  independentemente do número de clientes avaliados. */
+export async function getScoresPorTipo(
+  mesAno: string,
+  consultorId?: string,
+): Promise<{ consultor_id: string; tipo: string; score: number }[]> {
+  let query = supabase
+    .from('auditoria_itens')
+    .select('tipo, nota_pct, qtd_avaliados, auditoria_mensal!inner(consultor_id, mes_ano)')
+    .eq('auditoria_mensal.mes_ano', mesAno)
+    .not('tipo', 'is', null)
+    .gt('qtd_avaliados', 0); // exclui linhas sem avaliados (ex: #DIV/0!)
+
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+  }
+
+  const { data, error } = await query;
+  if (error) { console.error('getScoresPorTipo:', error); return []; }
+  if (!data) return [];
+
+  // Agrupa por consultor+tipo → coleta todas as notas para média simples
+  const map: Record<string, number[]> = {};
+  for (const row of data as any[]) {
+    const cid  = row.auditoria_mensal?.consultor_id;
+    const tipo = row.tipo;
+    const nota = row.nota_pct;
+    if (!cid || !tipo || nota == null) continue;
+    const key = `${cid}|${tipo}`;
+    if (!map[key]) map[key] = [];
+    map[key].push(nota);
+  }
+
+  return Object.entries(map).map(([key, notas]) => {
+    const [consultor_id, tipo] = key.split('|');
+    const score = notas.length > 0
+      ? Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10
+      : 0;
+    return { consultor_id, tipo, score };
+  });
+}
+
 export async function getViewConformidade(
   mesAno: string,
   consultorId?: string,
