@@ -3,34 +3,22 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
 import { DashboardData, COLORS, getSemaphorColor } from '@/types/dashboard';
-import { mockConsultants, MonthlyGoal } from '@/lib/mockData';
 
 export default function GoalsSection({ data, filterProducts }: { data: DashboardData, filterProducts: string[] }) {
-  // 1. Ranking de Batimento por Consultor (RESULTADO)
+  // Ranking por score_vorp (metas/flags via auditoria)
   const consultantRanking = useMemo(() => {
-    return data.currentAudits.map(a => {
-      const consul = mockConsultants.find(c => c.id === a.consultor_id);
-      const goals = data.currentGoals.filter(g => g.consultor_id === a.consultor_id);
-      const batidas = goals.filter(g => g.bateu).length;
-      const pct = goals.length > 0 ? (batidas / goals.length) * 100 : 0;
-      return { 
-        name: consul?.nome || 'Consultor', 
-        pct,
-        total: goals.length,
-        batidas
-      };
-    }).sort((a, b) => b.pct - a.pct);
-  }, [data.currentAudits, data.currentGoals]);
+    return (data.currentAudits as any[]).map(a => ({
+      name: a.consultor_nome ?? `Consultor`,
+      pct: a.score_vorp ?? 0,
+      total: 0,
+      batidas: 0,
+    })).sort((a, b) => b.pct - a.pct);
+  }, [data.currentAudits]);
 
-  // 2. Ranking por Produto
+  // Ranking por produto — dado não disponível por enquanto; placeholder
   const productChartData = useMemo(() => {
-    return filterProducts.map(p => {
-      const current = data.currentGoals.filter(g => g.produto === p);
-      const batidas = current.filter(g => g.bateu).length;
-      const currentPct = current.length > 0 ? (batidas / current.length) * 100 : 0;
-      return { name: p, value: currentPct, count: current.length };
-    }).sort((a, b) => b.value - a.value);
-  }, [data.currentGoals, filterProducts]);
+    return filterProducts.map(p => ({ name: p, value: 0, count: 0 }));
+  }, [filterProducts]);
 
   return (
     <section className="section-block">
@@ -109,23 +97,20 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
               </tr>
             </thead>
             <tbody>
-              {data.currentGoals.map((g: MonthlyGoal, i: number) => {
-                const consul = mockConsultants.find(c => c.id === g.consultor_id);
-                return (
-                  <tr key={i} className="goal-row">
-                    <td className="c-name">Vorp Client {i+1}</td>
-                    <td><span className="tag-prod">{g.produto}</span></td>
-                    <td className="c-consul">{consul?.nome}</td>
-                    <td className="c-money">R$ {g.meta_projetada.toLocaleString()}</td>
-                    <td className="c-money" style={{ color: g.bateu ? COLORS.verde : COLORS.vermelho }}>R$ {g.meta_realizada.toLocaleString()}</td>
-                    <td className="c-status">
-                       <span className={`status-pill ${g.bateu ? 'pos' : 'neg'}`}>
-                          {g.bateu ? 'Meta Batida' : 'Abaixo da Meta'}
-                       </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {(data.currentGoals as any[]).map((g, i) => (
+                <tr key={i} className="goal-row">
+                  <td className="c-name">{g.cliente_nome ?? `Cliente ${i+1}`}</td>
+                  <td><span className="tag-prod">{g.produto ?? '—'}</span></td>
+                  <td className="c-consul">{g.consultor_nome ?? '—'}</td>
+                  <td className="c-money">R$ {(g.meta_projetada ?? 0).toLocaleString()}</td>
+                  <td className="c-money" style={{ color: g.bateu_meta ? COLORS.verde : COLORS.vermelho }}>R$ {(g.meta_realizada ?? 0).toLocaleString()}</td>
+                  <td className="c-status">
+                    <span className={`status-pill ${g.bateu_meta ? 'pos' : 'neg'}`}>
+                      {g.bateu_meta ? 'Meta Batida' : 'Abaixo da Meta'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

@@ -22,7 +22,9 @@
       "Read(//c/Program Files/**)",
       "Bash(\"/c/Users/Virna Rocha/AppData/Local/Microsoft/WindowsApps/python.exe\" --version)",
       "Bash(echo \"exit: $?\")",
-      "Bash(node -)"
+      "Bash(node -)",
+      "Bash(npx next:*)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

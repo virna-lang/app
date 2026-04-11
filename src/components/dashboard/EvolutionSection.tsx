@@ -3,9 +3,13 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { DashboardData, COLORS } from '@/types/dashboard';
-import { mockConsultants } from '@/lib/mockData';
+import { useDashboard } from '@/context/DashboardContext';
 
 export default function EvolutionSection({ data }: { data: DashboardData }) {
+  const { consultores } = useDashboard();
+
+  const getNome = (id: string) => consultores.find(c => c.id === id)?.nome ?? 'Consultor';
+
   const months = useMemo(() => {
     return [data.prevMonth, data.month].filter(Boolean) as string[];
   }, [data.month, data.prevMonth]);
@@ -13,25 +17,23 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
   const chartData = useMemo(() => {
     return months.map(m => {
       const entry: any = { name: m };
-      const audits = m === data.month ? data.currentAudits : data.prevAudits;
-      
-      data.currentAudits.forEach(curr => {
-        const consul = mockConsultants.find(c => c.id === curr.consultor_id);
-        if (consul) {
-          const audit = (m === data.month) 
-            ? curr 
-            : data.prevAudits.find(pa => pa.consultor_id === curr.consultor_id);
-          
-          if (audit) entry[consul.nome] = audit.score_geral;
-        }
+      data.currentAudits.forEach((curr: any) => {
+        const nome = getNome(curr.consultor_id);
+        const audit = (m === data.month)
+          ? curr
+          : (data.prevAudits as any[]).find(pa => pa.consultor_id === curr.consultor_id);
+        if (audit) entry[nome] = audit.score_geral ?? 0;
       });
       return entry;
     });
-  }, [months, data.currentAudits, data.prevAudits]);
+  }, [months, data.currentAudits, data.prevAudits, consultores]);
 
   const activeConsultants = useMemo(() => {
-    return data.currentAudits.map(a => mockConsultants.find(c => c.id === a.consultor_id)).filter(Boolean);
-  }, [data.currentAudits]);
+    return data.currentAudits.map((a: any) => ({
+      id: a.consultor_id,
+      nome: getNome(a.consultor_id),
+    }));
+  }, [data.currentAudits, consultores]);
 
   return (
     <div className="evolution-container">
@@ -81,7 +83,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
           </div>
         </section>
 
-        <TopGrowth data={data} consultants={activeConsultants} />
+        <TopGrowth data={data} consultants={activeConsultants} getNome={(id: string) => getNome(id)} />
       </div>
 
       <style jsx>{`
@@ -105,11 +107,11 @@ function DirectLabel({ x, y, value, name, color, index, monthsCount }: any) {
   );
 }
 
-function TopGrowth({ data, consultants }: { data: DashboardData, consultants: any[] }) {
+function TopGrowth({ data, consultants, getNome }: { data: DashboardData, consultants: any[], getNome: (id: string) => string }) {
   const growths = useMemo(() => {
     return consultants.map(c => {
-      const curr = data.currentAudits.find(a => a.consultor_id === c.id)?.score_geral || 0;
-      const prev = data.prevAudits.find(a => a.consultor_id === c.id)?.score_geral || curr;
+      const curr = (data.currentAudits as any[]).find(a => a.consultor_id === c.id)?.score_geral ?? 0;
+      const prev = (data.prevAudits as any[]).find(a => a.consultor_id === c.id)?.score_geral ?? curr;
       return { name: c.nome, diff: curr - prev, curr };
     }).sort((a, b) => b.diff - a.diff);
   }, [data, consultants]);

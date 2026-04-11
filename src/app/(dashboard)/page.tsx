@@ -105,6 +105,7 @@ export default function Dashboard() {
         'ClickUp': 'score_clickup',
         'Drive': 'score_drive',
         'WhatsApp': 'score_whatsapp',
+        'Vorp System': 'score_vorp',
         'Dados': 'score_metas',
         'Flags': 'score_flags',
         'Rastreabilidade': 'score_rastreabilidade'
@@ -123,8 +124,12 @@ export default function Dashboard() {
       return obj;
     };
 
-    setAuditorias(auds.map(a => mapConf(a, conf)));
-    setPrevAuds(prevAuds.map(a => mapConf(a, prevConf)));
+    const withNome = (a: AuditoriaMensal) => {
+      const consultor = consultores.find(c => c.id === a.consultor_id);
+      return { ...mapConf(a, conf), consultor_nome: consultor?.nome ?? 'Consultor' };
+    };
+    setAuditorias(auds.map(withNome));
+    setPrevAuds(prevAuds.map(a => ({ ...mapConf(a, prevConf), consultor_nome: consultores.find(c => c.id === a.consultor_id)?.nome ?? 'Consultor' })));
     setViewReunioes(reunioes);
     setViewMetas(vMetas);
     setMetas(mt);
@@ -312,6 +317,7 @@ function getSemaphorColor(v: number) {
 }
 
 function NPSSupabase({ auditorias }: { auditorias: AuditoriaMensal[] }) {
+  const { consultores } = useDashboard();
   const comNPS = auditorias.filter(a => a.nps_nota != null);
 
   if (!comNPS.length) return (
@@ -328,7 +334,7 @@ function NPSSupabase({ auditorias }: { auditorias: AuditoriaMensal[] }) {
       <div className="nps-grid">
         {comNPS.map(a => (
           <div key={a.id} className="card nps-card glow-on-hover">
-            <p className="cons-nome">Consultor {a.consultor_id.split('-')[0]}</p>
+            <p className="cons-nome">{consultores.find(c => c.id === a.consultor_id)?.nome ?? 'Consultor'}</p>
             <p className="nps-val" style={{ color: getSemaphorColor((a.nps_nota ?? 0)) }}>
               {a.nps_nota}
             </p>

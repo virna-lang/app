@@ -3,43 +3,40 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, Legend } from 'recharts';
 import { DashboardData, COLORS, getSemaphorColor } from '@/types/dashboard';
-import { mockConsultants } from '@/lib/mockData';
+import { useDashboard } from '@/context/DashboardContext';
 
 export default function CategoryGaps({ data }: { data: DashboardData }) {
+  const { consultores } = useDashboard();
+
+  const getNome = (consultor_id: string) =>
+    consultores.find(c => c.id === consultor_id)?.nome ?? 'Consultor';
+
   const categories = useMemo(() => [
     { key: 'score_clickup', name: 'ClickUp', icon: '⚡' },
     { key: 'score_drive', name: 'Drive', icon: '📁' },
     { key: 'score_whatsapp', name: 'WhatsApp', icon: '💬' },
-    { key: 'score_metas', name: 'Planilhas', icon: '📊' },
-    { key: 'score_flags', name: 'Flags', icon: '🚩' },
-    { key: 'score_rastreabilidade', name: 'Rastreabilidade', icon: '🔍' },
+    { key: 'score_vorp', name: 'Vorp System', icon: '🎯' },
   ], []);
 
   const growthData = useMemo(() => {
-    return data.currentAudits.map(a => {
-      const consul = mockConsultants.find(c => c.id === a.consultor_id);
-      return {
-        name: consul?.nome.split(' ')[0] || 'Consul',
-        ClickUp: a.score_clickup,
-        'Drive: Gravação': a.score_drive,
-        'Gestão de metas e flags': (a.score_metas + a.score_flags) / 2,
-        Rastreabilidade: a.score_rastreabilidade
-      };
-    });
-  }, [data.currentAudits]);
+    return data.currentAudits.map((a: any) => ({
+      name: getNome(a.consultor_id).split(' ')[0],
+      ClickUp: a.score_clickup ?? 0,
+      'Drive': a.score_drive ?? 0,
+      'WhatsApp': a.score_whatsapp ?? 0,
+      'Vorp System': a.score_vorp ?? 0,
+    }));
+  }, [data.currentAudits, consultores]);
 
   const preenchimentoRanking = useMemo(() => {
-    return data.currentAudits.map(a => {
-      const consul = mockConsultants.find(c => c.id === a.consultor_id);
-      const score = (a.score_metas + a.score_flags) / 2;
-      return { 
-        name: consul?.nome || 'Consultor', 
+    return data.currentAudits.map((a: any) => {
+      const score = a.score_vorp ?? 0;
+      return {
+        name: getNome(a.consultor_id),
         score,
-        metas: a.score_metas,
-        flags: a.score_flags
       };
     }).sort((a, b) => b.score - a.score);
-  }, [data.currentAudits]);
+  }, [data.currentAudits, consultores]);
 
   const CHART_COLORS = {
     ClickUp: '#00A3E0',
@@ -92,9 +89,9 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                 wrapperStyle={{ paddingBottom: '30px', fontSize: '11px', fontWeight: 600 }}
               />
               <Bar dataKey="ClickUp" fill={CHART_COLORS.ClickUp} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="Drive: Gravação" fill={CHART_COLORS.Drive} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="Gestão de metas e flags" fill={CHART_COLORS.Metas} radius={[2, 2, 0, 0]} barSize={12} />
-              <Bar dataKey="Rastreabilidade" fill={CHART_COLORS.Rastreabilidade} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Drive" fill={CHART_COLORS.Drive} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="WhatsApp" fill={CHART_COLORS.Metas} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Vorp System" fill={CHART_COLORS.Rastreabilidade} radius={[2, 2, 0, 0]} barSize={12} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -102,8 +99,8 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
 
       <div className="layout-grid-rank">
         <div className="card preenchimento-card">
-          <h3 className="rank-t">Ranking de Preenchimento (Metas & Flags)</h3>
-          <p className="rank-sub">Conformidade no preenchimento dos dados operacionais.</p>
+          <h3 className="rank-t">Ranking — Vorp System</h3>
+          <p className="rank-sub">Conformidade no preenchimento de metas e flags no sistema.</p>
           <div className="rank-list">
             {preenchimentoRanking.map((r, i) => (
               <div key={i} className="rank-row-item">
@@ -122,14 +119,14 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
           <h3 className="rank-t">Gaps por Categoria</h3>
           <div className="gaps-mini-grid">
             {categories.slice(0, 4).map(cat => {
-              const best = [...data.currentAudits].sort((a: any, b: any) => b[cat.key] - a[cat.key])[0];
-              const bestConsul = mockConsultants.find(c => c.id === best?.consultor_id);
+              const best = [...data.currentAudits].sort((a: any, b: any) => (b[cat.key] ?? 0) - (a[cat.key] ?? 0))[0];
+              const bestNome = best ? getNome(best.consultor_id).split(' ')[0] : '—';
               return (
                 <div key={cat.key} className="gap-mini-item">
                   <span className="g-icon">{cat.icon}</span>
                   <div className="g-info">
                     <label>{cat.name}</label>
-                    <span className="g-best">Líder: {bestConsul?.nome.split(' ')[0]}</span>
+                    <span className="g-best">Líder: {bestNome}</span>
                   </div>
                 </div>
               );
@@ -151,12 +148,11 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
               </h3>
               <div className="gap-ranking">
                 {ranking.map((r: any, i) => {
-                  const consul = mockConsultants.find(c => c.id === r.consultor_id);
-                  const score = r[cat.key];
+                  const score = r[cat.key] ?? 0;
                   const color = getSemaphorColor(score);
                   return (
                     <div key={i} className="rank-item">
-                      <span className="rank-name">{consul?.nome}</span>
+                      <span className="rank-name">{getNome(r.consultor_id)}</span>
                       <span className="rank-val" style={{ color, textAlign: 'left' }}>{score}%</span>
                       <div className="rank-bar-bg"><div className="rank-bar-fill" style={{ width: `${score}%`, background: color }} /></div>
                     </div>

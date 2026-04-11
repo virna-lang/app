@@ -3,23 +3,18 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { DashboardData, COLORS, getSemaphorColor } from '@/types/dashboard';
-import { mockConsultants } from '@/lib/mockData';
+import { useDashboard } from '@/context/DashboardContext';
 
 export default function PerformanceRankings({ data }: { data: DashboardData }) {
-  // 1. Ranking de Encaminhamentos (CONFORMIDADE)
-  // Pergunta: "Os encaminhamentos estão nos drives dos clientes, atualizados e preenchidos corretamente?"
-  // Usaremos o score_rastreabilidade como proxy ou se houver um campo específico. 
-  // Baseado na lógica anterior, score_rastreabilidade representa essa conformidade de drive/processo.
+  const { consultores } = useDashboard();
+  const getNome = (id: string) => consultores.find(c => c.id === id)?.nome ?? 'Consultor';
+
   const encaminhamentosRanking = useMemo(() => {
-    return data.currentAudits.map(a => {
-      const consul = mockConsultants.find(c => c.id === a.consultor_id);
-      const score = a.score_rastreabilidade; // Proxy para encaminhamentos conforme mapeado no plano
-      return { 
-        name: consul?.nome || 'Consultor', 
-        score
-      };
-    }).sort((a, b) => b.score - a.score);
-  }, [data.currentAudits]);
+    return (data.currentAudits as any[]).map(a => ({
+      name: getNome(a.consultor_id),
+      score: a.score_drive ?? 0,
+    })).sort((a, b) => b.score - a.score);
+  }, [data.currentAudits, consultores]);
 
   return (
     <section className="section-block ranking-section">

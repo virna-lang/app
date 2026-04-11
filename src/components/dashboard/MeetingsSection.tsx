@@ -3,17 +3,18 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { DashboardData, getSemaphorColor, COLORS } from '@/types/dashboard';
-import { mockConsultants } from '@/lib/mockData';
+import { useDashboard } from '@/context/DashboardContext';
 
 export default function MeetingsSection({ data }: { data: DashboardData }) {
+  const { consultores } = useDashboard();
   const ranking = useMemo(() => {
     return [...data.currentMeetings]
       .map(r => ({
         ...r,
-        consulName: mockConsultants.find(c => c.id === r.consultor_id)?.nome || 'Consultor'
+        consulName: consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor'
       }))
       .sort((a, b) => b.pct_reunioes - a.pct_reunioes);
-  }, [data.currentMeetings]);
+  }, [data.currentMeetings, consultores]);
 
   return (
     <section className="section-block">
