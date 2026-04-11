@@ -1,29 +1,33 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, Legend } from 'recharts';
 import { DashboardData, COLORS, getSemaphorColor } from '@/types/dashboard';
 import { mockConsultants } from '@/lib/mockData';
 
 export default function CategoryGaps({ data }: { data: DashboardData }) {
-  const categories = [
+  const categories = useMemo(() => [
     { key: 'score_clickup', name: 'ClickUp', icon: '⚡' },
     { key: 'score_drive', name: 'Drive', icon: '📁' },
     { key: 'score_whatsapp', name: 'WhatsApp', icon: '💬' },
     { key: 'score_metas', name: 'Planilhas', icon: '📊' },
     { key: 'score_flags', name: 'Flags', icon: '🚩' },
     { key: 'score_rastreabilidade', name: 'Rastreabilidade', icon: '🔍' },
-  ];
+  ], []);
 
-  // 1. Médias por Categoria
-  const categoryAverages = useMemo(() => {
-    return categories.map(cat => {
-      const avg = data.currentAudits.reduce((acc: number, c: any) => acc + (c[cat.key] || 0), 0) / (data.currentAudits.length || 1);
-      return { name: cat.name, value: avg, fullObject: cat };
+  const growthData = useMemo(() => {
+    return data.currentAudits.map(a => {
+      const consul = mockConsultants.find(c => c.id === a.consultor_id);
+      return {
+        name: consul?.nome.split(' ')[0] || 'Consul',
+        ClickUp: a.score_clickup,
+        'Drive: Gravação': a.score_drive,
+        'Gestão de metas e flags': (a.score_metas + a.score_flags) / 2,
+        Rastreabilidade: a.score_rastreabilidade
+      };
     });
   }, [data.currentAudits]);
 
-  // 2. Ranking de Preenchimento (Conformidade Metas e Flags) - "Conformidade"
   const preenchimentoRanking = useMemo(() => {
     return data.currentAudits.map(a => {
       const consul = mockConsultants.find(c => c.id === a.consultor_id);
@@ -37,37 +41,60 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
     }).sort((a, b) => b.score - a.score);
   }, [data.currentAudits]);
 
+  const CHART_COLORS = {
+    ClickUp: '#00A3E0',
+    Drive: '#FC5400',
+    Metas: '#FFD700',
+    Rastreabilidade: '#9ACD32'
+  };
+
   return (
     <section className="section-block">
       <div className="section-anchor">
           <h2>Conformidade por Categoria</h2>
       </div>
 
-      <div className="card chart-card-category" style={{ marginBottom: '40px', padding: '30px' }}>
-        <h3 style={{ fontSize: '0.9rem', color: COLORS.textSecondary, marginBottom: '24px' }}>Média Geral de Conformidade por Bloco</h3>
-        <div style={{ height: '300px' }}>
+      <div className="card growth-card" style={{ marginBottom: '40px', padding: '40px' }}>
+        <div className="growth-header" style={{ marginBottom: '30px' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '4px', height: '24px', background: '#FC5400' }} />
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '0.05em', color: '#fff', margin: 0 }}>GROWTH</h1>
+           </div>
+           <p style={{ color: COLORS.textSecondary, fontSize: '0.9rem', marginTop: '4px' }}>Conformidade por consultor e por categoria</p>
+        </div>
+
+        <div style={{ height: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={categoryAverages} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: COLORS.textMuted, fontSize: 11, fontWeight: 700 }} />
+            <BarChart data={growthData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+              <XAxis 
+                dataKey="name" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#fff', fontSize: 13, fontWeight: 700 }} 
+                dy={10}
+              />
               <YAxis 
                 domain={[0, 100]} 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fill: COLORS.textMuted, fontSize: 10, fontWeight: 700 }}
+                tick={{ fill: '#fff', fontSize: 11, fontWeight: 700 }}
                 tickFormatter={(v) => `${v}%`}
-                width={35}
+                width={45}
               />
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}`, boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
-                itemStyle={{ color: COLORS.textMain, fontWeight: 700 }}
+                contentStyle={{ background: '#0F1020', borderRadius: '12px', border: '1px solid #1A1A38' }}
               />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={45}>
-                {categoryAverages.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.value)} fillOpacity={0.8} />
-                ))}
-                <LabelList dataKey="value" position="top" fill={COLORS.textMain} formatter={(v: any) => `${(Number(v) || 0).toFixed(0)}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
-              </Bar>
+              <Legend 
+                verticalAlign="top" 
+                align="center" 
+                iconType="circle"
+                wrapperStyle={{ paddingBottom: '30px', fontSize: '11px', fontWeight: 600 }}
+              />
+              <Bar dataKey="ClickUp" fill={CHART_COLORS.ClickUp} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Drive: Gravação" fill={CHART_COLORS.Drive} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Gestão de metas e flags" fill={CHART_COLORS.Metas} radius={[2, 2, 0, 0]} barSize={12} />
+              <Bar dataKey="Rastreabilidade" fill={CHART_COLORS.Rastreabilidade} radius={[2, 2, 0, 0]} barSize={12} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -96,7 +123,6 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
           <div className="gaps-mini-grid">
             {categories.slice(0, 4).map(cat => {
               const best = [...data.currentAudits].sort((a: any, b: any) => b[cat.key] - a[cat.key])[0];
-              const worst = [...data.currentAudits].sort((a: any, b: any) => a[cat.key] - b[cat.key])[0];
               const bestConsul = mockConsultants.find(c => c.id === best?.consultor_id);
               return (
                 <div key={cat.key} className="gap-mini-item">
@@ -143,7 +169,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
       </div>
 
       <style jsx>{`
-        .chart-card-category { background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--card-border); border-radius: 16px; }
+        .growth-card { background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--card-border); border-radius: 16px; }
         .layout-grid-rank { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
         .rank-t { font-size: 1rem; color: var(--text-main); margin-bottom: 4px; }
         .rank-sub { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 24px; }
