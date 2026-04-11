@@ -263,8 +263,8 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
         {/* Coluna direita: Conformidade Geral */}
         <div className="card geral-card">
           <div className="geral-header">
-            <span className="geral-label">Conformidade Geral</span>
-            <span className="geral-sub">Score combinado do mês</span>
+            <span className="geral-label">Conformidade de Processo</span>
+            <span className="geral-sub">Score de conformidade do mês</span>
           </div>
 
           <div className="geral-chart">
@@ -290,12 +290,12 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
                   formatter={(v: any, name: string) => [`${(v || 0).toFixed(1)}%`, name]}
                   labelFormatter={(label) => geralRanking.find(r => r.nome === label)?.nomeCompleto ?? label}
                 />
-                <Bar dataKey="score_geral" radius={[0, 6, 6, 0]} barSize={28}>
+                <Bar dataKey="score_conformidade" radius={[0, 6, 6, 0]} barSize={28}>
                   {geralRanking.map((entry, i) => (
-                    <Cell key={i} fill={getSemaphor(entry.score_geral)} fillOpacity={0.85} />
+                    <Cell key={i} fill={getSemaphor(entry.score_conformidade)} fillOpacity={0.85} />
                   ))}
                   <LabelList
-                    dataKey="score_geral"
+                    dataKey="score_conformidade"
                     position="right"
                     formatter={(v: any) => `${(v || 0).toFixed(1)}%`}
                     style={{ fill: '#fff', fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }}
