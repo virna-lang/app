@@ -49,7 +49,14 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={categoryAverages} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: COLORS.textMuted, fontSize: 11, fontWeight: 700 }} />
-              <YAxis domain={[0, 100]} hide />
+              <YAxis 
+                domain={[0, 100]} 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: COLORS.textMuted, fontSize: 10, fontWeight: 700 }}
+                tickFormatter={(v) => `${v}%`}
+                width={35}
+              />
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                 contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}`, boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
