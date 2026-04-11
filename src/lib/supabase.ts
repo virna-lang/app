@@ -99,6 +99,7 @@ export interface AuditoriaItem {
   auditoria_id: string;
   categoria: CategoriaAudit;
   pergunta: string;
+  tipo?: string; // Resultado ou Conformidade
   tipo_amostragem: TipoAmostragem;
   conforme: StatusItem;
   qtd_avaliados: number;

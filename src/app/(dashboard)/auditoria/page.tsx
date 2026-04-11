@@ -9,9 +9,13 @@ import {
   getAuditoriasMensais,
   getAuditoriaItens,
   updateAuditoriaItem,
+  deleteAuditoriaItem,
+  upsertAuditoriaItem,
+  addAuditoriaItem,
   gerarMeses,
   labelToMesAno,
 } from '@/lib/api';
+import { Trash2, Plus, X } from 'lucide-react';
 import type { Consultor, AuditoriaItem, AuditoriaMensal } from '@/lib/supabase';
 
 const COLORS = {
@@ -139,6 +143,57 @@ export default function AuditoriaPage() {
 
   const dirtyCount = Object.values(editState).filter(s => s.dirty).length;
 
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta pergunta?')) return;
+    const ok = await deleteAuditoriaItem(id);
+    if (ok) {
+      setItens(prev => prev.filter(i => i.id !== id));
+      setEditState(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } else {
+      alert('Erro ao excluir item.');
+    }
+  };
+
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [newQuestion, setNewQuestion] = useState({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any });
+
+  const handleAddItem = async (tipo: string) => {
+    if (!auditoria || !newQuestion.pergunta) return;
+    
+    const payload = {
+      auditoria_id: auditoria.id,
+      categoria: newQuestion.categoria as any,
+      pergunta: newQuestion.pergunta,
+      tipo,
+      tipo_amostragem: newQuestion.tipo_amostragem,
+      qtd_avaliados: 0,
+      qtd_conformes: 0,
+      observacao: '',
+    };
+
+    const newItem = await addAuditoriaItem(payload);
+    if (newItem) {
+      setItens(prev => [...prev, newItem]);
+      setEditState(prev => ({
+        ...prev,
+        [newItem.id]: {
+          qtd_avaliados: 0,
+          qtd_conformes: 0,
+          observacao: '',
+          saving: false, saved: false, error: false, dirty: false
+        }
+      }));
+      setAddingTo(null);
+      setNewQuestion({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any });
+    } else {
+      alert('Erro ao adicionar pergunta.');
+    }
+  };
+
   // Agrupa itens por tipo
   const resultado    = itens.filter(i => i.tipo === 'Resultado');
   const conformidade = itens.filter(i => i.tipo === 'Conformidade');
@@ -227,7 +282,56 @@ export default function AuditoriaPage() {
                   {label}
                 </span>
                 <span className="grupo-count">{list.length} itens</span>
+                <button 
+                  className="btn-add-inline" 
+                  onClick={() => setAddingTo(addingTo === label ? null : label)}
+                >
+                  {addingTo === label ? <X size={14} /> : <Plus size={14} />}
+                  {addingTo === label ? 'Cancelar' : 'Adicionar Pergunta'}
+                </button>
               </div>
+
+              {addingTo === label && (
+                <div className="card add-question-card animate-slide-down">
+                  <div className="add-form-row">
+                    <div className="add-field">
+                      <label>CATEGORIA</label>
+                      <select 
+                        value={newQuestion.categoria} 
+                        onChange={e => setNewQuestion(prev => ({ ...prev, categoria: e.target.value as any }))}
+                      >
+                        <option value="ClickUp">ClickUp</option>
+                        <option value="Drive">Drive</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Dados">Dados</option>
+                        <option value="Flags">Flags</option>
+                      </select>
+                    </div>
+                    <div className="add-field flex-3">
+                      <label>PERGUNTA</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Auditoria de pastas no Drive"
+                        value={newQuestion.pergunta}
+                        onChange={e => setNewQuestion(prev => ({ ...prev, pergunta: e.target.value }))}
+                      />
+                    </div>
+                    <div className="add-field">
+                      <label>AMOSTRAGEM</label>
+                      <select 
+                        value={newQuestion.tipo_amostragem}
+                        onChange={e => setNewQuestion(prev => ({ ...prev, tipo_amostragem: e.target.value as any }))}
+                      >
+                        <option value="Totalidade">Totalidade</option>
+                        <option value="30% da carteira">30% da carteira</option>
+                      </select>
+                    </div>
+                    <button className="btn-confirm-add" onClick={() => handleAddItem(label)}>
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="card tabela-card">
                 <table className="tabela">
@@ -291,14 +395,19 @@ export default function AuditoriaPage() {
                             />
                           </td>
                           <td className="col-acao">
-                            {s.saving && <Loader size={16} className="spin" color={COLORS.primary} />}
-                            {!s.saving && s.saved  && <CheckCircle  size={16} color={COLORS.verde} />}
-                            {!s.saving && s.error  && <AlertCircle  size={16} color={COLORS.vermelho} />}
-                            {!s.saving && s.dirty  && (
-                              <button className="btn-save-row" onClick={() => handleSave(item.id)}>
-                                <Save size={14} />
+                            <div className="actions-stack">
+                              {s.saving && <Loader size={16} className="spin" color={COLORS.primary} />}
+                              {!s.saving && s.saved  && <CheckCircle  size={16} color={COLORS.verde} />}
+                              {!s.saving && s.error  && <AlertCircle  size={16} color={COLORS.vermelho} />}
+                              {!s.saving && s.dirty  && (
+                                <button className="btn-save-row" onClick={() => handleSave(item.id)}>
+                                  <Save size={14} />
+                                </button>
+                              )}
+                              <button className="btn-delete-row" onClick={() => handleDeleteItem(item.id)}>
+                                <Trash2 size={14} />
                               </button>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -423,12 +532,46 @@ export default function AuditoriaPage() {
         }
         .obs-input:focus { border-color: var(--laranja-vorp); outline: none; }
 
-        .btn-save-row {
-          background: rgba(252,84,0,0.1); border: 1px solid rgba(252,84,0,0.3);
-          color: var(--laranja-vorp); border-radius: 6px; padding: 6px 8px;
-          cursor: pointer; display: flex; align-items: center; transition: all 0.2s;
-        }
         .btn-save-row:hover { background: rgba(252,84,0,0.2); }
+        
+        .actions-stack { display: flex; align-items: center; gap: 8px; justify-content: center; }
+        
+        .btn-delete-row {
+          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+          color: var(--text-muted); border-radius: 6px; padding: 6px;
+          cursor: pointer; display: flex; align-items: center; transition: all 0.22s;
+        }
+        .btn-delete-row:hover { background: rgba(176, 48, 48, 0.15); border-color: rgba(176, 48, 48, 0.3); color: #B03030; }
+
+        /* Add Question Inline */
+        .btn-add-inline {
+          display: flex; align-items: center; gap: 6px;
+          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+          color: var(--text-secondary); border-radius: 6px; padding: 6px 14px;
+          font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.22s;
+          margin-left: auto;
+        }
+        .btn-add-inline:hover { background: rgba(252, 84, 0, 0.1); border-color: var(--laranja-vorp); color: #fff; }
+
+        .add-question-card { margin-top: 8px; border: 1px dashed var(--laranja-vorp); background: rgba(252, 84, 0, 0.02); }
+        .add-form-row { display: flex; align-items: flex-end; gap: 16px; padding: 20px; }
+        .add-field { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .flex-3 { flex: 3; }
+        .add-field label { font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+        .add-field input, .add-field select {
+          background: #0F1020; border: 1px solid var(--card-border); border-radius: 6px;
+          padding: 8px 12px; color: #fff; font-size: 0.85rem;
+        }
+        .btn-confirm-add {
+          background: var(--laranja-vorp); color: #fff; border: none; border-radius: 6px;
+          padding: 10px 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+        }
+
+        @keyframes animate-slide-down {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down { animation: animate-slide-down 0.3s ease-out; }
 
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 0.8s linear infinite; display: block; }
