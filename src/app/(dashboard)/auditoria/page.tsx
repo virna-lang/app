@@ -3,19 +3,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
-import { ChevronDown, Save, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X } from 'lucide-react';
 import {
   getConsultores,
   getAuditoriasMensais,
   getAuditoriaItens,
   updateAuditoriaItem,
   deleteAuditoriaItem,
-  upsertAuditoriaItem,
   addAuditoriaItem,
+  upsertAuditoriaMensal,
   gerarMeses,
   labelToMesAno,
 } from '@/lib/api';
-import { Trash2, Plus, X } from 'lucide-react';
 import type { Consultor, AuditoriaItem, AuditoriaMensal } from '@/lib/supabase';
 
 const COLORS = {
@@ -32,29 +31,29 @@ function getSemaphor(nota: number) {
 }
 
 type ItemEditState = {
+  tipo:          string;
   qtd_avaliados: number;
   qtd_conformes: number;
-  observacao: string;
+  observacao:    string;
   evidencia_url: string;
   saving: boolean;
-  saved: boolean;
-  error: boolean;
-  dirty: boolean;
+  saved:  boolean;
+  error:  boolean;
+  dirty:  boolean;
 };
 
 export default function AuditoriaPage() {
   const { role } = useAuth();
   const router   = useRouter();
 
-  // Guard — apenas admin
   useEffect(() => {
     if (role && role !== 'Administrador') router.replace('/');
   }, [role]);
 
-  const meses        = gerarMeses(12);
-  const [consultores, setConsultores]   = useState<Consultor[]>([]);
-  const [selectedCons, setSelectedCons] = useState('');
-  const [selectedMes,  setSelectedMes]  = useState(meses[meses.length - 1]);
+  const meses = gerarMeses(24); // últimos 24 meses
+  const [consultores,   setConsultores]   = useState<Consultor[]>([]);
+  const [selectedCons,  setSelectedCons]  = useState('');
+  const [selectedMes,   setSelectedMes]   = useState(meses[meses.length - 1]);
 
   const [auditoria,  setAuditoria]  = useState<AuditoriaMensal | null>(null);
   const [itens,      setItens]      = useState<AuditoriaItem[]>([]);
@@ -62,9 +61,13 @@ export default function AuditoriaPage() {
   const [loading,    setLoading]    = useState(false);
   const [notFound,   setNotFound]   = useState(false);
 
-  useEffect(() => {
-    getConsultores().then(setConsultores);
-  }, []);
+  // estado para criar nova auditoria
+  const [creating,      setCreating]      = useState(false);
+  const [newCarteira,   setNewCarteira]   = useState(1);
+  const [newDataAud,    setNewDataAud]    = useState('');
+  const [savingNew,     setSavingNew]     = useState(false);
+
+  useEffect(() => { getConsultores().then(setConsultores); }, []);
 
   const handleCarregar = useCallback(async () => {
     if (!selectedCons) return;
@@ -73,6 +76,7 @@ export default function AuditoriaPage() {
     setAuditoria(null);
     setItens([]);
     setEditState({});
+    setCreating(false);
 
     const mesAno = labelToMesAno(selectedMes);
     const auds   = await getAuditoriasMensais(mesAno, selectedCons);
@@ -93,14 +97,12 @@ export default function AuditoriaPage() {
         items.map(i => [
           i.id,
           {
+            tipo:          i.tipo ?? '',
             qtd_avaliados: i.qtd_avaliados,
             qtd_conformes: i.qtd_conformes,
             observacao:    i.observacao ?? '',
             evidencia_url: i.evidencia_url ?? '',
-            saving: false,
-            saved:  false,
-            error:  false,
-            dirty:  false,
+            saving: false, saved: false, error: false, dirty: false,
           },
         ]),
       ),
@@ -108,7 +110,31 @@ export default function AuditoriaPage() {
     setLoading(false);
   }, [selectedCons, selectedMes]);
 
-  const handleChange = (id: string, field: keyof Pick<ItemEditState, 'qtd_avaliados' | 'qtd_conformes' | 'observacao' | 'evidencia_url'>, value: string | number) => {
+  const handleCriarAuditoria = async () => {
+    if (!selectedCons || !newDataAud) return;
+    setSavingNew(true);
+    const mesAno = labelToMesAno(selectedMes);
+    const aud = await upsertAuditoriaMensal({
+      consultor_id:     selectedCons,
+      mes_ano:          mesAno,
+      data_auditoria:   newDataAud,
+      tamanho_carteira: newCarteira,
+      clientes_tratativa: null,
+    });
+    setSavingNew(false);
+    if (!aud) { alert('Erro ao criar auditoria.'); return; }
+    setAuditoria(aud);
+    setNotFound(false);
+    setCreating(false);
+    setItens([]);
+    setEditState({});
+  };
+
+  const handleChange = (
+    id: string,
+    field: keyof Pick<ItemEditState, 'tipo' | 'qtd_avaliados' | 'qtd_conformes' | 'observacao' | 'evidencia_url'>,
+    value: string | number,
+  ) => {
     setEditState(prev => ({
       ...prev,
       [id]: { ...prev[id], [field]: value, dirty: true, saved: false, error: false },
@@ -121,6 +147,7 @@ export default function AuditoriaPage() {
     setEditState(prev => ({ ...prev, [id]: { ...prev[id], saving: true } }));
 
     const ok = await updateAuditoriaItem(id, {
+      tipo:          s.tipo || null,
       qtd_avaliados: Number(s.qtd_avaliados),
       qtd_conformes: Number(s.qtd_conformes),
       observacao:    s.observacao || null,
@@ -151,63 +178,57 @@ export default function AuditoriaPage() {
     const ok = await deleteAuditoriaItem(id);
     if (ok) {
       setItens(prev => prev.filter(i => i.id !== id));
-      setEditState(prev => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
+      setEditState(prev => { const next = { ...prev }; delete next[id]; return next; });
     } else {
       alert('Erro ao excluir item.');
     }
   };
 
-  const [addingTo, setAddingTo] = useState<string | null>(null);
-  const [newQuestion, setNewQuestion] = useState({ 
-    categoria: 'ClickUp', 
-    pergunta: '', 
+  const [addingTo,    setAddingTo]    = useState<string | null>(null);
+  const [newQuestion, setNewQuestion] = useState({
+    categoria:      'ClickUp',
+    pergunta:       '',
     tipo_amostragem: '30% da carteira' as any,
-    evidencia_url: '',
+    tipo:           'Conformidade',
+    evidencia_url:  '',
   });
 
-  const handleAddItem = async (tipo: string) => {
+  const handleAddItem = async (tipoGrupo: string) => {
     if (!auditoria || !newQuestion.pergunta) return;
-    
     const payload = {
-      auditoria_id: auditoria.id,
-      categoria: newQuestion.categoria as any,
-      pergunta: newQuestion.pergunta,
-      tipo,
+      auditoria_id:    auditoria.id,
+      categoria:       newQuestion.categoria as any,
+      pergunta:        newQuestion.pergunta,
+      tipo:            newQuestion.tipo,
       tipo_amostragem: newQuestion.tipo_amostragem,
-      qtd_avaliados: 0,
-      qtd_conformes: 0,
-      observacao: '',
-      evidencia_url: newQuestion.evidencia_url,
+      qtd_avaliados:   0,
+      qtd_conformes:   0,
+      observacao:      '',
+      evidencia_url:   newQuestion.evidencia_url,
     };
-
     const newItem = await addAuditoriaItem(payload);
     if (newItem) {
       setItens(prev => [...prev, newItem]);
       setEditState(prev => ({
         ...prev,
         [newItem.id]: {
-          qtd_avaliados: 0,
-          qtd_conformes: 0,
-          observacao: '',
-          evidencia_url: newItem.evidencia_url ?? '',
-          saving: false, saved: false, error: false, dirty: false
-        }
+          tipo: newItem.tipo ?? newQuestion.tipo,
+          qtd_avaliados: 0, qtd_conformes: 0,
+          observacao: '', evidencia_url: newItem.evidencia_url ?? '',
+          saving: false, saved: false, error: false, dirty: false,
+        },
       }));
       setAddingTo(null);
-      setNewQuestion({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any, evidencia_url: '' });
+      setNewQuestion({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any, tipo: 'Conformidade', evidencia_url: '' });
     } else {
       alert('Erro ao adicionar pergunta.');
     }
   };
 
-  // Agrupa itens por tipo
-  const resultado    = itens.filter(i => i.tipo === 'Resultado');
-  const conformidade = itens.filter(i => i.tipo === 'Conformidade');
-  const semTipo      = itens.filter(i => !i.tipo);
+  // Agrupa por tipo (usando editState para refletir mudanças)
+  const resultado    = itens.filter(i => (editState[i.id]?.tipo ?? i.tipo) === 'Resultado');
+  const conformidade = itens.filter(i => (editState[i.id]?.tipo ?? i.tipo) === 'Conformidade');
+  const semTipo      = itens.filter(i => !((editState[i.id]?.tipo ?? i.tipo)));
 
   if (role && role !== 'Administrador') return null;
 
@@ -252,11 +273,7 @@ export default function AuditoriaPage() {
             </div>
           </div>
 
-          <button
-            className="btn-carregar"
-            onClick={handleCarregar}
-            disabled={!selectedCons || loading}
-          >
+          <button className="btn-carregar" onClick={handleCarregar} disabled={!selectedCons || loading}>
             {loading ? <Loader size={16} className="spin" /> : 'Carregar'}
           </button>
         </div>
@@ -270,31 +287,68 @@ export default function AuditoriaPage() {
         )}
       </div>
 
-      {/* Não encontrado */}
-      {notFound && (
+      {/* Não encontrado — opção de criar */}
+      {notFound && !creating && (
         <div className="card empty-card">
           <AlertCircle size={32} color={COLORS.amarelo} />
           <p>Nenhuma auditoria encontrada para este consultor no mês selecionado.</p>
+          <button className="btn-create" onClick={() => setCreating(true)}>
+            <Plus size={16} /> Criar auditoria manualmente
+          </button>
+        </div>
+      )}
+
+      {notFound && creating && (
+        <div className="card create-card">
+          <h3>Nova Auditoria — {selectedMes}</h3>
+          <p className="create-sub">Preencha as informações básicas para criar a auditoria.</p>
+          <div className="create-form">
+            <div className="filter-group">
+              <label>DATA DA AUDITORIA</label>
+              <input
+                type="date"
+                className="date-input"
+                value={newDataAud}
+                onChange={e => setNewDataAud(e.target.value)}
+              />
+            </div>
+            <div className="filter-group">
+              <label>TAMANHO DA CARTEIRA</label>
+              <input
+                type="number"
+                min={1}
+                className="num-input-lg"
+                value={newCarteira}
+                onChange={e => setNewCarteira(Number(e.target.value))}
+              />
+            </div>
+            <button className="btn-carregar" onClick={handleCriarAuditoria} disabled={!newDataAud || savingNew}>
+              {savingNew ? <Loader size={16} className="spin" /> : 'Criar'}
+            </button>
+            <button className="btn-cancel" onClick={() => setCreating(false)}>
+              <X size={16} /> Cancelar
+            </button>
+          </div>
         </div>
       )}
 
       {/* Tabela de itens */}
-      {itens.length > 0 && (
+      {(itens.length > 0 || auditoria) && (
         <div className="itens-container">
           {[
-            { label: 'Resultado', list: resultado },
+            { label: 'Resultado',               list: resultado },
             { label: 'Conformidade de Processo', list: conformidade },
             ...(semTipo.length ? [{ label: 'Sem tipo definido', list: semTipo }] : []),
-          ].map(({ label, list }) => list.length === 0 ? null : (
+          ].map(({ label, list }) => (
             <div key={label} className="grupo">
               <div className="grupo-header">
                 <span className={`tipo-badge ${label === 'Resultado' ? 'badge-resultado' : 'badge-conformidade'}`}>
                   {label}
                 </span>
-                <span className="grupo-count">{list.length} itens</span>
-                <button 
-                  className="btn-add-inline" 
-                  onClick={() => setAddingTo(addingTo === label ? null : label)}
+                {list.length > 0 && <span className="grupo-count">{list.length} itens</span>}
+                <button
+                  className="btn-add-inline"
+                  onClick={() => { setAddingTo(addingTo === label ? null : label); setNewQuestion(prev => ({ ...prev, tipo: label === 'Resultado' ? 'Resultado' : 'Conformidade' })); }}
                 >
                   {addingTo === label ? <X size={14} /> : <Plus size={14} />}
                   {addingTo === label ? 'Cancelar' : 'Adicionar Pergunta'}
@@ -305,45 +359,37 @@ export default function AuditoriaPage() {
                 <div className="card add-question-card animate-slide-down">
                   <div className="add-form-row">
                     <div className="add-field">
+                      <label>TIPO</label>
+                      <select value={newQuestion.tipo} onChange={e => setNewQuestion(prev => ({ ...prev, tipo: e.target.value }))}>
+                        <option value="Resultado">Resultado</option>
+                        <option value="Conformidade">Conformidade</option>
+                      </select>
+                    </div>
+                    <div className="add-field">
                       <label>CATEGORIA</label>
-                      <select 
-                        value={newQuestion.categoria} 
-                        onChange={e => setNewQuestion(prev => ({ ...prev, categoria: e.target.value as any }))}
-                      >
+                      <select value={newQuestion.categoria} onChange={e => setNewQuestion(prev => ({ ...prev, categoria: e.target.value as any }))}>
                         <option value="ClickUp">ClickUp</option>
                         <option value="Drive">Drive</option>
                         <option value="WhatsApp">WhatsApp</option>
+                        <option value="Vorp System">Vorp System</option>
                         <option value="Dados">Dados</option>
-                        <option value="Flags">Flags</option>
                       </select>
                     </div>
                     <div className="add-field flex-3">
                       <label>PERGUNTA</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: Auditoria de pastas no Drive"
+                      <input
+                        type="text"
+                        placeholder="Ex: Clientes com flags em safe?"
                         value={newQuestion.pergunta}
                         onChange={e => setNewQuestion(prev => ({ ...prev, pergunta: e.target.value }))}
                       />
                     </div>
                     <div className="add-field">
                       <label>AMOSTRAGEM</label>
-                      <select 
-                        value={newQuestion.tipo_amostragem}
-                        onChange={e => setNewQuestion(prev => ({ ...prev, tipo_amostragem: e.target.value as any }))}
-                      >
+                      <select value={newQuestion.tipo_amostragem} onChange={e => setNewQuestion(prev => ({ ...prev, tipo_amostragem: e.target.value as any }))}>
                         <option value="Totalidade">Totalidade</option>
                         <option value="30% da carteira">30% da carteira</option>
                       </select>
-                    </div>
-                    <div className="add-field flex-2">
-                       <label>ENCAMINHAMENTO</label>
-                       <input 
-                         type="text" 
-                         placeholder="URL de evidência..."
-                         value={newQuestion.evidencia_url}
-                         onChange={e => setNewQuestion(prev => ({ ...prev, evidencia_url: e.target.value }))}
-                       />
                     </div>
                     <button className="btn-confirm-add" onClick={() => handleAddItem(label)}>
                       Confirmar
@@ -352,98 +398,97 @@ export default function AuditoriaPage() {
                 </div>
               )}
 
-              <div className="card tabela-card">
-                <table className="tabela">
-                  <thead>
-                    <tr>
-                      <th className="col-cat">Categoria</th>
-                      <th className="col-pergunta">Pergunta</th>
-                      <th className="col-num">Avaliados</th>
-                      <th className="col-num">Conformes</th>
-                      <th className="col-nota">Nota</th>
-                      <th className="col-encaminhamento">Encaminhamentos</th>
-                      <th className="col-obs">Observação</th>
-                      <th className="col-acao"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {list.map(item => {
-                      const s    = editState[item.id];
-                      const nota = s ? calcNota(item.id) : item.nota_pct;
-                      const cor  = getSemaphor(nota ?? 0);
-                      if (!s) return null;
+              {list.length > 0 && (
+                <div className="card tabela-card">
+                  <table className="tabela">
+                    <thead>
+                      <tr>
+                        <th className="col-tipo">Tipo</th>
+                        <th className="col-cat">Categoria</th>
+                        <th className="col-pergunta">Pergunta</th>
+                        <th className="col-num">Avaliados</th>
+                        <th className="col-num">Conformes</th>
+                        <th className="col-nota">Nota</th>
+                        <th className="col-obs">Observação</th>
+                        <th className="col-acao"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map(item => {
+                        const s    = editState[item.id];
+                        const nota = s ? calcNota(item.id) : (item.nota_pct ?? 0);
+                        const cor  = getSemaphor(nota);
+                        if (!s) return null;
 
-                      return (
-                        <tr key={item.id} className={s.dirty ? 'row-dirty' : ''}>
-                          <td className="col-cat">
-                            <span className="cat-badge">{item.categoria}</span>
-                          </td>
-                          <td className="col-pergunta">
-                            <span className="pergunta-text">{item.pergunta}</span>
-                          </td>
-                          <td className="col-num">
-                            <input
-                              type="number"
-                              min={0}
-                              className="num-input"
-                              value={s.qtd_avaliados}
-                              onChange={e => handleChange(item.id, 'qtd_avaliados', e.target.value)}
-                            />
-                          </td>
-                          <td className="col-num">
-                            <input
-                              type="number"
-                              min={0}
-                              max={s.qtd_avaliados}
-                              className="num-input"
-                              value={s.qtd_conformes}
-                              onChange={e => handleChange(item.id, 'qtd_conformes', e.target.value)}
-                            />
-                          </td>
-                          <td className="col-nota">
-                            <span className="nota-val" style={{ color: cor }}>
-                              {nota.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="col-encaminhamento">
-                            <input
-                              type="text"
-                              className="url-input"
-                              value={s.evidencia_url}
-                              onChange={e => handleChange(item.id, 'evidencia_url', e.target.value)}
-                              placeholder="Link..."
-                            />
-                          </td>
-                          <td className="col-obs">
-                            <textarea
-                              className="obs-input"
-                              value={s.observacao}
-                              onChange={e => handleChange(item.id, 'observacao', e.target.value)}
-                              rows={2}
-                              placeholder="—"
-                            />
-                          </td>
-                          <td className="col-acao">
-                            <div className="actions-stack">
-                              {s.saving && <Loader size={16} className="spin" color={COLORS.primary} />}
-                              {!s.saving && s.saved  && <CheckCircle  size={16} color={COLORS.verde} />}
-                              {!s.saving && s.error  && <AlertCircle  size={16} color={COLORS.vermelho} />}
-                              {!s.saving && s.dirty  && (
-                                <button className="btn-save-row" onClick={() => handleSave(item.id)}>
-                                  <Save size={14} />
+                        return (
+                          <tr key={item.id} className={s.dirty ? 'row-dirty' : ''}>
+                            <td className="col-tipo">
+                              <select
+                                className="tipo-select"
+                                value={s.tipo}
+                                onChange={e => handleChange(item.id, 'tipo', e.target.value)}
+                              >
+                                <option value="">—</option>
+                                <option value="Resultado">Resultado</option>
+                                <option value="Conformidade">Conformidade</option>
+                              </select>
+                            </td>
+                            <td className="col-cat">
+                              <span className="cat-badge">{item.categoria}</span>
+                            </td>
+                            <td className="col-pergunta">
+                              <span className="pergunta-text">{item.pergunta}</span>
+                            </td>
+                            <td className="col-num">
+                              <input
+                                type="number" min={0} className="num-input"
+                                value={s.qtd_avaliados}
+                                onChange={e => handleChange(item.id, 'qtd_avaliados', e.target.value)}
+                              />
+                            </td>
+                            <td className="col-num">
+                              <input
+                                type="number" min={0} max={s.qtd_avaliados} className="num-input"
+                                value={s.qtd_conformes}
+                                onChange={e => handleChange(item.id, 'qtd_conformes', e.target.value)}
+                              />
+                            </td>
+                            <td className="col-nota">
+                              <span className="nota-val" style={{ color: cor }}>
+                                {nota.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="col-obs">
+                              <textarea
+                                className="obs-input"
+                                value={s.observacao}
+                                onChange={e => handleChange(item.id, 'observacao', e.target.value)}
+                                rows={2}
+                                placeholder="—"
+                              />
+                            </td>
+                            <td className="col-acao">
+                              <div className="actions-stack">
+                                {s.saving  && <Loader      size={16} className="spin" color={COLORS.primary} />}
+                                {!s.saving && s.saved && <CheckCircle size={16} color={COLORS.verde} />}
+                                {!s.saving && s.error && <AlertCircle size={16} color={COLORS.vermelho} />}
+                                {!s.saving && s.dirty && (
+                                  <button className="btn-save-row" onClick={() => handleSave(item.id)}>
+                                    <Save size={14} />
+                                  </button>
+                                )}
+                                <button className="btn-delete-row" onClick={() => handleDeleteItem(item.id)}>
+                                  <Trash2 size={14} />
                                 </button>
-                              )}
-                              <button className="btn-delete-row" onClick={() => handleDeleteItem(item.id)}>
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -465,10 +510,9 @@ export default function AuditoriaPage() {
         }
         .btn-save-all:hover { opacity: 0.85; }
 
-        /* Filtros */
         .filter-card { padding: 24px; }
         .filters-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-        .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
         .filter-group label { font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
         .select-wrapper { position: relative; }
         .select-input {
@@ -489,16 +533,45 @@ export default function AuditoriaPage() {
         .btn-carregar:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-carregar:hover:not(:disabled) { opacity: 0.85; }
 
+        .btn-cancel {
+          display: flex; align-items: center; gap: 6px;
+          background: transparent; color: var(--text-muted);
+          border: 1px solid var(--card-border); border-radius: 8px;
+          padding: 12px 20px; font-weight: 700; font-size: 0.85rem;
+          cursor: pointer; height: 46px; transition: border-color 0.2s;
+        }
+        .btn-cancel:hover { border-color: var(--text-muted); color: var(--text-main); }
+
         .audit-meta {
           display: flex; gap: 24px; margin-top: 16px; padding-top: 16px;
           border-top: 1px solid var(--card-border);
           font-size: 0.75rem; color: var(--text-muted); flex-wrap: wrap;
         }
 
+        /* Empty / Create */
         .empty-card {
           padding: 40px; display: flex; flex-direction: column; align-items: center;
-          gap: 12px; text-align: center; color: var(--text-muted); font-size: 0.9rem;
+          gap: 16px; text-align: center; color: var(--text-muted); font-size: 0.9rem;
         }
+        .btn-create {
+          display: flex; align-items: center; gap: 8px;
+          background: rgba(252,84,0,0.1); color: var(--laranja-vorp);
+          border: 1px solid rgba(252,84,0,0.3); border-radius: 8px;
+          padding: 12px 24px; font-weight: 700; font-size: 0.85rem;
+          cursor: pointer; transition: all 0.2s;
+        }
+        .btn-create:hover { background: rgba(252,84,0,0.2); }
+
+        .create-card { padding: 28px; display: flex; flex-direction: column; gap: 16px; }
+        .create-card h3 { font-family: var(--font-bebas); font-size: 1.4rem; color: var(--text-main); }
+        .create-sub { color: var(--text-muted); font-size: 0.85rem; }
+        .create-form { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+        .date-input, .num-input-lg {
+          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+          border-radius: 8px; padding: 12px 16px; color: var(--text-main); font-size: 0.9rem;
+          width: 100%; transition: border-color 0.2s;
+        }
+        .date-input:focus, .num-input-lg:focus { border-color: var(--laranja-vorp); outline: none; }
 
         /* Grupos */
         .itens-container { display: flex; flex-direction: column; gap: 32px; }
@@ -508,7 +581,7 @@ export default function AuditoriaPage() {
           font-family: var(--font-bebas); font-size: 1.1rem; padding: 4px 14px;
           border-radius: 6px; letter-spacing: 0.05em;
         }
-        .badge-resultado   { background: rgba(252,84,0,0.12);  color: var(--laranja-vorp); }
+        .badge-resultado    { background: rgba(252,84,0,0.12);  color: var(--laranja-vorp); }
         .badge-conformidade { background: rgba(0,163,224,0.12); color: #00A3E0; }
         .grupo-count { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
 
@@ -530,13 +603,20 @@ export default function AuditoriaPage() {
         .tabela tr.row-dirty { background: rgba(252, 84, 0, 0.04); }
         .tabela tr:hover { background: rgba(255,255,255,0.01); }
 
-        .col-cat     { width: 110px; }
+        .col-tipo  { width: 130px; }
+        .col-cat   { width: 110px; }
         .col-pergunta { }
-        .col-num     { width: 90px; }
-        .col-nota    { width: 70px; }
-        .col-encaminhamento { width: 140px; }
-        .col-obs     { width: 220px; }
-        .col-acao    { width: 44px; text-align: center; }
+        .col-num   { width: 90px; }
+        .col-nota  { width: 70px; }
+        .col-obs   { width: 220px; }
+        .col-acao  { width: 80px; text-align: center; }
+
+        .tipo-select {
+          background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
+          border-radius: 6px; padding: 6px 10px; color: var(--text-main); font-size: 0.75rem;
+          font-weight: 700; width: 100%; cursor: pointer;
+        }
+        .tipo-select:focus { border-color: var(--laranja-vorp); outline: none; }
 
         .cat-badge {
           display: inline-block; font-size: 0.6rem; font-weight: 800;
@@ -555,13 +635,6 @@ export default function AuditoriaPage() {
 
         .nota-val { font-family: var(--font-bebas); font-size: 1.2rem; }
 
-        .url-input {
-          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          border-radius: 6px; padding: 8px 10px; color: var(--text-secondary); font-size: 0.75rem;
-          transition: border-color 0.2s;
-        }
-        .url-input:focus { border-color: var(--laranja-vorp); outline: none; }
-
         .obs-input {
           width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
           border-radius: 6px; padding: 8px 10px; color: var(--text-secondary); font-size: 0.75rem;
@@ -569,18 +642,23 @@ export default function AuditoriaPage() {
         }
         .obs-input:focus { border-color: var(--laranja-vorp); outline: none; }
 
+        .actions-stack { display: flex; align-items: center; gap: 6px; justify-content: center; }
+
+        .btn-save-row {
+          background: rgba(252,84,0,0.1); border: 1px solid rgba(252,84,0,0.2);
+          color: var(--laranja-vorp); border-radius: 6px; padding: 6px;
+          cursor: pointer; display: flex; align-items: center; transition: all 0.22s;
+        }
         .btn-save-row:hover { background: rgba(252,84,0,0.2); }
-        
-        .actions-stack { display: flex; align-items: center; gap: 8px; justify-content: center; }
-        
+
         .btn-delete-row {
           background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
           color: var(--text-muted); border-radius: 6px; padding: 6px;
           cursor: pointer; display: flex; align-items: center; transition: all 0.22s;
         }
-        .btn-delete-row:hover { background: rgba(176, 48, 48, 0.15); border-color: rgba(176, 48, 48, 0.3); color: #B03030; }
+        .btn-delete-row:hover { background: rgba(176,48,48,0.15); border-color: rgba(176,48,48,0.3); color: #B03030; }
 
-        /* Add Question Inline */
+        /* Add Question */
         .btn-add-inline {
           display: flex; align-items: center; gap: 6px;
           background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
@@ -588,11 +666,11 @@ export default function AuditoriaPage() {
           font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.22s;
           margin-left: auto;
         }
-        .btn-add-inline:hover { background: rgba(252, 84, 0, 0.1); border-color: var(--laranja-vorp); color: #fff; }
+        .btn-add-inline:hover { background: rgba(252,84,0,0.1); border-color: var(--laranja-vorp); color: #fff; }
 
-        .add-question-card { margin-top: 8px; border: 1px dashed var(--laranja-vorp); background: rgba(252, 84, 0, 0.02); }
-        .add-form-row { display: flex; align-items: flex-end; gap: 16px; padding: 20px; }
-        .add-field { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .add-question-card { margin-top: 8px; border: 1px dashed var(--laranja-vorp); background: rgba(252,84,0,0.02); }
+        .add-form-row { display: flex; align-items: flex-end; gap: 16px; padding: 20px; flex-wrap: wrap; }
+        .add-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
         .flex-3 { flex: 3; }
         .add-field label { font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
         .add-field input, .add-field select {
@@ -601,15 +679,14 @@ export default function AuditoriaPage() {
         }
         .btn-confirm-add {
           background: var(--laranja-vorp); color: #fff; border: none; border-radius: 6px;
-          padding: 10px 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+          padding: 10px 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
         }
 
         @keyframes animate-slide-down {
           from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         .animate-slide-down { animation: animate-slide-down 0.3s ease-out; }
-
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 0.8s linear infinite; display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

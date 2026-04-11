@@ -102,11 +102,12 @@ export async function upsertAuditoriaMensal(
 
 export async function updateAuditoriaItem(
   id: string,
-  payload: { 
-    qtd_avaliados: number; 
-    qtd_conformes: number; 
+  payload: {
+    qtd_avaliados: number;
+    qtd_conformes: number;
     observacao?: string | null;
     evidencia_url?: string | null;
+    tipo?: string | null;
   },
 ): Promise<boolean> {
   const { error } = await supabase

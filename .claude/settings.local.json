@@ -35,7 +35,17 @@
       "Bash(node \"C:/Users/Virna Rocha/Downloads/read_xlsx.js\")",
       "Bash(node \"C:/Users/Virna Rocha/Downloads/read_xlsx3.js\")",
       "Bash(node scripts/import_abril_thyego.mjs)",
-      "Bash(node scripts/import_abril_leticia.mjs)"
+      "Bash(node scripts/import_abril_leticia.mjs)",
+      "Bash(python -c ':*)",
+      "Bash(where py:*)",
+      "Bash(where python3.exe)",
+      "Read(//c/Users/**)",
+      "Bash(cmd /c \"py --version\")",
+      "Bash(cmd /c \"py -3 -c \\\\\"import sys; print\\(sys.version\\)\\\\\"\")",
+      "Bash(/c/Users/\"Virna Rocha\"/AppData/Local/Microsoft/WindowsApps/python3.exe --version)",
+      "Bash(cmd /c \"where node\")",
+      "Bash(cmd /c \"node --version\")",
+      "Bash(node scripts/import_vinicio.mjs)"
     ]
   }
 }

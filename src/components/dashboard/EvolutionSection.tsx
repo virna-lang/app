@@ -234,7 +234,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
           color: c.color,
         };
       })
-      .sort((a, b) => b.score_geral - a.score_geral);
+      .sort((a, b) => b.score_conformidade - a.score_conformidade);
   }, [consultants, data.currentAudits]);
 
   return (
