@@ -1,83 +1,117 @@
-import React from 'react';
+'use client';
+
+import React, { useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { DashboardData, getSemaphorColor, COLORS } from '@/types/dashboard';
 import { mockConsultants } from '@/lib/mockData';
 
 export default function MeetingsSection({ data }: { data: DashboardData }) {
-  const ranking = [...data.currentMeetings].sort((a, b) => b.pct_reunioes - a.pct_reunioes);
-  
+  const ranking = useMemo(() => {
+    return [...data.currentMeetings]
+      .map(r => ({
+        ...r,
+        consulName: mockConsultants.find(c => c.id === r.consultor_id)?.nome || 'Consultor'
+      }))
+      .sort((a, b) => b.pct_reunioes - a.pct_reunioes);
+  }, [data.currentMeetings]);
+
   return (
     <section className="section-block">
       <div className="section-anchor">
-          <h2>Reuniões com Clientes</h2>
+          <h2>Ranking de Reuniões Realizadas</h2>
       </div>
+      
       <div className="meetings-layout">
-        <div className="podium-container card">
-          <h3>Quem mais atendeu clientes este mês?</h3>
-          <div className="podium-bars">
-            {ranking.map((r, i) => {
-              const consul = mockConsultants.find(c => c.id === r.consultor_id);
-              const opacity = 1 - (i * 0.15);
-              const tooltipText = `${r.reunioes_realizadas} de ${r.clientes_ativos} clientes atendidos`;
-              return (
-                <div key={i} className="podium-column" title={tooltipText}>
-                  <span className="podium-name">{consul?.nome}</span>
-                  <div className="podium-bar" style={{ height: `${r.pct_reunioes}%`, background: COLORS.primary, opacity: opacity }}>
-                    <span className="rank-pos">#{i+1}</span>
-                    <span className="rank-pct">{r.pct_reunioes}%</span>
-                  </div>
-                </div>
-              );
-            })}
+        <div className="card ranking-visual-card">
+          <h3 className="card-subtitle">Performance de Atendimento (Clientes Carteira)</h3>
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={ranking} layout="vertical" margin={{ top: 5, right: 60, left: 20, bottom: 5 }}>
+                <XAxis type="number" hide domain={[0, 100]} />
+                <YAxis 
+                  dataKey="consulName" 
+                  type="category" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  width={80}
+                  tick={{ fill: COLORS.textSecondary, fontSize: 11, fontWeight: 700 }}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                  contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}` }}
+                  formatter={(v: any) => [`${v}%`, 'Concluído']}
+                />
+                <Bar dataKey="pct_reunioes" radius={[0, 4, 4, 0]} barSize={24}>
+                  {ranking.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.pct_reunioes)} fillOpacity={0.8} />
+                  ))}
+                  <LabelList dataKey="pct_reunioes" position="right" fill={COLORS.textMain} formatter={(v: any) => `${v}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         <div className="table-card card">
+           <div className="table-header-box">
+             <h3 className="table-t">Detalhamento Mensal</h3>
+             <span className="table-label">Realizado / Carteira</span>
+           </div>
           <table className="meetings-table">
             <thead>
               <tr>
                 <th>Pos</th>
                 <th>Consultor</th>
-                <th>Progresso</th>
-                <th>%</th>
-                <th style={{ textAlign: 'right' }}>Absoluto</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Presença</th>
               </tr>
             </thead>
             <tbody>
-              {ranking.map((r, i) => {
-                const consul = mockConsultants.find(c => c.id === r.consultor_id);
-                return (
-                  <tr key={i}>
-                    <td className="text-muted">#{i+1}</td>
-                    <td style={{ fontWeight: 700 }}>{consul?.nome}</td>
-                    <td style={{ width: '40%' }}>
-                      <div className="mini-bar-bg"><div className="mini-bar-fill" style={{ width: `${r.pct_reunioes}%`, background: getSemaphorColor(r.pct_reunioes) }} /></div>
-                    </td>
-                    <td style={{ color: getSemaphorColor(r.pct_reunioes), fontWeight: 700 }}>{r.pct_reunioes}%</td>
-                    <td style={{ textAlign: 'right', fontSize: '0.8rem', color: COLORS.textMuted }}>{r.reunioes_realizadas}/{r.clientes_ativos}</td>
-                  </tr>
-                );
-              })}
+              {ranking.map((r, i) => (
+                <tr key={i} className="hover-row">
+                  <td className="rank-idx">#{i+1}</td>
+                  <td className="consul-name-cell">{r.consulName}</td>
+                  <td>
+                    <div className="status-pill" style={{ 
+                      background: getSemaphorColor(r.pct_reunioes) + '15',
+                      color: getSemaphorColor(r.pct_reunioes)
+                    }}>
+                      {r.pct_reunioes >= 90 ? 'Excelente' : r.pct_reunioes >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta'}
+                    </div>
+                  </td>
+                  <td className="val-cell">
+                    <span className="abs-val">{r.reunioes_realizadas}/{r.clientes_ativos}</span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
+
       <style jsx>{`
-        .meetings-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .podium-container { padding: 30px; display: flex; flex-direction: column; align-items: center; }
-        .podium-container h3 { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 40px; }
-        .podium-bars { display: flex; align-items: flex-end; gap: 20px; height: 260px; width: 100%; justify-content: center; }
-        .podium-column { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 60px; }
-        .podium-name { font-size: 0.7rem; font-weight: 700; margin-bottom: 8px; color: var(--text-muted); }
-        .podium-bar { width: 100%; border-radius: 6px 6px 0 0; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 0; color: white; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .rank-pos { font-family: var(--font-bebas); font-size: 1.2rem; }
-        .rank-pct { font-size: 0.75rem; font-weight: 800; writing-mode: vertical-rl; transform: rotate(180deg); }
+        .meetings-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+        .ranking-visual-card { padding: 30px; background: var(--glass-bg); backdrop-filter: blur(10px); }
+        .card-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+        .chart-container { height: 400px; }
         
-        .meetings-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .meetings-table th { text-align: left; padding: 12px; color: var(--text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em; }
-        .meetings-table td { padding: 15px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .mini-bar-bg { height: 4px; background: rgba(255,255,255,0.03); border-radius: 2px; }
-        .mini-bar-fill { height: 100%; border-radius: 2px; }
-        @media (max-width: 1000px) { .meetings-layout { grid-template-columns: 1fr; } }
+        .table-card { padding: 24px; background: var(--glass-bg); backdrop-filter: blur(10px); }
+        .table-header-box { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
+        .table-t { font-size: 1rem; color: var(--text-main); }
+        .table-label { font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
+        
+        .meetings-table { width: 100%; border-collapse: collapse; }
+        .meetings-table th { text-align: left; padding: 12px; color: var(--text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--card-border); }
+        .meetings-table td { padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .hover-row:hover { background: rgba(255,255,255,0.01); }
+        
+        .rank-idx { font-family: var(--font-bebas); color: var(--text-muted); font-size: 1.1rem; width: 40px; }
+        .consul-name-cell { font-weight: 700; color: var(--text-secondary); font-size: 0.85rem; }
+        .status-pill { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+        .val-cell { text-align: right; }
+        .abs-val { font-family: var(--font-bebas); font-size: 1.2rem; color: var(--text-main); }
+
+        @media (max-width: 1100px) { .meetings-layout { grid-template-columns: 1fr; } }
       `}</style>
     </section>
   );

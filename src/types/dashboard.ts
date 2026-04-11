@@ -1,15 +1,13 @@
-import { MonthlyAudit, MonthlyGoal, Meeting, NPSData, ChurnData } from '@/lib/mockData';
-
 export interface DashboardData {
   month: string;
   prevMonth: string | undefined;
-  currentAudits: MonthlyAudit[];
-  prevAudits: MonthlyAudit[];
-  currentGoals: MonthlyGoal[];
-  prevGoals: MonthlyGoal[];
-  currentMeetings: Meeting[];
-  currentNPS: NPSData[];
-  currentChurn: ChurnData[];
+  currentAudits: any[];
+  prevAudits: any[];
+  currentGoals: any[];
+  prevGoals: any[];
+  currentMeetings: any[];
+  currentNPS: any[];
+  currentChurn: any[];
 }
 
 export const COLORS = {

@@ -1,91 +1,120 @@
+'use client';
+
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
-import { DashboardData, COLORS } from '@/types/dashboard';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
+import { DashboardData, COLORS, getSemaphorColor } from '@/types/dashboard';
 import { mockConsultants, MonthlyGoal } from '@/lib/mockData';
 
 export default function GoalsSection({ data, filterProducts }: { data: DashboardData, filterProducts: string[] }) {
-  const chartData = useMemo(() => {
+  // 1. Ranking de Batimento por Consultor (RESULTADO)
+  const consultantRanking = useMemo(() => {
+    return data.currentAudits.map(a => {
+      const consul = mockConsultants.find(c => c.id === a.consultor_id);
+      const goals = data.currentGoals.filter(g => g.consultor_id === a.consultor_id);
+      const batidas = goals.filter(g => g.bateu).length;
+      const pct = goals.length > 0 ? (batidas / goals.length) * 100 : 0;
+      return { 
+        name: consul?.nome || 'Consultor', 
+        pct,
+        total: goals.length,
+        batidas
+      };
+    }).sort((a, b) => b.pct - a.pct);
+  }, [data.currentAudits, data.currentGoals]);
+
+  // 2. Ranking por Produto
+  const productChartData = useMemo(() => {
     return filterProducts.map(p => {
       const current = data.currentGoals.filter(g => g.produto === p);
-      const prev = data.prevGoals.filter(g => g.produto === p);
-      
-      const currentPct = current.length > 0 ? (current.filter(g => g.bateu).length / current.length) * 100 : 0;
-      const prevPct = prev.length > 0 ? (prev.filter(g => g.bateu).length / prev.length) * 100 : 0;
-      
-      return { name: p, atual: currentPct, anterior: prevPct };
-    });
-  }, [data, filterProducts]);
-
-  const p1 = ['Aliança Pro', 'GSA'];
-  const p2 = ['Aliança', 'Tração'];
-  const p3 = ['Gestão de Tráfego'];
+      const batidas = current.filter(g => g.bateu).length;
+      const currentPct = current.length > 0 ? (batidas / current.length) * 100 : 0;
+      return { name: p, value: currentPct, count: current.length };
+    }).sort((a, b) => b.value - a.value);
+  }, [data.currentGoals, filterProducts]);
 
   return (
     <section className="section-block">
       <div className="section-anchor">
-        <h2>Batimento de Metas dos Clientes</h2>
+          <h2>Ranking de Resultados (Metas Batidas)</h2>
       </div>
-      <div className="goals-expansion">
-        <div className="layout-grid-2-1">
-          <div className="card chart-card-p">
-            <h3>Em quais produtos os clientes mais batem meta?</h3>
-            <div style={{ height: 300, marginTop: 20 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barGap={8} margin={{ top: 20, right: 0, bottom: 0, left: 0 }}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: COLORS.textMuted, fontSize: 10, fontWeight: 700 }} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(255,255,255,0.02)' }} 
-                    contentStyle={{ background: COLORS.cardBg, borderRadius: '8px', border: `1px solid ${COLORS.cardBorder}`, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
-                  />
-                  <Bar dataKey="atual" fill={COLORS.primary} radius={[4, 4, 0, 0]} barSize={32} name="Mês Atual">
-                    <LabelList dataKey="atual" position="top" fill={COLORS.textMain} style={{ fontSize: '10px', fontWeight: 700 }} formatter={(v: any) => `${Number(v).toFixed(0)}%`} />
-                  </Bar>
-                  <Bar dataKey="anterior" fill={COLORS.primary} opacity={0.2} radius={[4, 4, 0, 0]} barSize={32} name="Anterior" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
-          <div className="card panels-preview">
-            <h3>Performance por Produto</h3>
-            <div className="mini-panels">
-              <MiniGoalPanel title="Pro & GSA" products={p1} data={data} />
-              <MiniGoalPanel title="Aliança & Tração" products={p2} data={data} />
-              <MiniGoalPanel title="Tráfego" products={p3} data={data} />
-            </div>
+      <div className="goals-layout-grid">
+        <div className="card ranking-card">
+          <h3 className="card-subtitle">Batimento de Meta da Operação por Consultor</h3>
+          <div className="chart-box">
+             <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={consultantRanking} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: COLORS.textMuted, fontSize: 11, fontWeight: 700 }} />
+                  <YAxis hide domain={[0, 100]} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                    contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}` }}
+                  />
+                  <Bar dataKey="pct" radius={[6, 6, 0, 0]} barSize={40}>
+                    {consultantRanking.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.pct)} fillOpacity={0.8} />
+                    ))}
+                    <LabelList dataKey="pct" position="top" fill={COLORS.textMain} formatter={(v: any) => `${v.toFixed(0)}%`} style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} />
+                  </Bar>
+                </BarChart>
+             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="card client-table-card" style={{ padding: '30px' }}>
-          <h3 className="table-t">Tabela Detalhada por Cliente</h3>
-          <table className="client-table">
+        <div className="card product-card">
+          <h3 className="card-subtitle">Efetividade por Produto</h3>
+          <div className="product-list">
+            {productChartData.map((p, i) => (
+              <div key={i} className="prod-row">
+                <div className="prod-info">
+                  <span className="p-name">{p.name}</span>
+                  <span className="p-count">{p.count} clientes</span>
+                </div>
+                <div className="p-bar-bg">
+                  <div className="p-bar-fill" style={{ width: `${p.value}%`, background: getSemaphorColor(p.value) }} />
+                </div>
+                <span className="p-val" style={{ color: getSemaphorColor(p.value) }}>{p.value.toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card detailed-table-card" style={{ marginTop: '40px' }}>
+        <div className="table-header">
+           <h3 className="card-subtitle" style={{ marginBottom: 0 }}>Listagem Detalhada de Clientes</h3>
+           <div className="table-legend">
+              <span className="leg-item"><i className="dot verde" /> Bateu</span>
+              <span className="leg-item"><i className="dot vermelho" /> Não Bateu</span>
+           </div>
+        </div>
+        <div className="table-wrapper">
+          <table className="goals-table">
             <thead>
               <tr>
                 <th>Cliente</th>
                 <th>Produto</th>
                 <th>Consultor</th>
-                <th>Meta Projetada</th>
-                <th>Meta Realizada</th>
-                <th>%</th>
+                <th>Projetado</th>
+                <th>Realizado</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {data.currentGoals.map((g: MonthlyGoal, i: number) => {
                 const consul = mockConsultants.find(c => c.id === g.consultor_id);
-                const pct = (g.meta_realizada / g.meta_projetada) * 100;
                 return (
-                  <tr key={i}>
-                    <td>Vorp Client {i+1}</td>
-                    <td><span className="prod-tag">{g.produto}</span></td>
-                    <td style={{ color: COLORS.textSecondary }}>{consul?.nome}</td>
-                    <td>R$ {g.meta_projetada.toLocaleString()}</td>
-                    <td>R$ {g.meta_realizada.toLocaleString()}</td>
-                    <td style={{ fontWeight: 700 }}>{pct.toFixed(1)}%</td>
-                    <td>
-                      <span className="status-badge" style={{ background: g.bateu ? COLORS.verde + '20' : COLORS.vermelho + '21', color: g.bateu ? COLORS.verde : COLORS.vermelho }}>
-                        {g.bateu ? 'Bateu' : 'Não Bateu'}
-                      </span>
+                  <tr key={i} className="goal-row">
+                    <td className="c-name">Vorp Client {i+1}</td>
+                    <td><span className="tag-prod">{g.produto}</span></td>
+                    <td className="c-consul">{consul?.nome}</td>
+                    <td className="c-money">R$ {g.meta_projetada.toLocaleString()}</td>
+                    <td className="c-money" style={{ color: g.bateu ? COLORS.verde : COLORS.vermelho }}>R$ {g.meta_realizada.toLocaleString()}</td>
+                    <td className="c-status">
+                       <span className={`status-pill ${g.bateu ? 'pos' : 'neg'}`}>
+                          {g.bateu ? 'Meta Batida' : 'Abaixo da Meta'}
+                       </span>
                     </td>
                   </tr>
                 );
@@ -94,56 +123,44 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
           </table>
         </div>
       </div>
+
       <style jsx>{`
-        .layout-grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-        @media (max-width: 1200px) { .layout-grid-2-1 { grid-template-columns: 1fr; } }
-        .goals-expansion { display: flex; flex-direction: column; gap: 20px; }
-        .chart-card-p { padding: 30px; }
-        .chart-card-p h3 { font-size: 0.9rem; color: var(--text-secondary); }
-        .panels-preview { padding: 24px; display: flex; flex-direction: column; }
-        .panels-preview h3 { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 20px; }
-        .mini-panels { display: flex; flex-direction: column; gap: 16px; }
+        .goals-layout-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
+        .ranking-card, .product-card, .detailed-table-card { background: var(--glass-bg); backdrop-filter: blur(10px); padding: 30px; }
+        .card-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+        .chart-box { height: 320px; }
+
+        .product-list { display: flex; flex-direction: column; gap: 20px; }
+        .prod-row { display: flex; align-items: center; gap: 15px; }
+        .prod-info { flex: 1; display: flex; flex-direction: column; }
+        .p-name { font-weight: 700; color: var(--text-secondary); font-size: 0.9rem; }
+        .p-count { font-size: 0.65rem; color: var(--text-muted); }
+        .p-bar-bg { width: 40%; height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; overflow: hidden; }
+        .p-bar-fill { height: 100%; transition: width 1s ease; }
+        .p-val { width: 45px; text-align: right; font-family: var(--font-bebas); font-size: 1.2rem; font-weight: 800; }
+
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .table-legend { display: flex; gap: 16px; }
+        .leg-item { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.verde { background: var(--status-verde); }
+        .dot.vermelho { background: var(--status-vermelho); }
+
+        .table-wrapper { overflow-x: auto; }
+        .goals-table { width: 100%; border-collapse: collapse; }
+        .goals-table th { text-align: left; padding: 12px; color: var(--text-muted); text-transform: uppercase; font-size: 0.65rem; border-bottom: 1px solid var(--card-border); }
+        .goals-table td { padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 0.85rem; }
         
-        .client-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .client-table th { padding: 12px; font-size: 10px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--card-border); text-align: left; }
-        .client-table td { padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.85rem; }
-        .prod-tag { font-size: 10px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; }
-        .status-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 100px; }
-        .table-t { font-size: 15px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px; }
+        .c-name { font-weight: 600; color: var(--text-main); }
+        .tag-prod { font-size: 0.65rem; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--text-secondary); }
+        .c-consul { color: var(--text-muted); }
+        .c-money { font-family: 'DM Sans'; font-weight: 500; }
+        .status-pill { padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+        .status-pill.pos { background: rgba(30, 144, 128, 0.1); color: var(--status-verde); }
+        .status-pill.neg { background: rgba(176, 48, 48, 0.1); color: var(--status-vermelho); }
+
+        @media (max-width: 1200px) { .goals-layout-grid { grid-template-columns: 1fr; } }
       `}</style>
     </section>
-  );
-}
-
-function MiniGoalPanel({ title, products, data }: any) {
-  const panelData = mockConsultants.map(c => {
-    const current = data.currentGoals.filter((g: MonthlyGoal) => g.consultor_id === c.id && products.includes(g.produto));
-    const val = current.length > 0 ? (current.filter((g: MonthlyGoal) => g.bateu).length / current.length) * 100 : 0;
-    return { name: c.nome, val };
-  }).filter(d => d.val > 0);
-
-  return (
-    <div className="mini-panel">
-      <div className="mp-head">{title}</div>
-      <div className="mp-bars">
-        {panelData.map((d, i) => (
-          <div key={i} className="mp-bar-row">
-            <span className="mp-name">{d.name}</span>
-            <div className="mp-bar-bg"><div className="mp-bar-fill" style={{ width: `${d.val}%` }} /></div>
-            <span className="mp-val">{d.val.toFixed(0)}%</span>
-          </div>
-        ))}
-      </div>
-      <style jsx>{`
-        .mini-panel { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; }
-        .mp-head { font-size: 10px; font-weight: 700; color: var(--laranja-vorp); margin-bottom: 10px; text-transform: uppercase; }
-        .mp-bars { display: flex; flex-direction: column; gap: 6px; }
-        .mp-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.6rem; }
-        .mp-name { width: 50px; color: var(--text-secondary); }
-        .mp-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.03); }
-        .mp-bar-fill { height: 100%; background: var(--laranja-vorp); }
-        .mp-val { width: 25px; text-align: right; font-weight: 700; }
-      `}</style>
-    </div>
   );
 }
