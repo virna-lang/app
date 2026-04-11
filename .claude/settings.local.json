@@ -24,7 +24,16 @@
       "Bash(echo \"exit: $?\")",
       "Bash(node -)",
       "Bash(npx next:*)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s 'https://euivfkoulfaslbypmqyl.supabase.co/rest/v1/auditoria_mensal?select=id,consultor_id,mes_ano,data_auditoria,tamanho_carteira&order=mes_ano' -H 'apikey: sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Authorization: Bearer sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v')",
+      "Bash(curl -s 'https://euivfkoulfaslbypmqyl.supabase.co/rest/v1/auditoria_itens?select=auditoria_id,categoria,tipo,qtd_avaliados,qtd_conformes,nota_pct&auditoria_id=eq.ae59e1da-ea28-4ff0-8a9f-f3cc3cc56318&limit=5' -H 'apikey: sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v' -H 'Authorization: Bearer sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v')",
+      "Bash(python -)",
+      "Bash(cmd.exe /c \"where python\")",
+      "Bash(cmd.exe /c \"where python 2>&1\")",
+      "Bash(cmd.exe /c \"py -3 --version 2>&1\")",
+      "Bash(cmd.exe /c \"py -3 -c \\\\\"print\\('hello'\\)\\\\\" 2>&1\")",
+      "Bash(node \"C:/Users/Virna Rocha/Downloads/read_xlsx.js\")",
+      "Bash(node \"C:/Users/Virna Rocha/Downloads/read_xlsx3.js\")"
     ]
   }
 }
