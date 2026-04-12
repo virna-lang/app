@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
@@ -12,7 +12,7 @@ import {
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
 
-export default function Sidebar() {
+function SidebarInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { role } = useAuth();
@@ -378,5 +378,13 @@ export default function Sidebar() {
         }
       `}</style>
     </aside>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <Suspense fallback={null}>
+      <SidebarInner />
+    </Suspense>
   );
 }
