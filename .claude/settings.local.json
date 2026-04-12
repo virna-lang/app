@@ -46,7 +46,8 @@
       "Bash(cmd /c \"where node\")",
       "Bash(cmd /c \"node --version\")",
       "Bash(node scripts/import_vinicio.mjs)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)"
     ]
   }
 }
