@@ -300,8 +300,8 @@ export default function Sidebar() {
           gap: 10px;
           padding: 7px 12px;
           border-radius: 8px;
-          text-decoration: none;
-          color: #505080;
+          text-decoration: none !important;
+          color: #7a7a8a !important;
           font-size: 0.76rem;
           font-weight: 500;
           transition: background 0.15s, color 0.15s;
@@ -309,7 +309,7 @@ export default function Sidebar() {
 
         .sub-item:hover {
           background: rgba(252, 84, 0, 0.08);
-          color: #ffffff;
+          color: #ffffff !important;
           font-weight: 600;
         }
 
