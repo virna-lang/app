@@ -42,6 +42,7 @@ import MeetingsSection from '@/components/dashboard/MeetingsSection';
 import GoalsSection from '@/components/dashboard/GoalsSection';
 import PerformanceRankings from '@/components/dashboard/PerformanceRankings';
 import ChurnSection from '@/components/dashboard/ChurnSection';
+import CorrelacaoSection from '@/components/dashboard/CorrelacaoSection';
 
 const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
 
@@ -289,6 +290,12 @@ export default function Dashboard() {
 
         <section id="churn" className="dashboard-section">
            <ChurnSection churn={data.currentChurn} />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="correlacao" className="dashboard-section">
+           <CorrelacaoSection />
         </section>
 
         {role === 'Administrador' && (

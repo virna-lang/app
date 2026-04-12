@@ -3,9 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, ClipboardCheck, Users, ShieldCheck, 
-  BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart
+import {
+  LayoutDashboard, ClipboardCheck, Users, ShieldCheck,
+  BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart,
+  Edit3, TrendingDown, Zap, GitBranch
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -31,7 +32,14 @@ export default function Sidebar() {
     { name: 'Metas', id: 'metas', icon: <Target size={16} /> },
     { name: 'NPS / CSAT', id: 'nps', icon: <MessageSquare size={16} /> },
     { name: 'Churn', id: 'churn', icon: <AlertTriangle size={16} /> },
+    { name: 'Correlação', id: 'correlacao', icon: <GitBranch size={16} /> },
     { name: 'Time Completo', id: 'time-completo', icon: <Users2 size={16} />, adminOnly: true },
+  ];
+
+  const auditoriaSubItems: { name: string; tab: string; icon: any; adminOnly?: boolean }[] = [
+    { name: 'Edição Completa',   tab: 'edicao', icon: <Edit3 size={14} />, adminOnly: true },
+    { name: 'Churn Rápido',     tab: 'churn',  icon: <TrendingDown size={14} /> },
+    { name: 'Auditoria Rápida', tab: 'rapida', icon: <Zap size={14} />, adminOnly: true },
   ];
 
   const scrollToSection = (id: string) => {
@@ -42,7 +50,8 @@ export default function Sidebar() {
     }
   };
 
-  const isDashboard = pathname === '/';
+  const isDashboard  = pathname === '/';
+  const isAuditoria  = pathname === '/auditoria';
 
   return (
     <aside className="sidebar">
@@ -83,6 +92,24 @@ export default function Sidebar() {
                         {tab.icon}
                         <span>{tab.name}</span>
                       </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {isActive && isAuditoria && (
+                <div className="sub-nav">
+                  {auditoriaSubItems.map((sub) => {
+                    if (sub.adminOnly && role !== 'Administrador') return null;
+                    return (
+                      <Link
+                        key={sub.tab}
+                        href={`/auditoria?tab=${sub.tab}`}
+                        className="sub-item"
+                      >
+                        {sub.icon}
+                        <span>{sub.name}</span>
+                      </Link>
                     );
                   })}
                 </div>

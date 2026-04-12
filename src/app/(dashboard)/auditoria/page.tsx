@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
-import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X } from 'lucide-react';
+import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X, Edit3, Zap, TrendingDown } from 'lucide-react';
+import ChurnRapido from '@/components/auditoria/ChurnRapido';
+import AuditoriaRapida from '@/components/auditoria/AuditoriaRapida';
 import {
   getConsultores,
   getAuditoriasMensais,
@@ -42,9 +44,21 @@ type ItemEditState = {
   dirty:  boolean;
 };
 
+type AuditTab = 'edicao' | 'churn' | 'rapida';
+
+const AUDIT_TABS: { id: AuditTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'edicao',  label: 'Edição Completa', icon: <Edit3 size={15} /> },
+  { id: 'churn',   label: 'Churn Rápido',    icon: <TrendingDown size={15} /> },
+  { id: 'rapida',  label: 'Auditoria Rápida', icon: <Zap size={15} /> },
+];
+
 export default function AuditoriaPage() {
   const { role } = useAuth();
   const router   = useRouter();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<AuditTab>(
+    (searchParams.get('tab') as AuditTab) ?? 'edicao',
+  );
 
   useEffect(() => {
     if (role && role !== 'Administrador') router.replace('/');
@@ -119,7 +133,7 @@ export default function AuditoriaPage() {
       mes_ano:          mesAno,
       data_auditoria:   newDataAud,
       tamanho_carteira: newCarteira,
-      clientes_tratativa: null,
+      clientes_tratativa: 0,
     });
     setSavingNew(false);
     if (!aud) { alert('Erro ao criar auditoria.'); return; }
@@ -234,6 +248,28 @@ export default function AuditoriaPage() {
 
   return (
     <div className="edit-page">
+      {/* Tab bar */}
+      <div className="audit-tabs">
+        {AUDIT_TABS.map(tab => (
+          <button
+            key={tab.id}
+            className={`audit-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Churn Rápido */}
+      {activeTab === 'churn' && <ChurnRapido />}
+
+      {/* Auditoria Rápida */}
+      {activeTab === 'rapida' && <AuditoriaRapida />}
+
+      {/* Edição completa (existente) */}
+      {activeTab === 'edicao' && (<>
       <header className="page-header">
         <div>
           <h2>EDIÇÃO DE AUDITORIA</h2>
@@ -494,8 +530,24 @@ export default function AuditoriaPage() {
         </div>
       )}
 
+      </>)}
+
       <style jsx>{`
         .edit-page { display: flex; flex-direction: column; gap: 24px; padding-bottom: 80px; animation: fadeIn 0.4s ease; }
+
+        /* Tabs */
+        .audit-tabs {
+          display: flex; gap: 4px; border-bottom: 1px solid var(--card-border); padding-bottom: 0;
+        }
+        .audit-tab {
+          display: flex; align-items: center; gap: 8px;
+          padding: 10px 20px; background: none; border: none;
+          color: var(--text-muted); font-size: 0.82rem; font-weight: 700;
+          cursor: pointer; border-bottom: 2px solid transparent;
+          margin-bottom: -1px; transition: all 0.2s;
+        }
+        .audit-tab:hover { color: var(--text-secondary); }
+        .audit-tab.active { color: var(--laranja-vorp); border-bottom-color: var(--laranja-vorp); }
 
         .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
         .page-header h2 { font-family: var(--font-bebas); font-size: 2rem; color: var(--text-main); margin-bottom: 6px; }

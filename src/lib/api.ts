@@ -221,6 +221,90 @@ export async function addChurn(
   return data;
 }
 
+export async function deleteChurn(id: string): Promise<boolean> {
+  const { error } = await supabase.from('churn').delete().eq('id', id);
+  if (error) { console.error('deleteChurn:', error); return false; }
+  return true;
+}
+
+export async function getChurnComClientes(
+  mesAno: string,
+  consultorId: string,
+): Promise<Array<Churn & { cliente_nome: string }>> {
+  const { data, error } = await supabase
+    .from('churn')
+    .select('*, clientes(nome)')
+    .eq('mes_churn', mesAno)
+    .eq('consultor_id', consultorId)
+    .order('created_at', { ascending: false });
+  if (error) { console.error('getChurnComClientes:', error); return []; }
+  return (data ?? []).map((d: any) => ({ ...d, cliente_nome: d.clientes?.nome ?? '—' }));
+}
+
+export async function getTemplatePerguntasAbril(): Promise<
+  Array<{ pergunta: string; categoria: string; tipo: string; tipo_amostragem: string }>
+> {
+  const { data, error } = await supabase
+    .from('auditoria_itens')
+    .select('pergunta, categoria, tipo, tipo_amostragem, auditoria_mensal!inner(mes_ano)')
+    .eq('auditoria_mensal.mes_ano', '2026-04')
+    .gt('qtd_avaliados', 0);
+  if (error) { console.error('getTemplatePerguntasAbril:', error); return []; }
+  const seen = new Set<string>();
+  return (data ?? [])
+    .filter((d: any) => { if (seen.has(d.pergunta)) return false; seen.add(d.pergunta); return true; })
+    .map((d: any) => ({
+      pergunta:       d.pergunta,
+      categoria:      d.categoria,
+      tipo:           d.tipo ?? 'Conformidade',
+      tipo_amostragem: d.tipo_amostragem,
+    }));
+}
+
+function formatMesLabel(mesAno: string): string {
+  const short = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const [year, month] = mesAno.split('-');
+  return `${short[parseInt(month) - 1]}/${year.slice(2)}`;
+}
+
+export async function getCorrelacaoConsultor(consultorId: string): Promise<
+  Array<{ mes_ano: string; label: string; score_resultado: number; score_conformidade: number; churn_count: number }>
+> {
+  const [{ data: items }, { data: churns }] = await Promise.all([
+    supabase
+      .from('auditoria_itens')
+      .select('tipo, nota_pct, auditoria_mensal!inner(mes_ano, consultor_id)')
+      .eq('auditoria_mensal.consultor_id', consultorId)
+      .not('tipo', 'is', null)
+      .gt('qtd_avaliados', 0),
+    supabase.from('churn').select('mes_churn').eq('consultor_id', consultorId),
+  ]);
+
+  const mesMap: Record<string, { r: number[]; c: number[] }> = {};
+  (items ?? []).forEach((row: any) => {
+    const mes = row.auditoria_mensal?.mes_ano;
+    if (!mes) return;
+    if (!mesMap[mes]) mesMap[mes] = { r: [], c: [] };
+    if (row.tipo === 'Resultado')    mesMap[mes].r.push(row.nota_pct);
+    if (row.tipo === 'Conformidade') mesMap[mes].c.push(row.nota_pct);
+  });
+
+  const churnMap: Record<string, number> = {};
+  (churns ?? []).forEach((ch: any) => { churnMap[ch.mes_churn] = (churnMap[ch.mes_churn] ?? 0) + 1; });
+
+  const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : 0;
+
+  return Object.entries(mesMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([mes, scores]) => ({
+      mes_ano:            mes,
+      label:              formatMesLabel(mes),
+      score_resultado:    avg(scores.r),
+      score_conformidade: avg(scores.c),
+      churn_count:        churnMap[mes] ?? 0,
+    }));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // VIEWS
 // ─────────────────────────────────────────────────────────────────────────────
