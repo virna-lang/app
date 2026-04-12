@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X, Edit3, Zap, TrendingDown } from 'lucide-react';
@@ -53,6 +53,14 @@ const AUDIT_TABS: { id: AuditTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function AuditoriaPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuditoriaPageInner />
+    </Suspense>
+  );
+}
+
+function AuditoriaPageInner() {
   const { role } = useAuth();
   const router   = useRouter();
   const searchParams = useSearchParams();
