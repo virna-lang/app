@@ -45,7 +45,8 @@
       "Bash(/c/Users/\"Virna Rocha\"/AppData/Local/Microsoft/WindowsApps/python3.exe --version)",
       "Bash(cmd /c \"where node\")",
       "Bash(cmd /c \"node --version\")",
-      "Bash(node scripts/import_vinicio.mjs)"
+      "Bash(node scripts/import_vinicio.mjs)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
