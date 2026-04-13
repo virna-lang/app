@@ -17,16 +17,18 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
       .sort((a, b) => b.pct_reunioes - a.pct_reunioes);
   }, [data.currentMeetings, consultores]);
 
-  // Ranking por clientes atendidos (absoluto) — responde à pergunta:
+  // Ranking por clientes atendidos — dados da pergunta de auditoria:
   // "Quantas clientes da carteira foram atendidos dentro do mês?"
   const rankingAtendidos = useMemo(() => {
-    return [...data.currentMeetings]
+    return [...data.rankingAtendidos]
       .map(r => ({
         ...r,
-        consulName: consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor'
+        consulName:          consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
+        reunioes_realizadas: r.atendidos,
+        clientes_ativos:     r.carteira,
       }))
-      .sort((a, b) => b.reunioes_realizadas - a.reunioes_realizadas);
-  }, [data.currentMeetings, consultores]);
+      .sort((a, b) => b.atendidos - a.atendidos);
+  }, [data.rankingAtendidos, consultores]);
 
   return (
     <section className="section-block">

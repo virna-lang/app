@@ -9,6 +9,8 @@ export interface DashboardData {
   currentNPS: any[];
   currentChurn: any[];
   viewMetas: any[];
+  rankingAtendidos: any[];
+  metasPorProduto: any[];
 }
 
 export const COLORS = {

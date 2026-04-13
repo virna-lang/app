@@ -12,6 +12,8 @@ import {
   getMetas,
   getChurn,
   getScoresPorTipo,
+  getRankingAtendidosMes,
+  getMetasBatidasPorProduto,
   addConsultor,
   toggleConsultor,
   labelToMesAno,
@@ -67,6 +69,8 @@ export default function Dashboard() {
   const [metas, setMetas]               = useState<MetaMensal[]>([]);
   const [prevMetas, setPrevMetas]       = useState<MetaMensal[]>([]);
   const [churn, setChurn]               = useState<Churn[]>([]);
+  const [rankAtendidos, setRankAtendidos] = useState<any[]>([]);
+  const [metasProduto, setMetasProduto]   = useState<any[]>([]);
 
   // ─── Fetch de dados ao mudar filtros ───────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -76,7 +80,7 @@ export default function Dashboard() {
     const prevLabel  = getMesAnterior(month);
     const prevMesAno = prevLabel ? labelToMesAno(prevLabel) : null;
 
-    const [auds, reunioes, vMetas, mt, ch, conf, tipoScores] = await Promise.all([
+    const [auds, reunioes, vMetas, mt, ch, conf, tipoScores, rankAtend, metasProd] = await Promise.all([
       getAuditoriasMensais(mesAno, consultantId),
       getViewReunioes(mesAno, consultantId),
       getViewMetas(mesAno, consultantId),
@@ -84,6 +88,8 @@ export default function Dashboard() {
       getChurn(mesAno),
       getViewConformidade(mesAno, consultantId),
       getScoresPorTipo(mesAno, consultantId),
+      getRankingAtendidosMes(mesAno, consultantId),
+      getMetasBatidasPorProduto(mesAno, consultantId),
     ]);
 
     let prevAuds: AuditoriaMensal[] = [];
@@ -155,6 +161,8 @@ export default function Dashboard() {
     setMetas(mt);
     setPrevMetas(prevMt);
     setChurn(ch);
+    setRankAtendidos(rankAtend);
+    setMetasProduto(metasProd);
     setLoading(false);
   }, [activeFilters]);
 
@@ -219,8 +227,10 @@ export default function Dashboard() {
         })),
       currentChurn: churn,
       viewMetas,
+      rankingAtendidos: rankAtendidos,
+      metasPorProduto:  metasProduto,
     };
-  }, [auditorias, prevAuditorias, metas, prevMetas, viewReunioes, viewMetas, churn, activeFilters.month]);
+  }, [auditorias, prevAuditorias, metas, prevMetas, viewReunioes, viewMetas, churn, rankAtendidos, metasProduto, activeFilters.month]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
   if (loadingConsultores || loading) {

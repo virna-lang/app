@@ -417,6 +417,70 @@ export async function getViewConformidade(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PERGUNTAS ESPECÍFICAS DA AUDITORIA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Retorna, por consultor, quantos clientes da carteira foram atendidos no mês.
+ *  Busca a pergunta "Quantas clientes da carteira foram atendidos dentro do mês?"
+ *  em auditoria_itens → qtd_conformes = atendidos, qtd_avaliados = carteira total. */
+export async function getRankingAtendidosMes(
+  mesAno: string,
+  consultorId?: string,
+): Promise<{ consultor_id: string; atendidos: number; carteira: number }[]> {
+  let query = supabase
+    .from('auditoria_itens')
+    .select('qtd_conformes, qtd_avaliados, auditoria_mensal!inner(consultor_id, mes_ano)')
+    .eq('auditoria_mensal.mes_ano', mesAno)
+    .ilike('pergunta', '%atendidos dentro do mês%');
+
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+  }
+
+  const { data, error } = await query;
+  if (error) { console.error('getRankingAtendidosMes:', error); return []; }
+
+  return (data ?? []).map((row: any) => ({
+    consultor_id: row.auditoria_mensal?.consultor_id ?? '',
+    atendidos:    row.qtd_conformes  ?? 0,
+    carteira:     row.qtd_avaliados  ?? 0,
+  }));
+}
+
+/** Retorna % de clientes com meta batida por produto, extraindo o produto
+ *  do parêntese na pergunta: "...meta batida da operação? (Aliança Pro)" */
+export async function getMetasBatidasPorProduto(
+  mesAno: string,
+  consultorId?: string,
+): Promise<{ consultor_id: string; produto: string; nota_pct: number; qtd_avaliados: number; qtd_conformes: number }[]> {
+  let query = supabase
+    .from('auditoria_itens')
+    .select('pergunta, nota_pct, qtd_avaliados, qtd_conformes, auditoria_mensal!inner(consultor_id, mes_ano)')
+    .eq('auditoria_mensal.mes_ano', mesAno)
+    .ilike('pergunta', '%meta batida da operação%');
+
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+  }
+
+  const { data, error } = await query;
+  if (error) { console.error('getMetasBatidasPorProduto:', error); return []; }
+
+  return (data ?? []).map((row: any) => {
+    // Extrai o nome do produto entre parênteses, ex: "(Aliança Pro)"
+    const match = (row.pergunta as string).match(/\(([^)]+)\)/);
+    const produto = match ? match[1].trim() : 'Sem produto';
+    return {
+      consultor_id:  row.auditoria_mensal?.consultor_id ?? '',
+      produto,
+      nota_pct:      row.nota_pct      ?? 0,
+      qtd_avaliados: row.qtd_avaliados ?? 0,
+      qtd_conformes: row.qtd_conformes ?? 0,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HELPERS — formata mês para o padrão 'YYYY-MM' usado no banco
 // ─────────────────────────────────────────────────────────────────────────────
 

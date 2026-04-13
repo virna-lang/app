@@ -11,50 +11,65 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
   // ── Filtro de produto para o ranking ──────────────────────────────────────
   const [selectedProduct, setSelectedProduct] = useState<string>('all');
 
-  // Produtos disponíveis extraídos da view_metas
+  // Produtos disponíveis — extraídos das perguntas de auditoria
   const produtos = useMemo(() => {
     const set = new Set<string>();
-    (data.viewMetas as any[]).forEach(v => { if (v.produto) set.add(v.produto); });
+    (data.metasPorProduto as any[]).forEach(v => { if (v.produto) set.add(v.produto); });
     return Array.from(set).sort();
-  }, [data.viewMetas]);
+  }, [data.metasPorProduto]);
 
-  // ── 1. Ranking por consultor — filtrado por produto ───────────────────────
+  // ── 1. Ranking por consultor — dados reais da pergunta de auditoria,
+  //       filtrado pelo produto selecionado
   const consultantRanking = useMemo(() => {
-    const filtered = (data.viewMetas as any[]).filter(v =>
+    const filtered = (data.metasPorProduto as any[]).filter(v =>
       selectedProduct === 'all' || v.produto === selectedProduct
     );
-    // Agrupa por consultor_id, somando metas_batidas e total_metas
-    const map: Record<string, { name: string; batidas: number; total: number }> = {};
+    // Agrupa por consultor — usa nota_pct (média) ou qtd quando disponível
+    const map: Record<string, { name: string; soma: number; count: number; qtd_conformes: number; qtd_avaliados: number }> = {};
     filtered.forEach(v => {
-      const nome = consultores.find(c => c.id === v.consultor_id)?.nome ?? v.consultor ?? 'Consultor';
-      if (!map[v.consultor_id]) map[v.consultor_id] = { name: nome, batidas: 0, total: 0 };
-      map[v.consultor_id].batidas += v.metas_batidas ?? 0;
-      map[v.consultor_id].total  += v.total_metas  ?? 0;
+      const nome = consultores.find(c => c.id === v.consultor_id)?.nome ?? 'Consultor';
+      if (!map[v.consultor_id]) map[v.consultor_id] = { name: nome, soma: 0, count: 0, qtd_conformes: 0, qtd_avaliados: 0 };
+      map[v.consultor_id].soma          += v.nota_pct      ?? 0;
+      map[v.consultor_id].count         += 1;
+      map[v.consultor_id].qtd_conformes += v.qtd_conformes ?? 0;
+      map[v.consultor_id].qtd_avaliados += v.qtd_avaliados ?? 0;
     });
     return Object.values(map)
-      .map(r => ({ ...r, pct: r.total > 0 ? Math.round((r.batidas / r.total) * 100) : 0 }))
+      .map(r => ({
+        name:    r.name,
+        batidas: r.qtd_conformes,
+        total:   r.qtd_avaliados,
+        pct:     r.qtd_avaliados > 0
+          ? Math.round((r.qtd_conformes / r.qtd_avaliados) * 100)
+          : Math.round(r.soma / (r.count || 1)),
+      }))
       .sort((a, b) => b.pct - a.pct);
-  }, [data.viewMetas, selectedProduct, consultores]);
+  }, [data.metasPorProduto, selectedProduct, consultores]);
 
-  // ── 2. Meta de clientes por produto — extrai produto do nome entre parênteses
-  // Pergunta: "Quantos % dos clientes estão com meta batida da operação? (Aliança Pro)"
+  // ── 2. Meta de clientes por produto — dados da pergunta de auditoria:
+  //       "Quantos % dos clientes estão com meta batida da operação? (Aliança Pro)"
   const productChartData = useMemo(() => {
-    const map: Record<string, { batidas: number; total: number }> = {};
-    (data.viewMetas as any[]).forEach(v => {
+    const map: Record<string, { conformes: number; avaliados: number; notas: number[] }> = {};
+    (data.metasPorProduto as any[]).forEach(v => {
       const prod = v.produto ?? 'Sem produto';
-      if (!map[prod]) map[prod] = { batidas: 0, total: 0 };
-      map[prod].batidas += v.metas_batidas ?? 0;
-      map[prod].total   += v.total_metas   ?? 0;
+      if (!map[prod]) map[prod] = { conformes: 0, avaliados: 0, notas: [] };
+      map[prod].conformes += v.qtd_conformes ?? 0;
+      map[prod].avaliados += v.qtd_avaliados ?? 0;
+      if (v.nota_pct != null) map[prod].notas.push(v.nota_pct);
     });
     return Object.entries(map)
       .map(([name, r]) => ({
         name,
-        value: r.total > 0 ? Math.round((r.batidas / r.total) * 100) : 0,
-        count: r.total,
-        batidas: r.batidas,
+        value: r.avaliados > 0
+          ? Math.round((r.conformes / r.avaliados) * 100)
+          : r.notas.length > 0
+            ? Math.round(r.notas.reduce((a, b) => a + b, 0) / r.notas.length)
+            : 0,
+        count:   r.avaliados,
+        batidas: r.conformes,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [data.viewMetas]);
+  }, [data.metasPorProduto]);
 
   return (
     <section className="section-block">
