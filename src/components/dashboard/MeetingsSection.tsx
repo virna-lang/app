@@ -1,34 +1,28 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
 import { DashboardData, getSemaphorColor, COLORS } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
 
 export default function MeetingsSection({ data }: { data: DashboardData }) {
   const { consultores } = useDashboard();
 
+  // Um único ranking por % da carteira — deduplica por consultor_id
   const ranking = useMemo(() => {
+    const seen = new Set<string>();
     return [...data.currentMeetings]
+      .filter(r => {
+        if (seen.has(r.consultor_id)) return false;
+        seen.add(r.consultor_id);
+        return true;
+      })
       .map(r => ({
         ...r,
-        consulName: consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor'
+        consulName: consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
       }))
       .sort((a, b) => b.pct_reunioes - a.pct_reunioes);
   }, [data.currentMeetings, consultores]);
-
-  // Ranking por clientes atendidos — dados da pergunta de auditoria:
-  // "Quantas clientes da carteira foram atendidos dentro do mês?"
-  const rankingAtendidos = useMemo(() => {
-    return [...data.rankingAtendidos]
-      .map(r => ({
-        ...r,
-        consulName:          consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
-        reunioes_realizadas: r.atendidos,
-        clientes_ativos:     r.carteira,
-      }))
-      .sort((a, b) => b.atendidos - a.atendidos);
-  }, [data.rankingAtendidos, consultores]);
 
   return (
     <section className="section-block">
@@ -36,38 +30,55 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
         <h2>Ranking de Reuniões Realizadas</h2>
       </div>
 
-      {/* Gráfico principal — % de atendimento */}
       <div className="meetings-layout">
+        {/* Gráfico vertical — % da carteira atendida */}
         <div className="card ranking-visual-card">
-          <h3 className="card-subtitle">Performance de Atendimento — % da Carteira</h3>
+          <h3 className="card-subtitle">% da Carteira Atendida no Mês</h3>
           <div className="chart-container">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ranking} layout="vertical" margin={{ top: 5, right: 60, left: 20, bottom: 5 }}>
-                <XAxis type="number" hide domain={[0, 100]} />
-                <YAxis
+              <BarChart data={ranking} margin={{ top: 30, right: 20, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                <XAxis
                   dataKey="consulName"
-                  type="category"
                   axisLine={false}
                   tickLine={false}
-                  width={80}
                   tick={{ fill: COLORS.textSecondary, fontSize: 11, fontWeight: 700 }}
+                  dy={8}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                  tickFormatter={(v) => `${v}%`}
+                  width={36}
                 />
                 <Tooltip
                   cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                   contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}` }}
-                  formatter={(v: any) => [`${v}%`, 'Concluído']}
+                  formatter={(v: any, _: any, props: any) => [
+                    `${v}% (${props.payload.reunioes_realizadas}/${props.payload.clientes_ativos} clientes)`,
+                    '% Carteira'
+                  ]}
                 />
-                <Bar dataKey="pct_reunioes" radius={[0, 4, 4, 0]} barSize={24}>
+                <Bar dataKey="pct_reunioes" radius={[6, 6, 0, 0]} barSize={36}>
                   {ranking.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.pct_reunioes)} fillOpacity={0.8} />
                   ))}
-                  <LabelList dataKey="pct_reunioes" position="insideLeft" fill="#fff" formatter={(v: any) => `${v}%`} style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} offset={10} />
+                  <LabelList
+                    dataKey="pct_reunioes"
+                    position="top"
+                    fill="rgba(255,255,255,0.5)"
+                    formatter={(v: any) => `${v}%`}
+                    style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
+        {/* Tabela de detalhamento */}
         <div className="table-card card">
           <div className="table-header-box">
             <h3 className="table-t">Detalhamento Mensal</h3>
@@ -89,7 +100,7 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
                   <td className="consul-name-cell">{r.consulName}</td>
                   <td>
                     <div className="status-pill" style={{
-                      background: getSemaphorColor(r.pct_reunioes) + '15',
+                      background: getSemaphorColor(r.pct_reunioes) + '18',
                       color: getSemaphorColor(r.pct_reunioes)
                     }}>
                       {r.pct_reunioes >= 90 ? 'Excelente' : r.pct_reunioes >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta'}
@@ -105,72 +116,11 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      {/* Ranking por clientes atendidos — absoluto */}
-      <div className="atendidos-section">
-        <div className="card atendidos-card">
-          <h3 className="card-subtitle">Clientes da Carteira Atendidos no Mês (Absoluto)</h3>
-          <div className="atendidos-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={rankingAtendidos} layout="vertical" margin={{ top: 5, right: 60, left: 20, bottom: 5 }}>
-                <XAxis type="number" hide />
-                <YAxis
-                  dataKey="consulName"
-                  type="category"
-                  axisLine={false}
-                  tickLine={false}
-                  width={80}
-                  tick={{ fill: COLORS.textSecondary, fontSize: 11, fontWeight: 700 }}
-                />
-                <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                  contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}` }}
-                  formatter={(v: any, _: any, props: any) => [
-                    `${v} de ${props.payload.clientes_ativos} clientes`,
-                    'Atendidos'
-                  ]}
-                />
-                <Bar dataKey="reunioes_realizadas" radius={[0, 4, 4, 0]} barSize={24} fill={COLORS.primary} fillOpacity={0.7}>
-                  {rankingAtendidos.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS.primary} fillOpacity={index === 0 ? 1 : 0.5 + index * 0.05} />
-                  ))}
-                  <LabelList dataKey="reunioes_realizadas" position="insideLeft" fill="#fff" style={{ fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }} offset={10} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          {/* Tabela de ranking absoluto */}
-          <table className="meetings-table" style={{ marginTop: '16px' }}>
-            <thead>
-              <tr>
-                <th>Pos</th>
-                <th>Consultor</th>
-                <th style={{ textAlign: 'right' }}>Atendidos</th>
-                <th style={{ textAlign: 'right' }}>Carteira</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rankingAtendidos.map((r, i) => (
-                <tr key={i} className="hover-row">
-                  <td className="rank-idx">#{i + 1}</td>
-                  <td className="consul-name-cell">{r.consulName}</td>
-                  <td className="val-cell">
-                    <span className="abs-val" style={{ color: COLORS.primary }}>{r.reunioes_realizadas}</span>
-                  </td>
-                  <td className="val-cell">
-                    <span style={{ color: COLORS.textMuted, fontFamily: 'var(--font-bebas)', fontSize: '1.1rem' }}>{r.clientes_ativos}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <style jsx>{`
-        .meetings-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+        .meetings-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
         .ranking-visual-card { padding: 30px; background: var(--glass-bg); backdrop-filter: blur(10px); }
-        .card-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
-        .chart-container { height: 400px; }
+        .card-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+        .chart-container { height: 380px; }
 
         .table-card { padding: 24px; background: var(--glass-bg); backdrop-filter: blur(10px); }
         .table-header-box { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
@@ -178,19 +128,15 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
         .table-label { font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
 
         .meetings-table { width: 100%; border-collapse: collapse; }
-        .meetings-table th { text-align: left; padding: 12px; color: var(--text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--card-border); }
-        .meetings-table td { padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .meetings-table th { text-align: left; padding: 10px 12px; color: var(--text-muted); text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--card-border); }
+        .meetings-table td { padding: 14px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
         .hover-row:hover { background: rgba(255,255,255,0.01); }
 
         .rank-idx { font-family: var(--font-bebas); color: var(--text-muted); font-size: 1.1rem; width: 40px; }
         .consul-name-cell { font-weight: 700; color: var(--text-secondary); font-size: 0.85rem; }
-        .status-pill { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+        .status-pill { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; }
         .val-cell { text-align: right; }
         .abs-val { font-family: var(--font-bebas); font-size: 1.2rem; color: var(--text-main); }
-
-        .atendidos-section { margin-top: 20px; }
-        .atendidos-card { padding: 30px; background: var(--glass-bg); backdrop-filter: blur(10px); }
-        .atendidos-chart { height: 260px; }
 
         @media (max-width: 1100px) { .meetings-layout { grid-template-columns: 1fr; } }
       `}</style>

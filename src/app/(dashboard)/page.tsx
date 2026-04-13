@@ -211,12 +211,21 @@ export default function Dashboard() {
       prevAudits: prevAuditorias,
       currentGoals: metas,
       prevGoals: prevMetas,
-      currentMeetings: viewReunioes.map(v => ({
-        consultor_id: v.consultor_id,
-        clientes_ativos: v.total_clientes,
-        reunioes_realizadas: v.clientes_com_reuniao,
-        pct_reunioes: v.pct_reunioes
-      })),
+      // Deduplica por consultor_id (a view pode retornar linhas por produto)
+      // e normaliza nomes de produto (GSA === Gsa)
+      currentMeetings: Object.values(
+        viewReunioes.reduce((acc: Record<string, any>, v) => {
+          if (!acc[v.consultor_id]) {
+            acc[v.consultor_id] = {
+              consultor_id: v.consultor_id,
+              clientes_ativos: v.total_clientes,
+              reunioes_realizadas: v.clientes_com_reuniao,
+              pct_reunioes: v.pct_reunioes,
+            };
+          }
+          return acc;
+        }, {})
+      ),
       currentNPS: auditorias
         .filter(a => a.nps_nota != null)
         .map(a => ({
