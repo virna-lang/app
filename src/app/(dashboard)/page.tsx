@@ -217,7 +217,8 @@ export default function Dashboard() {
           nota: a.nps_nota ?? 0,
           mes_ano: a.mes_ano
         })),
-      currentChurn: churn
+      currentChurn: churn,
+      viewMetas,
     };
   }, [auditorias, prevAuditorias, metas, prevMetas, viewReunioes, viewMetas, churn, activeFilters.month]);
 

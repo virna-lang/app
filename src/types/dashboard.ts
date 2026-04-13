@@ -8,6 +8,7 @@ export interface DashboardData {
   currentMeetings: any[];
   currentNPS: any[];
   currentChurn: any[];
+  viewMetas: any[];
 }
 
 export const COLORS = {
