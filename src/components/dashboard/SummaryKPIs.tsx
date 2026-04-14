@@ -23,8 +23,11 @@ const Variation = ({ val, label }: { val: number, label?: string }) => {
 
 export default function SummaryKPIs({ data }: { data: DashboardData }) {
   // 1. Conformidade Geral — média do score de conformidade de processo
-  const currentAvg = data.currentAudits.reduce((acc: number, c: any) => acc + (c.score_conformidade ?? 0), 0) / (data.currentAudits.length || 1);
-  const prevAvg = data.prevAudits.reduce((acc: number, c: any) => acc + (c.score_conformidade ?? 0), 0) / (data.prevAudits.length || 1);
+  // Só inclui consultores que têm dados reais (score > 0)
+  const currentWithData = data.currentAudits.filter((c: any) => (c.score_conformidade ?? 0) > 0);
+  const prevWithData    = data.prevAudits.filter((c: any) => (c.score_conformidade ?? 0) > 0);
+  const currentAvg = currentWithData.reduce((acc: number, c: any) => acc + c.score_conformidade, 0) / (currentWithData.length || 1);
+  const prevAvg    = prevWithData.reduce((acc: number, c: any) => acc + c.score_conformidade, 0) / (prevWithData.length || 1);
   const varScore = currentAvg - prevAvg;
 
   const trendData = [

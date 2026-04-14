@@ -73,27 +73,30 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
 
   return (
     <section className="section-block">
-      <div className="section-anchor">
-        <h2>Ranking de Resultados (Metas Batidas)</h2>
+      <div className="section-anchor-row">
+        <div className="section-anchor" style={{ margin: 0 }}>
+          <h2>Ranking de Resultados (Metas Batidas)</h2>
+        </div>
+        {/* Filtro único para toda a seção */}
+        <select
+          className="prod-filter"
+          value={selectedProduct}
+          onChange={e => setSelectedProduct(e.target.value)}
+        >
+          <option value="all">Todos os produtos</option>
+          {produtos.map(p => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
       </div>
 
       {/* ── Gráficos superiores ── */}
       <div className="goals-layout-grid">
 
-        {/* Ranking por consultor com filtro */}
+        {/* Ranking por consultor */}
         <div className="card ranking-card">
           <div className="ranking-header">
             <h3 className="card-subtitle" style={{ marginBottom: 0 }}>Batimento de Meta por Consultor</h3>
-            <select
-              className="prod-filter"
-              value={selectedProduct}
-              onChange={e => setSelectedProduct(e.target.value)}
-            >
-              <option value="all">Todos os produtos</option>
-              {produtos.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
           </div>
           <div className="chart-box" style={{ marginTop: '24px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -155,16 +158,6 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
       <div className="card ranking-table-card" style={{ marginTop: '20px' }}>
         <div className="ranking-header" style={{ marginBottom: '24px' }}>
           <h3 className="card-subtitle" style={{ marginBottom: 0 }}>Ranking de Metas — Posição por Consultor</h3>
-          <select
-            className="prod-filter"
-            value={selectedProduct}
-            onChange={e => setSelectedProduct(e.target.value)}
-          >
-            <option value="all">Todos os produtos</option>
-            {produtos.map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
         </div>
         <table className="goals-table">
           <thead>
@@ -238,6 +231,7 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
       </div>
 
       <style jsx>{`
+        .section-anchor-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
         .goals-layout-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
         .ranking-card, .product-card, .detailed-table-card, .ranking-table-card {
           background: var(--glass-bg); backdrop-filter: blur(10px); padding: 30px;

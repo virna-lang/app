@@ -380,10 +380,18 @@ export async function getScoresPorTipo(
   if (!data) return [];
 
   // Agrupa por consultor+tipo → coleta todas as notas para média simples
+  // Normaliza o tipo para PascalCase (ex: 'conformidade' → 'Conformidade')
+  const normalizeTipo = (t: string) => {
+    const lower = t.toLowerCase();
+    if (lower === 'resultado')    return 'Resultado';
+    if (lower === 'conformidade') return 'Conformidade';
+    return t;
+  };
+
   const map: Record<string, number[]> = {};
   for (const row of data as any[]) {
     const cid  = row.auditoria_mensal?.consultor_id;
-    const tipo = row.tipo;
+    const tipo = row.tipo ? normalizeTipo(row.tipo) : null;
     const nota = row.nota_pct;
     if (!cid || !tipo || nota == null) continue;
     const key = `${cid}|${tipo}`;
@@ -466,10 +474,24 @@ export async function getMetasBatidasPorProduto(
   const { data, error } = await query;
   if (error) { console.error('getMetasBatidasPorProduto:', error); return []; }
 
+  // Normaliza variações de nome de produto
+  const normalizeProduto = (p: string): string => {
+    const map: Record<string, string> = {
+      'gsa': 'GSA',
+      'alianca': 'Aliança',
+      'aliança pro': 'Aliança Pro',
+      'tracao': 'Tração',
+      'tração': 'Tração',
+      'gestão de tráfego': 'Gestão de Tráfego',
+      'gestao de trafego': 'Gestão de Tráfego',
+    };
+    return map[p.toLowerCase()] ?? p;
+  };
+
   return (data ?? []).map((row: any) => {
     // Extrai o nome do produto entre parênteses, ex: "(Aliança Pro)"
     const match = (row.pergunta as string).match(/\(([^)]+)\)/);
-    const produto = match ? match[1].trim() : 'Sem produto';
+    const produto = match ? normalizeProduto(match[1].trim()) : 'Sem produto';
     return {
       consultor_id:  row.auditoria_mensal?.consultor_id ?? '',
       produto,
