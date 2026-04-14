@@ -101,7 +101,7 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
             <h3 className="card-subtitle" style={{ marginBottom: 0 }}>Batimento de Meta por Consultor</h3>
           </div>
           <div className="chart-box" style={{ marginTop: '24px' }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={consultantRanking} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: COLORS.textMuted, fontSize: 11, fontWeight: 700 }} />
