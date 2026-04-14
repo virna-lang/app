@@ -14,7 +14,9 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
   // Produtos disponíveis — extraídos das perguntas de auditoria
   const produtos = useMemo(() => {
     const set = new Set<string>();
-    (data.metasPorProduto as any[]).forEach(v => { if (v.produto) set.add(v.produto); });
+    (data.metasPorProduto as any[]).forEach(v => {
+      if (v.produto && v.produto.toLowerCase() !== 'todos os produtos') set.add(v.produto);
+    });
     return Array.from(set).sort();
   }, [data.metasPorProduto]);
 

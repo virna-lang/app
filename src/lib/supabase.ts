@@ -3,7 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://euivfkoulfaslbypmqyl.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_IUh06W472gFWIUdfTtrJ8w_Sa6vp1-v';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Necessário para capturar o token no hash da URL após o redirect do Google
+    detectSessionInUrl: true,
+    // Persiste a sessão no localStorage para recarregamentos da página
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
 
 // ──────────────────────────────────────────────
 // Tipos — espelham exatamente as tabelas do banco

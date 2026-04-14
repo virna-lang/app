@@ -2,13 +2,19 @@
 
 import { useAuth } from './AuthContext';
 import { LogOut, UserCircle2, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
 
 export default function Topbar() {
-  const { role, setRole } = useAuth();
+  const { role, setRole, user, signOut } = useAuth();
 
   const toggleRole = () => {
     setRole(role === 'Administrador' ? 'Consultor' : 'Administrador');
   };
+
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+  const displayName = (user?.user_metadata?.full_name as string | undefined)
+    ?? user?.email
+    ?? '';
 
   return (
     <header className="topbar">
@@ -26,11 +32,22 @@ export default function Topbar() {
           {role === 'Administrador' ? 'Administrador' : 'Consultor'}
         </button>
 
-        <div className="user-profile">
-          <UserCircle2 size={32} strokeWidth={1} />
+        <div className="user-profile" title={displayName}>
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={displayName}
+              width={32}
+              height={32}
+              style={{ borderRadius: '50%', objectFit: 'cover' }}
+              unoptimized
+            />
+          ) : (
+            <UserCircle2 size={32} strokeWidth={1} />
+          )}
         </div>
         
-        <button className="logout-btn">
+        <button className="logout-btn" onClick={signOut} title="Sair">
           <LogOut size={20} />
         </button>
       </div>
@@ -92,7 +109,9 @@ export default function Topbar() {
 
         .user-profile {
           color: var(--text-secondary);
-          cursor: pointer;
+          cursor: default;
+          display: flex;
+          align-items: center;
         }
 
         .logout-btn {
