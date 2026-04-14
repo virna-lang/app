@@ -8,21 +8,35 @@ import { useDashboard } from '@/context/DashboardContext';
 export default function MeetingsSection({ data }: { data: DashboardData }) {
   const { consultores } = useDashboard();
 
-  // Um único ranking por % da carteira — deduplica por consultor_id
+  // Usa dados da pergunta de auditoria "Quantas clientes da carteira foram atendidos dentro do mês?"
+  // Deduplica por consultor_id somando atendidos e carteira
   const ranking = useMemo(() => {
-    const seen = new Set<string>();
-    return [...data.currentMeetings]
-      .filter(r => {
-        if (seen.has(r.consultor_id)) return false;
-        seen.add(r.consultor_id);
-        return true;
-      })
+    const source = data.rankingAtendidos.length > 0 ? data.rankingAtendidos : data.currentMeetings;
+    const useAuditData = data.rankingAtendidos.length > 0;
+
+    const map: Record<string, { consultor_id: string; atendidos: number; carteira: number }> = {};
+    source.forEach((r: any) => {
+      const cid = r.consultor_id;
+      if (!map[cid]) map[cid] = { consultor_id: cid, atendidos: 0, carteira: 0 };
+      if (useAuditData) {
+        map[cid].atendidos += r.atendidos ?? 0;
+        map[cid].carteira  += r.carteira  ?? 0;
+      } else {
+        map[cid].atendidos += r.reunioes_realizadas ?? 0;
+        map[cid].carteira  += r.clientes_ativos     ?? 0;
+      }
+    });
+
+    return Object.values(map)
       .map(r => ({
-        ...r,
-        consulName: consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
+        consultor_id:        r.consultor_id,
+        reunioes_realizadas: r.atendidos,
+        clientes_ativos:     r.carteira,
+        pct_reunioes:        r.carteira > 0 ? Math.round((r.atendidos / r.carteira) * 100) : 0,
+        consulName:          consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
       }))
       .sort((a, b) => b.pct_reunioes - a.pct_reunioes);
-  }, [data.currentMeetings, consultores]);
+  }, [data.rankingAtendidos, data.currentMeetings, consultores]);
 
   return (
     <section className="section-block">
