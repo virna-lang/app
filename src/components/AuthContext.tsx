@@ -18,7 +18,7 @@ interface AuthContextType {
   role: UserRole;
   loading: boolean;
   setRole: (role: UserRole) => void;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (rememberMe?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -40,21 +40,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Escuta mudanças de estado de autenticação (login, logout, refresh de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Se o usuário escolheu NÃO manter conectado, desloga ao fechar a aba
+        if (event === 'SIGNED_IN') {
+          const remember = localStorage.getItem('vorp-remember-me');
+          if (remember === 'false') {
+            const handleUnload = () => { supabase.auth.signOut(); };
+            window.addEventListener('beforeunload', handleUnload);
+            // Salva referência para limpar depois
+            (window as any).__vorpUnloadHandler = handleUnload;
+          } else {
+            // Remove handler anterior se existir
+            if ((window as any).__vorpUnloadHandler) {
+              window.removeEventListener('beforeunload', (window as any).__vorpUnloadHandler);
+            }
+          }
+        }
       }
     );
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (rememberMe = true) => {
+    // Salva preferência antes do redirect OAuth
+    localStorage.setItem('vorp-remember-me', rememberMe ? 'true' : 'false');
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Após autenticar, retorna para a raiz do app
         redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
       },
     });

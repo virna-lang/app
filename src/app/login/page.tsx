@@ -8,6 +8,10 @@ export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('vorp-remember-me') !== 'false';
+  });
 
   // Se já estiver autenticado, redireciona para o dashboard
   useEffect(() => {
@@ -18,9 +22,7 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
-    await signInWithGoogle();
-    // O redirect para o Google acontece aqui — o estado isSigningIn
-    // será descartado naturalmente com o redirect de volta
+    await signInWithGoogle(rememberMe);
   };
 
   if (loading) {
@@ -103,6 +105,57 @@ export default function LoginPage() {
           animation: spin 0.7s linear infinite;
           flex-shrink: 0;
         }
+
+        .remember-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 16px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .toggle-track {
+          position: relative;
+          width: 36px;
+          height: 20px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.15);
+          transition: background 0.2s, border-color 0.2s;
+          flex-shrink: 0;
+        }
+
+        .toggle-track.on {
+          background: #FC5400;
+          border-color: #FC5400;
+        }
+
+        .toggle-thumb {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          transition: transform 0.2s;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .toggle-track.on .toggle-thumb {
+          transform: translateX(16px);
+        }
+
+        .remember-label {
+          font-size: 13px;
+          color: rgba(255,255,255,0.5);
+          transition: color 0.2s;
+        }
+
+        .remember-row:hover .remember-label {
+          color: rgba(255,255,255,0.75);
+        }
       `}</style>
 
       <div style={styles.fullscreen}>
@@ -159,6 +212,20 @@ export default function LoginPage() {
               </>
             )}
           </button>
+
+          <div
+            className="remember-row"
+            onClick={() => setRememberMe(v => !v)}
+            role="switch"
+            aria-checked={rememberMe}
+          >
+            <div className={`toggle-track ${rememberMe ? 'on' : ''}`}>
+              <div className="toggle-thumb" />
+            </div>
+            <span className="remember-label">
+              {rememberMe ? 'Manter conectado' : 'Não manter conectado'}
+            </span>
+          </div>
 
           <p style={styles.footer}>
             Acesso restrito a membros autorizados do Grupo Vorp.
