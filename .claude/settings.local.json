@@ -72,7 +72,9 @@
       "Bash(node -e ' *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:55031/)",
       "Bash(node_modules/.bin/tsc --noEmit)",
-      "Bash(node_modules/.bin/tsc --noEmit --project \".claude/worktrees/vigorous-elbakyan-4b8d27/tsconfig.json\")"
+      "Bash(node_modules/.bin/tsc --noEmit --project \".claude/worktrees/vigorous-elbakyan-4b8d27/tsconfig.json\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:59681/)",
+      "Bash(node -e \"require\\('@tanstack/react-query'\\); console.log\\('OK'\\)\")"
     ]
   }
 }

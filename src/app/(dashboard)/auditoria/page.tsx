@@ -1,11 +1,12 @@
 'use client';
 
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
-import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X, Edit3, Zap, TrendingDown } from 'lucide-react';
+import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X, Edit3, Zap, TrendingDown, Building2 } from 'lucide-react';
 import ChurnRapido from '@/components/auditoria/ChurnRapido';
 import AuditoriaRapida from '@/components/auditoria/AuditoriaRapida';
+import VorpSection from '@/components/dashboard/VorpSection';
 import {
   getConsultores,
   getAuditoriasMensais,
@@ -44,12 +45,13 @@ type ItemEditState = {
   dirty:  boolean;
 };
 
-type AuditTab = 'edicao' | 'churn' | 'rapida';
+type AuditTab = 'edicao' | 'churn' | 'rapida' | 'projetos';
 
-const AUDIT_TABS: { id: AuditTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'edicao',  label: 'Edição Completa', icon: <Edit3 size={15} /> },
-  { id: 'churn',   label: 'Churn Rápido',    icon: <TrendingDown size={15} /> },
-  { id: 'rapida',  label: 'Auditoria Rápida', icon: <Zap size={15} /> },
+const AUDIT_TABS: { id: AuditTab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
+  { id: 'edicao',    label: 'Edição Completa',  icon: <Edit3 size={15} />,      adminOnly: true },
+  { id: 'churn',     label: 'Churn Rápido',     icon: <TrendingDown size={15} /> },
+  { id: 'rapida',    label: 'Auditoria Rápida', icon: <Zap size={15} />,        adminOnly: true },
+  { id: 'projetos',  label: 'Projetos Ativos',  icon: <Building2 size={15} /> },
 ];
 
 export default function AuditoriaPage() {
@@ -62,15 +64,17 @@ export default function AuditoriaPage() {
 
 function AuditoriaPageInner() {
   const { role } = useAuth();
-  const router   = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<AuditTab>(
     (searchParams.get('tab') as AuditTab) ?? 'edicao',
   );
 
+  const adminTabs: AuditTab[] = ['edicao', 'rapida'];
   useEffect(() => {
-    if (role && role !== 'Administrador') router.replace('/');
-  }, [role]);
+    if (role && role !== 'Administrador' && adminTabs.includes(activeTab)) {
+      setActiveTab('projetos');
+    }
+  }, [role, activeTab]);
 
   const meses = gerarMeses(24); // últimos 24 meses
   const [consultores,   setConsultores]   = useState<Consultor[]>([]);
@@ -252,23 +256,28 @@ function AuditoriaPageInner() {
   const conformidade = itens.filter(i => (editState[i.id]?.tipo ?? i.tipo) === 'Conformidade');
   const semTipo      = itens.filter(i => !((editState[i.id]?.tipo ?? i.tipo)));
 
-  if (role && role !== 'Administrador') return null;
 
   return (
     <div className="edit-page">
       {/* Tab bar */}
       <div className="audit-tabs">
-        {AUDIT_TABS.map(tab => (
-          <button
-            key={tab.id}
-            className={`audit-tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+        {AUDIT_TABS.map(tab => {
+          if (tab.adminOnly && role !== 'Administrador') return null;
+          return (
+            <button
+              key={tab.id}
+              className={`audit-tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Projetos Ativos */}
+      {activeTab === 'projetos' && <VorpSection />}
 
       {/* Churn Rápido */}
       {activeTab === 'churn' && <ChurnRapido />}
