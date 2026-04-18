@@ -546,3 +546,114 @@ export function getMesAnterior(label: string): string | undefined {
   const idx = meses.indexOf(label);
   return idx > 0 ? meses[idx - 1] : undefined;
 }
+
+// ─────────────────────────────────────────────────────────
+// Vorp System — tabelas espelho
+// ─────────────────────────────────────────────────────────
+
+/** Projetos ativos da vertical Growth, com flag de Tratativa CS */
+export async function getVorpProjetosAtivos(consultorNome?: string) {
+  let q = supabase
+    .from('vorp_projetos')
+    .select('*')
+    .eq('status', 'Ativo')
+    .order('nome');
+
+  if (consultorNome && consultorNome !== 'all') {
+    q = q.eq('colaborador_nome', consultorNome);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Marca / desmarca um projeto como Tratativa CS */
+export async function setTrativaCS(
+  vorpId: string,
+  tratativa_cs: boolean,
+  tratativa_cs_obs?: string,
+) {
+  const { error } = await supabase
+    .from('vorp_projetos')
+    .update({ tratativa_cs, tratativa_cs_obs: tratativa_cs_obs ?? null })
+    .eq('vorp_id', vorpId);
+  if (error) throw error;
+}
+
+/** HealthScores por projeto e mês (ano/mes no formato numérico) */
+export async function getVorpHealthScores(ano: number, mes: number, consultorNome?: string) {
+  let q = supabase
+    .from('vorp_healthscores')
+    .select(`
+      *,
+      vorp_projetos!inner(colaborador_nome, tratativa_cs)
+    `)
+    .eq('ano', ano)
+    .eq('mes', mes);
+
+  if (consultorNome && consultorNome !== 'all') {
+    q = q.eq('vorp_projetos.colaborador_nome', consultorNome);
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    // fallback sem join se a foreign key não estiver configurada
+    const { data: d2, error: e2 } = await supabase
+      .from('vorp_healthscores')
+      .select('*')
+      .eq('ano', ano)
+      .eq('mes', mes);
+    if (e2) throw e2;
+    return d2 ?? [];
+  }
+  return data ?? [];
+}
+
+/** Metas do Vorp por mês */
+export async function getVorpMetas(ano: number, mes: number, consultorNome?: string) {
+  let q = supabase
+    .from('vorp_metas')
+    .select(`
+      *,
+      vorp_projetos!inner(colaborador_nome, tratativa_cs)
+    `)
+    .eq('ano', ano)
+    .eq('mes', mes);
+
+  if (consultorNome && consultorNome !== 'all') {
+    q = q.eq('vorp_projetos.colaborador_nome', consultorNome);
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    const { data: d2, error: e2 } = await supabase
+      .from('vorp_metas')
+      .select('*')
+      .eq('ano', ano)
+      .eq('mes', mes);
+    if (e2) throw e2;
+    return d2 ?? [];
+  }
+  return data ?? [];
+}
+
+/** Churn do Vorp */
+export async function getVorpChurn() {
+  const { data, error } = await supabase
+    .from('vorp_churn')
+    .select('*')
+    .order('vorp_created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Colaboradores Growth do Vorp */
+export async function getVorpColaboradores() {
+  const { data, error } = await supabase
+    .from('vorp_colaboradores')
+    .select('*')
+    .order('nome');
+  if (error) throw error;
+  return data ?? [];
+}

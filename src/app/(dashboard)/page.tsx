@@ -45,6 +45,7 @@ import GoalsSection from '@/components/dashboard/GoalsSection';
 import PerformanceRankings from '@/components/dashboard/PerformanceRankings';
 import ChurnSection from '@/components/dashboard/ChurnSection';
 import CorrelacaoSection from '@/components/dashboard/CorrelacaoSection';
+import VorpSection from '@/components/dashboard/VorpSection';
 
 const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
 
@@ -316,6 +317,16 @@ export default function Dashboard() {
 
         <section id="correlacao" className="dashboard-section">
            <CorrelacaoSection />
+        </section>
+
+        <div className="section-separator" />
+
+        <section id="vorp-system" className="dashboard-section">
+          <VorpSection
+            consultorNome={activeFilters.consultantId === 'all'
+              ? 'all'
+              : consultores.find(c => c.id === activeFilters.consultantId)?.nome}
+          />
         </section>
 
         {role === 'Administrador' && (

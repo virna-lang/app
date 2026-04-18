@@ -129,6 +129,90 @@ export interface Churn {
   created_at?: string;
 }
 
+// ──────────────────────────────────────────────────────────
+// Tabelas espelho do Vorp System (NocoDB) — Vertical Growth
+// ──────────────────────────────────────────────────────────
+
+export interface VorpColaboradorRow {
+  vorp_id:   string;
+  nome:      string;
+  email?:    string | null;
+  telefone?: string | null;
+  cargo?:    string | null;
+  status?:   string | null;
+  vertical?: string | null;
+  synced_at: string;
+}
+
+export interface VorpProjetoRow {
+  vorp_id:          string;
+  nome:             string;
+  empresa_nome?:    string | null;
+  status?:          string | null;
+  produto_nome?:    string | null;
+  colaborador_nome?: string | null;
+  fee?:             number | null;
+  canal?:           string | null;
+  tratativa_cs:     boolean;
+  tratativa_cs_obs?: string | null;
+  synced_at:        string;
+}
+
+export interface VorpProdutoRow {
+  vorp_id:   string;
+  nome:      string;
+  tipo?:     string | null;
+  vertical?: string | null;
+  synced_at: string;
+}
+
+export interface VorpChurnRow {
+  vorp_id:           string;
+  projeto_nome?:     string | null;
+  status?:           string | null;
+  tipo?:             string | null;
+  vertical?:         string | null;
+  vorp_created_at?:  string | null;
+  synced_at:         string;
+}
+
+export interface VorpHealthScoreRow {
+  vorp_id:                    string;
+  projeto_nome?:              string | null;
+  ano?:                       number | null;
+  mes?:                       number | null;
+  pontuacao?:                 number | null;
+  classificacao?:             string | null;
+  engajamento_cliente?:       number | null;
+  entregas?:                  number | null;
+  relacionamento?:            number | null;
+  resultado?:                 number | null;
+  implementacao_ferramentas?: number | null;
+  entrega_treinador_vendas?:  number | null;
+  observacoes?:               string | null;
+  synced_at:                  string;
+}
+
+export interface VorpMetaRow {
+  vorp_id:          string;
+  projeto_nome?:    string | null;
+  ano?:             number | null;
+  mes?:             number | null;
+  meta_projetada?:  number | null;
+  meta_realizada?:  number | null;
+  observacoes?:     string | null;
+  synced_at:        string;
+}
+
+export interface VorpSyncLog {
+  id:           number;
+  tabela:       string;
+  registros:    number;
+  status:       'ok' | 'erro';
+  mensagem?:    string | null;
+  executado_em: string;
+}
+
 // ──────────────────────────────────────────
 // Views calculadas pelo banco
 // ──────────────────────────────────────────

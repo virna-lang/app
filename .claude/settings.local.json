@@ -47,7 +47,32 @@
       "Bash(cmd /c \"node --version\")",
       "Bash(node scripts/import_vinicio.mjs)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/meta/bases/pd90pmw26pxw28p/swagger.json\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/meta/bases/pd90pmw26pxw28p/tables\")",
+      "Bash(python3)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -H 'xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns' https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/meta/bases/pd90pmw26pxw28p/tables/__TRACKED_VAR__)",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mb65b7vf33fflrf/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/m1ncqs230heea1j/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mgfth3rkiui6cqe/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mw3njb9laen7fa7/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mtq9gdiibpu49nc/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mlstarc6ceajj6b/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mb8stqr8kjzjf2n/records?limit=1\")",
+      "Bash(curl -s -H \"xc-token: ZYax7yU9Rho0v2lNjezmIL6vC_-wWi2auiojayns\" \"https://nocodb-p0k4gk4cs0g40gkg00gcko0w.31.97.254.12.sslip.io/api/v3/data/pd90pmw26pxw28p/mntyrz9iudzjz5j/records?limit=1\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/vorp/sync -H \"Authorization: Bearer Vivi070700#\" -H \"Content-Type: application/json\")",
+      "Bash(taskkill /PID 11592 /F)",
+      "Bash(cmd /c \"taskkill /PID 11592 /F\")",
+      "Bash(cmd /c \"npx kill-port 3000 2>nul & echo done\")",
+      "Bash(cmd /c \"netstat -ano | findstr :3000\")",
+      "Bash(curl -s -X POST \"http://localhost:3000/api/vorp/sync\" -H \"Authorization: Bearer Vivi070700#\" -H \"Content-Type: application/json\")",
+      "Bash(curl -s -X POST \"http://localhost:57170/api/vorp/sync\" -H \"Authorization: Bearer Vivi070700#\" -H \"Content-Type: application/json\")",
+      "Bash(node scripts/vorp-sync.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:55031/)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --noEmit --project \".claude/worktrees/vigorous-elbakyan-4b8d27/tsconfig.json\")"
     ]
   }
 }

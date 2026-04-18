@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardCheck, Users, ShieldCheck,
   BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart,
   Edit3, TrendingDown, Zap, GitBranch, ChevronRight, ChevronDown,
-  Flame,
+  Flame, Building2,
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -35,6 +35,7 @@ function SidebarInner() {
     { name: 'Churn',        id: 'churn',        icon: <AlertTriangle size={14} /> },
     { name: 'Correlação',   id: 'correlacao',   icon: <GitBranch size={14} /> },
     { name: 'Time Completo',id: 'time-completo',icon: <Users2 size={14} />, adminOnly: true },
+    { name: 'Vorp System',  id: 'vorp-system',  icon: <Building2 size={14} /> },
   ];
 
   const auditoriaSubItems = [
