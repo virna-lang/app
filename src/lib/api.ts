@@ -69,7 +69,7 @@ export async function getAuditoriasMensais(
 ): Promise<AuditoriaMensal[]> {
   let query = supabase
     .from('auditoria_mensal')
-    .select('*')
+    .select('id, consultor_id, mes_ano, tamanho_carteira, clientes_tratativa, clientes_ativos_real, nps_nota, nps_respostas, inadimplencia_pct, data_auditoria, auditora, observacoes_gerais')
     .eq('mes_ano', mesAno);
   if (consultorId && consultorId !== 'all') {
     query = query.eq('consultor_id', consultorId);
@@ -178,7 +178,7 @@ export async function getReunioes(
 export async function getMetas(mesAno: string): Promise<MetaMensal[]> {
   const { data, error } = await supabase
     .from('metas_mensais')
-    .select('*, clientes(nome, produto, consultor_id)')
+    .select('id, cliente_id, mes_ano, meta_projetada, meta_realizada, bateu_meta, preenchido_ate_dia5, clientes(nome, produto, consultor_id)')
     .eq('mes_ano', mesAno);
   if (error) { console.error('getMetas:', error); return []; }
   return data ?? [];
@@ -202,7 +202,7 @@ export async function getFlags(mesAno: string): Promise<FlagHealthScore[]> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getChurn(mesAno?: string): Promise<Churn[]> {
-  let query = supabase.from('churn').select('*').order('created_at', { ascending: false });
+  let query = supabase.from('churn').select('id, cliente_id, consultor_id, mes_churn, motivo, detalhes, receita_perdida').order('created_at', { ascending: false });
   if (mesAno) query = query.eq('mes_churn', mesAno);
   const { data, error } = await query;
   if (error) { console.error('getChurn:', error); return []; }
@@ -358,53 +358,29 @@ export async function getViewFlags(
 }
 
 /** Retorna score médio por consultor separado por tipo (Resultado / Conformidade).
- *  Usa média simples das notas de cada item — cada pergunta tem peso igual,
- *  independentemente do número de clientes avaliados. */
+ *  Agregação feita no banco via view_scores_por_tipo. */
 export async function getScoresPorTipo(
   mesAno: string,
   consultorId?: string,
 ): Promise<{ consultor_id: string; tipo: string; score: number }[]> {
   let query = supabase
-    .from('auditoria_itens')
-    .select('tipo, nota_pct, qtd_avaliados, auditoria_mensal!inner(consultor_id, mes_ano)')
-    .eq('auditoria_mensal.mes_ano', mesAno)
-    .not('tipo', 'is', null)
-    .gt('qtd_avaliados', 0); // exclui linhas sem avaliados (ex: #DIV/0!)
+    .from('view_scores_por_tipo')
+    .select('consultor_id, tipo, score')
+    .eq('mes_ano', mesAno);
 
   if (consultorId && consultorId !== 'all') {
-    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+    query = query.eq('consultor_id', consultorId);
   }
 
   const { data, error } = await query;
   if (error) { console.error('getScoresPorTipo:', error); return []; }
-  if (!data) return [];
 
-  // Agrupa por consultor+tipo → coleta todas as notas para média simples
-  // Normaliza o tipo para PascalCase (ex: 'conformidade' → 'Conformidade')
-  const normalizeTipo = (t: string) => {
-    const lower = t.toLowerCase();
-    if (lower === 'resultado')    return 'Resultado';
-    if (lower === 'conformidade') return 'Conformidade';
-    return t;
-  };
-
-  const map: Record<string, number[]> = {};
-  for (const row of data as any[]) {
-    const cid  = row.auditoria_mensal?.consultor_id;
-    const tipo = row.tipo ? normalizeTipo(row.tipo) : null;
-    const nota = row.nota_pct;
-    if (!cid || !tipo || nota == null) continue;
-    const key = `${cid}|${tipo}`;
-    if (!map[key]) map[key] = [];
-    map[key].push(nota);
-  }
-
-  return Object.entries(map).map(([key, notas]) => {
-    const [consultor_id, tipo] = key.split('|');
-    const score = notas.length > 0
-      ? Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10
-      : 0;
-    return { consultor_id, tipo, score };
+  return (data ?? []).map((row: any) => {
+    const lower = (row.tipo ?? '').toLowerCase();
+    const tipo = lower === 'resultado'    ? 'Resultado'
+               : lower === 'conformidade' ? 'Conformidade'
+               : row.tipo;
+    return { consultor_id: row.consultor_id, tipo, score: row.score ?? 0 };
   });
 }
 
@@ -429,52 +405,48 @@ export async function getViewConformidade(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Retorna, por consultor, quantos clientes da carteira foram atendidos no mês.
- *  Busca a pergunta "Quantas clientes da carteira foram atendidos dentro do mês?"
- *  em auditoria_itens → qtd_conformes = atendidos, qtd_avaliados = carteira total. */
+ *  Join e filtro feitos no banco via view_ranking_atendidos. */
 export async function getRankingAtendidosMes(
   mesAno: string,
   consultorId?: string,
 ): Promise<{ consultor_id: string; atendidos: number; carteira: number }[]> {
   let query = supabase
-    .from('auditoria_itens')
-    .select('qtd_conformes, qtd_avaliados, auditoria_mensal!inner(consultor_id, mes_ano)')
-    .eq('auditoria_mensal.mes_ano', mesAno)
-    .ilike('pergunta', '%atendidos dentro do mês%');
+    .from('view_ranking_atendidos')
+    .select('consultor_id, atendidos, carteira')
+    .eq('mes_ano', mesAno);
 
   if (consultorId && consultorId !== 'all') {
-    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+    query = query.eq('consultor_id', consultorId);
   }
 
   const { data, error } = await query;
   if (error) { console.error('getRankingAtendidosMes:', error); return []; }
 
   return (data ?? []).map((row: any) => ({
-    consultor_id: row.auditoria_mensal?.consultor_id ?? '',
-    atendidos:    row.qtd_conformes  ?? 0,
-    carteira:     row.qtd_avaliados  ?? 0,
+    consultor_id: row.consultor_id ?? '',
+    atendidos:    row.atendidos    ?? 0,
+    carteira:     row.carteira     ?? 0,
   }));
 }
 
-/** Retorna % de clientes com meta batida por produto, extraindo o produto
- *  do parêntese na pergunta: "...meta batida da operação? (Aliança Pro)" */
+/** Retorna % de clientes com meta batida por produto.
+ *  Join e filtro feitos no banco via view_metas_batidas_produto. */
 export async function getMetasBatidasPorProduto(
   mesAno: string,
   consultorId?: string,
 ): Promise<{ consultor_id: string; produto: string; nota_pct: number; qtd_avaliados: number; qtd_conformes: number }[]> {
   let query = supabase
-    .from('auditoria_itens')
-    .select('pergunta, nota_pct, qtd_avaliados, qtd_conformes, auditoria_mensal!inner(consultor_id, mes_ano)')
-    .eq('auditoria_mensal.mes_ano', mesAno)
-    .ilike('pergunta', '%meta batida da operação%');
+    .from('view_metas_batidas_produto')
+    .select('consultor_id, pergunta, nota_pct, qtd_avaliados, qtd_conformes')
+    .eq('mes_ano', mesAno);
 
   if (consultorId && consultorId !== 'all') {
-    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+    query = query.eq('consultor_id', consultorId);
   }
 
   const { data, error } = await query;
   if (error) { console.error('getMetasBatidasPorProduto:', error); return []; }
 
-  // Normaliza variações de nome de produto
   const normalizeProduto = (p: string): string => {
     const map: Record<string, string> = {
       'gsa': 'GSA',
@@ -489,11 +461,10 @@ export async function getMetasBatidasPorProduto(
   };
 
   return (data ?? []).map((row: any) => {
-    // Extrai o nome do produto entre parênteses, ex: "(Aliança Pro)"
     const match = (row.pergunta as string).match(/\(([^)]+)\)/);
     const produto = match ? normalizeProduto(match[1].trim()) : 'Sem produto';
     return {
-      consultor_id:  row.auditoria_mensal?.consultor_id ?? '',
+      consultor_id:  row.consultor_id  ?? '',
       produto,
       nota_pct:      row.nota_pct      ?? 0,
       qtd_avaliados: row.qtd_avaliados ?? 0,

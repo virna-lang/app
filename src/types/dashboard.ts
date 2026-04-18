@@ -18,6 +18,7 @@ export const COLORS = {
   primaryDim: 'rgba(252, 84, 0, 0.4)',
   verde: '#1E9080',
   vermelho: '#B03030',
+  amarelo: '#D4A017',
   cardBg: '#0F1020',
   cardBorder: '#1A1A38',
   textMain: '#E0E0EE',

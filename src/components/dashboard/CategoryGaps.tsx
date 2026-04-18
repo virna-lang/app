@@ -109,7 +109,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
               <Tooltip
                 cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                 contentStyle={{ background: '#0F1020', borderRadius: '12px', border: '1px solid #1A1A38', fontSize: '12px' }}
-                formatter={(v: any, name: string) => [`${(v || 0).toFixed(1)}%`, name]}
+                formatter={(v: any, name: any) => [`${(v || 0).toFixed(1)}%`, String(name ?? '')]}
               />
               {selectedCat === 'all' && (
                 <Legend

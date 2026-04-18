@@ -1,51 +1,41 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/components/AuthContext';
 import DashboardFilters from '@/components/DashboardFilters';
 import { useDashboard } from '@/context/DashboardContext';
+import { useDashboardData } from '@/hooks/useDashboardData';
 
 import {
-  getAuditoriasMensais,
-  getViewReunioes,
-  getViewMetas,
-  getMetas,
-  getChurn,
-  getScoresPorTipo,
-  getRankingAtendidosMes,
-  getMetasBatidasPorProduto,
   addConsultor,
   toggleConsultor,
-  labelToMesAno,
   getMesAnterior,
 } from '@/lib/api';
 
 import type {
   AuditoriaMensal,
-  ViewReunioesConsultor,
-  ViewMetasConsultor,
-  MetaMensal,
-  Churn,
+  ViewConformidadeConsultor,
 } from '@/lib/supabase';
 
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader';
 import EmptyState from '@/components/dashboard/EmptyState';
-import AdminManagement from '@/components/dashboard/AdminManagement';
 import { COLORS } from '@/types/dashboard';
 import type { Consultor } from '@/lib/supabase';
-import { getViewConformidade } from '@/lib/api';
-import type { ViewConformidadeConsultor } from '@/lib/supabase';
 
-// Refined Components
+// Static sections — always visible, load immediately
 import SummaryKPIs from '@/components/dashboard/SummaryKPIs';
-import CategoryGaps from '@/components/dashboard/CategoryGaps';
-import EvolutionSection from '@/components/dashboard/EvolutionSection';
-import MeetingsSection from '@/components/dashboard/MeetingsSection';
-import GoalsSection from '@/components/dashboard/GoalsSection';
-import PerformanceRankings from '@/components/dashboard/PerformanceRankings';
-import ChurnSection from '@/components/dashboard/ChurnSection';
-import CorrelacaoSection from '@/components/dashboard/CorrelacaoSection';
-import VorpSection from '@/components/dashboard/VorpSection';
+
+// Heavy sections — lazy loaded so the first paint is faster
+const EvolutionSection    = dynamic(() => import('@/components/dashboard/EvolutionSection'));
+const CategoryGaps        = dynamic(() => import('@/components/dashboard/CategoryGaps'));
+const PerformanceRankings = dynamic(() => import('@/components/dashboard/PerformanceRankings'));
+const MeetingsSection     = dynamic(() => import('@/components/dashboard/MeetingsSection'));
+const GoalsSection        = dynamic(() => import('@/components/dashboard/GoalsSection'));
+const ChurnSection        = dynamic(() => import('@/components/dashboard/ChurnSection'));
+const CorrelacaoSection   = dynamic(() => import('@/components/dashboard/CorrelacaoSection'));
+const VorpSection         = dynamic(() => import('@/components/dashboard/VorpSection'));
+const AdminManagement     = dynamic(() => import('@/components/dashboard/AdminManagement'));
 
 const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
 
@@ -54,66 +44,25 @@ export default function Dashboard() {
   const { activeTab, consultores, setConsultores, meses, loadingConsultores } = useDashboard();
 
   const [products] = useState<string[]>(PRODUTOS_PADRAO);
-  const [loading, setLoading] = useState(false);
-
   const [activeFilters, setActiveFilters] = useState({
     month: meses[meses.length - 1],
     consultantId: 'all',
     products: PRODUTOS_PADRAO,
   });
 
-  // ─── Dados do Supabase ──────────────────────────────────────────────────────
-  const [auditorias, setAuditorias]     = useState<AuditoriaMensal[]>([]);
-  const [prevAuditorias, setPrevAuds]   = useState<AuditoriaMensal[]>([]);
-  const [viewReunioes, setViewReunioes] = useState<ViewReunioesConsultor[]>([]);
-  const [viewMetas, setViewMetas]       = useState<ViewMetasConsultor[]>([]);
-  const [metas, setMetas]               = useState<MetaMensal[]>([]);
-  const [prevMetas, setPrevMetas]       = useState<MetaMensal[]>([]);
-  const [churn, setChurn]               = useState<Churn[]>([]);
-  const [rankAtendidos, setRankAtendidos] = useState<any[]>([]);
-  const [metasProduto, setMetasProduto]   = useState<any[]>([]);
+  // ─── SWR — cache automático por [mês, consultor] ──────────────────────────
+  const { data: raw, isLoading } = useDashboardData(
+    activeFilters.month,
+    activeFilters.consultantId,
+  );
 
-  // ─── Fetch de dados ao mudar filtros ───────────────────────────────────────
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const { month, consultantId } = activeFilters;
-    const mesAno     = labelToMesAno(month);
-    const prevLabel  = getMesAnterior(month);
-    const prevMesAno = prevLabel ? labelToMesAno(prevLabel) : null;
-
-    const [auds, reunioes, vMetas, mt, ch, conf, tipoScores, rankAtend, metasProd] = await Promise.all([
-      getAuditoriasMensais(mesAno, consultantId),
-      getViewReunioes(mesAno, consultantId),
-      getViewMetas(mesAno, consultantId),
-      getMetas(mesAno),
-      getChurn(mesAno),
-      getViewConformidade(mesAno, consultantId),
-      getScoresPorTipo(mesAno, consultantId),
-      getRankingAtendidosMes(mesAno, consultantId),
-      getMetasBatidasPorProduto(mesAno, consultantId),
-    ]);
-
-    let prevAuds: AuditoriaMensal[] = [];
-    let prevMt: MetaMensal[] = [];
-    let prevConf: ViewConformidadeConsultor[] = [];
-    let prevTipoScores: { consultor_id: string; tipo: string; score: number }[] = [];
-    if (prevMesAno) {
-      const results = await Promise.all([
-        getAuditoriasMensais(prevMesAno, consultantId),
-        getMetas(prevMesAno),
-        getViewConformidade(prevMesAno, consultantId),
-        getScoresPorTipo(prevMesAno, consultantId),
-      ]);
-      prevAuds = results[0];
-      prevMt   = results[1];
-      prevConf = results[2];
-      prevTipoScores = results[3];
-    }
-
-    // Merge Conformidade into Audits
-    const mapConf = (a: AuditoriaMensal, cData: ViewConformidadeConsultor[]) => {
-      const items = cData.filter(c => c.consultor_id === a.consultor_id);
-      const obj: any = { ...a };
+  // ─── Enriquece auditorias com nome do consultor e scores calculados ────────
+  const enrich = useCallback(
+    (
+      auds: AuditoriaMensal[],
+      conf: ViewConformidadeConsultor[],
+      tScores: { consultor_id: string; tipo: string; score: number }[],
+    ) => {
       const catMap: Record<string, string> = {
         'ClickUp': 'score_clickup',
         'Drive': 'score_drive',
@@ -121,55 +70,78 @@ export default function Dashboard() {
         'Vorp System': 'score_vorp',
         'Dados': 'score_metas',
         'Flags': 'score_flags',
-        'Rastreabilidade': 'score_rastreabilidade'
+        'Rastreabilidade': 'score_rastreabilidade',
       };
-      let total = 0;
-      let count = 0;
-      items.forEach(i => {
-        const key = catMap[i.categoria];
-        if (key) {
-          obj[key] = i.score_categoria;
-          total += i.score_categoria;
-          count++;
-        }
+
+      return auds.map(a => {
+        const items = conf.filter(c => c.consultor_id === a.consultor_id);
+        const obj: any = { ...a };
+        items.forEach(i => {
+          const key = catMap[i.categoria];
+          if (key) obj[key] = i.score_categoria;
+        });
+
+        const consultor   = consultores.find(c => c.id === a.consultor_id);
+        const resultado   = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Resultado');
+        const conformidade = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Conformidade');
+        const scoreR = resultado?.score   ?? 0;
+        const scoreC = conformidade?.score ?? 0;
+        const scoreGeral = (scoreR > 0 && scoreC > 0)
+          ? Math.round(((scoreR + scoreC) / 2) * 10) / 10
+          : scoreR || scoreC;
+
+        return {
+          ...obj,
+          consultor_nome:     consultor?.nome ?? 'Consultor',
+          score_resultado:    scoreR,
+          score_conformidade: scoreC,
+          score_geral:        scoreGeral,
+        };
       });
-      obj.score_geral = count > 0 ? total / count : 0;
-      return obj;
-    };
+    },
+    [consultores],
+  );
 
-    const withExtra = (a: AuditoriaMensal, cData: ViewConformidadeConsultor[], tScores: typeof tipoScores) => {
-      const consultor    = consultores.find(c => c.id === a.consultor_id);
-      const resultado    = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Resultado');
-      const conformidade = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Conformidade');
-      const scoreR = resultado?.score   ?? 0;
-      const scoreC = conformidade?.score ?? 0;
-      // score_geral = média simples dos dois tipos (cada tipo tem peso igual)
-      const scoreGeral = (scoreR > 0 && scoreC > 0)
-        ? Math.round(((scoreR + scoreC) / 2) * 10) / 10
-        : scoreR || scoreC;
-      return {
-        ...mapConf(a, cData),
-        consultor_nome: consultor?.nome ?? 'Consultor',
-        score_resultado:    scoreR,
-        score_conformidade: scoreC,
-        score_geral:        scoreGeral,
-      };
-    };
-    setAuditorias(auds.map(a => withExtra(a, conf, tipoScores)));
-    setPrevAuds(prevAuds.map(a => withExtra(a, prevConf, prevTipoScores)));
-    setViewReunioes(reunioes);
-    setViewMetas(vMetas);
-    setMetas(mt);
-    setPrevMetas(prevMt);
-    setChurn(ch);
-    setRankAtendidos(rankAtend);
-    setMetasProduto(metasProd);
-    setLoading(false);
-  }, [activeFilters]);
+  // ─── Dados computados — memorizados para evitar re-render desnecessário ───
+  const data = useMemo(() => {
+    if (!raw) return null;
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const auditorias     = enrich(raw.auds,     raw.conf,     raw.tipoScores);
+    const prevAuditorias = enrich(raw.prevAuds, raw.prevConf, raw.prevTipoScores);
+    const prevLabel      = getMesAnterior(activeFilters.month);
+
+    const totalReunioes = raw.reunioes.reduce((a, v) => a + v.clientes_com_reuniao, 0);
+    const totalClientes = raw.reunioes.reduce((a, v) => a + v.total_clientes, 0);
+
+    return {
+      month:        activeFilters.month,
+      prevMonth:    prevLabel,
+      currentAudits: auditorias,
+      prevAudits:    prevAuditorias,
+      currentGoals:  raw.metas,
+      prevGoals:     raw.prevMetas,
+      currentMeetings: Object.values(
+        raw.reunioes.reduce((acc: Record<string, any>, v) => {
+          if (!acc[v.consultor_id]) {
+            acc[v.consultor_id] = {
+              consultor_id:       v.consultor_id,
+              clientes_ativos:    v.total_clientes,
+              reunioes_realizadas: v.clientes_com_reuniao,
+              pct_reunioes:       v.pct_reunioes,
+            };
+          }
+          return acc;
+        }, {}),
+      ),
+      currentNPS: auditorias
+        .filter(a => a.nps_nota != null)
+        .map(a => ({ id: a.id, consultor_id: a.consultor_id, nota: a.nps_nota ?? 0, mes_ano: a.mes_ano })),
+      currentChurn:     raw.churn,
+      viewMetas:        raw.vMetas,
+      rankingAtendidos: raw.rankAtend,
+      metasPorProduto:  raw.metasProd,
+    };
+  }, [raw, enrich, activeFilters.month]);
 
   // ─── Handlers de admin ─────────────────────────────────────────────────────
   const handleAddConsultant = async (name: string) => {
@@ -185,65 +157,8 @@ export default function Dashboard() {
     );
   };
 
-  const handleAddProduct = (_name: string) => {
-    // Produtos são fixos no sistema; reservado para expansão futura
-  };
-
-  // ─── Dados computados ──────────────────────────────────────────────────────
-  const data = useMemo(() => {
-    const prevLabel = getMesAnterior(activeFilters.month);
-
-    // Reuniões: soma dos percentuais das views
-    const totalReunioes = viewReunioes.reduce((a, v) => a + v.clientes_com_reuniao, 0);
-    const totalClientes = viewReunioes.reduce((a, v) => a + v.total_clientes, 0);
-    const pctReunioes = totalClientes > 0 ? (totalReunioes / totalClientes) * 100 : 0;
-
-    // NPS: vem da tabela auditoria_mensal
-    const npsItems = auditorias.filter(a => a.nps_nota != null);
-    const npsMedia = npsItems.length > 0
-      ? npsItems.reduce((s, a) => s + (a.nps_nota ?? 0), 0) / npsItems.length
-      : 0;
-
-
-    return {
-      month: activeFilters.month,
-      prevMonth: prevLabel,
-      currentAudits: auditorias,
-      prevAudits: prevAuditorias,
-      currentGoals: metas,
-      prevGoals: prevMetas,
-      // Deduplica por consultor_id (a view pode retornar linhas por produto)
-      // e normaliza nomes de produto (GSA === Gsa)
-      currentMeetings: Object.values(
-        viewReunioes.reduce((acc: Record<string, any>, v) => {
-          if (!acc[v.consultor_id]) {
-            acc[v.consultor_id] = {
-              consultor_id: v.consultor_id,
-              clientes_ativos: v.total_clientes,
-              reunioes_realizadas: v.clientes_com_reuniao,
-              pct_reunioes: v.pct_reunioes,
-            };
-          }
-          return acc;
-        }, {})
-      ),
-      currentNPS: auditorias
-        .filter(a => a.nps_nota != null)
-        .map(a => ({
-          id: a.id,
-          consultor_id: a.consultor_id,
-          nota: a.nps_nota ?? 0,
-          mes_ano: a.mes_ano
-        })),
-      currentChurn: churn,
-      viewMetas,
-      rankingAtendidos: rankAtendidos,
-      metasPorProduto:  metasProduto,
-    };
-  }, [auditorias, prevAuditorias, metas, prevMetas, viewReunioes, viewMetas, churn, rankAtendidos, metasProduto, activeFilters.month]);
-
   // ─── Render ────────────────────────────────────────────────────────────────
-  if (loadingConsultores || loading) {
+  if (loadingConsultores || (isLoading && !data)) {
     return (
       <div className="dashboard-wrapper">
         <DashboardFilters
@@ -257,10 +172,11 @@ export default function Dashboard() {
   }
 
   const isEmpty =
-    data.currentAudits.length === 0 &&
-    data.currentGoals.length === 0 &&
-    data.currentMeetings.length === 0 &&
-    activeTab !== 'Time Completo';
+    !data ||
+    (data.currentAudits.length === 0 &&
+      data.currentGoals.length === 0 &&
+      data.currentMeetings.length === 0 &&
+      activeTab !== 'Time Completo');
 
   const renderContent = () => {
     if (isEmpty) return <EmptyState />;
@@ -268,55 +184,55 @@ export default function Dashboard() {
     return (
       <div className="unified-dashboard">
         <section id="visao-geral" className="dashboard-section">
-          <SummaryKPIs data={data} />
+          <SummaryKPIs data={data!} />
         </section>
 
         <div className="section-separator" />
 
         <section id="evolucao" className="dashboard-section">
-           <EvolutionSection data={data} />
+          <EvolutionSection data={data!} />
         </section>
 
         <div className="section-separator" />
 
         <section id="conformidade" className="dashboard-section">
-           <CategoryGaps data={data} />
+          <CategoryGaps data={data!} />
         </section>
 
         <div className="section-separator" />
 
         <section id="processos" className="dashboard-section">
-           <PerformanceRankings data={data} />
+          <PerformanceRankings data={data!} />
         </section>
 
         <div className="section-separator" />
 
         <section id="reunioes" className="dashboard-section">
-           <MeetingsSection data={data} />
+          <MeetingsSection data={data!} />
         </section>
 
         <div className="section-separator" />
 
         <section id="metas" className="dashboard-section">
-           <GoalsSection data={data} filterProducts={activeFilters.products} />
+          <GoalsSection data={data!} filterProducts={activeFilters.products} />
         </section>
 
         <div className="section-separator" />
 
         <section id="nps" className="dashboard-section">
-           <NPSSupabase auditorias={data.currentAudits} />
+          <NPSSupabase auditorias={data!.currentAudits} />
         </section>
 
         <div className="section-separator" />
 
         <section id="churn" className="dashboard-section">
-           <ChurnSection churn={data.currentChurn} />
+          <ChurnSection churn={data!.currentChurn} />
         </section>
 
         <div className="section-separator" />
 
         <section id="correlacao" className="dashboard-section">
-           <CorrelacaoSection />
+          <CorrelacaoSection />
         </section>
 
         <div className="section-separator" />
@@ -333,13 +249,13 @@ export default function Dashboard() {
           <>
             <div className="section-separator" />
             <section id="time-completo" className="dashboard-section">
-               <div className="section-anchor"><h2>Gestão de Time Completo</h2></div>
-               <AdminManagement
+              <div className="section-anchor"><h2>Gestão de Time Completo</h2></div>
+              <AdminManagement
                 consultants={consultores}
                 products={products}
                 onAddConsultant={handleAddConsultant}
                 onToggleConsultant={handleToggleConsultant}
-                onAddProduct={handleAddProduct}
+                onAddProduct={() => {}}
               />
             </section>
           </>
@@ -386,7 +302,7 @@ function NPSSupabase({ auditorias }: { auditorias: AuditoriaMensal[] }) {
   return (
     <div className="nps-section section-block">
       <div className="section-anchor">
-          <h2>NPS por Consultor</h2>
+        <h2>NPS por Consultor</h2>
       </div>
       <div className="nps-grid">
         {comNPS.map(a => (

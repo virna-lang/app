@@ -287,7 +287,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
                 <Tooltip
                   cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                   contentStyle={{ background: '#0F1020', borderRadius: '10px', border: '1px solid #1A1A38', fontSize: '12px' }}
-                  formatter={(v: any, name: string) => [`${(v || 0).toFixed(1)}%`, name]}
+                  formatter={(v: any, name: any) => [`${(v || 0).toFixed(1)}%`, String(name ?? '')]}
                   labelFormatter={(label) => geralRanking.find(r => r.nome === label)?.nomeCompleto ?? label}
                 />
                 <Bar dataKey="score_conformidade" radius={[0, 6, 6, 0]} barSize={28}>
