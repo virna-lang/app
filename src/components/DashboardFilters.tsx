@@ -113,8 +113,9 @@ export default function DashboardFilters({ onFilterChange, availableConsultants,
       try {
         const parsed = JSON.parse(saved);
         if (meses.includes(parsed.month)) {
-          setFilters(parsed);
-          onFilterChange(parsed);
+          const safe = { ...parsed, products: parsed.products ?? availableProducts };
+          setFilters(safe);
+          onFilterChange(safe);
           return;
         }
       } catch {}
@@ -134,13 +135,13 @@ export default function DashboardFilters({ onFilterChange, availableConsultants,
     ? 'Todos os consultores'
     : availableConsultants.find(c => String(c.id) === filters.consultantId)?.nome ?? 'Consultor';
 
-  const productLabel = filters.products.length === availableProducts.length
+  const productLabel = (filters.products?.length ?? availableProducts.length) === availableProducts.length
     ? 'Todos os produtos'
-    : `${filters.products.length} selecionados`;
+    : `${filters.products?.length ?? 0} selecionados`;
 
   const hasActiveFilters =
     filters.consultantId !== 'all' ||
-    filters.products.length !== availableProducts.length;
+    (filters.products?.length ?? availableProducts.length) !== availableProducts.length;
 
   return (
     <div className="filters-bar">
