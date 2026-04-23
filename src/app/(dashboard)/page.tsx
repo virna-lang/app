@@ -45,7 +45,10 @@ export default function Dashboard() {
   );
 
   const enrich = useCallback(
-    (auds: AuditoriaMensal[], conf: ViewConformidadeConsultor[], tScores: any[]) => {
+    (auds: AuditoriaMensal[] | undefined, conf: ViewConformidadeConsultor[] | undefined, tScores: any[] | undefined) => {
+      if (!auds) return [];
+      const safeConf    = conf     ?? [];
+      const safeTScores = tScores  ?? [];
       const catMap: Record<string, string> = {
         'ClickUp':         'score_clickup',
         'Drive':           'score_drive',
@@ -57,13 +60,13 @@ export default function Dashboard() {
       };
 
       return auds.map(a => {
-        const items = conf.filter(c => c.consultor_id === a.consultor_id);
+        const items = safeConf.filter(c => c.consultor_id === a.consultor_id);
         const obj: any = { ...a };
         items.forEach(i => { const k = catMap[i.categoria]; if (k) obj[k] = i.score_categoria; });
 
         const consultor    = consultores.find(c => c.id === a.consultor_id);
-        const resultado    = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Resultado');
-        const conformidade = tScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Conformidade');
+        const resultado    = safeTScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Resultado');
+        const conformidade = safeTScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Conformidade');
         const scoreR = resultado?.score ?? 0;
         const scoreC = conformidade?.score ?? 0;
         const scoreGeral = (scoreR > 0 && scoreC > 0)
