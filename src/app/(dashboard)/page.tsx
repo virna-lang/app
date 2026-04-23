@@ -86,10 +86,10 @@ export default function Dashboard() {
       prevMonth:       getMesAnterior(activeFilters.month),
       currentAudits:   auditorias,
       prevAudits:      prevAuditorias,
-      currentGoals:    raw.metas,
-      prevGoals:       raw.prevMetas,
+      currentGoals:    raw.metas ?? [],
+      prevGoals:       raw.prevMetas ?? [],
       currentMeetings: Object.values(
-        raw.reunioes.reduce((acc: Record<string, any>, v: any) => {
+        (raw.reunioes ?? []).reduce((acc: Record<string, any>, v: any) => {
           if (!acc[v.consultor_id]) acc[v.consultor_id] = {
             consultor_id: v.consultor_id,
             clientes_ativos: v.total_clientes,
@@ -102,10 +102,10 @@ export default function Dashboard() {
       currentNPS: auditorias
         .filter((a: any) => a.nps_nota != null)
         .map((a: any) => ({ id: a.id, consultor_id: a.consultor_id, nota: a.nps_nota ?? 0, mes_ano: a.mes_ano })),
-      currentChurn:     raw.churn,
-      viewMetas:        raw.vMetas,
-      rankingAtendidos: raw.rankAtend,
-      metasPorProduto:  raw.metasProd,
+      currentChurn:     raw.churn ?? [],
+      viewMetas:        raw.vMetas ?? [],
+      rankingAtendidos: raw.rankAtend ?? [],
+      metasPorProduto:  raw.metasProd ?? [],
     };
   }, [raw, enrich, activeFilters.month]);
 
@@ -135,9 +135,9 @@ export default function Dashboard() {
 
   const isEmpty =
     !data ||
-    (data.currentAudits.length === 0 &&
-      data.currentGoals.length === 0 &&
-      data.currentMeetings.length === 0 &&
+    ((data.currentAudits?.length ?? 0) === 0 &&
+      (data.currentGoals?.length ?? 0) === 0 &&
+      (data.currentMeetings?.length ?? 0) === 0 &&
       activeTab !== 'Time Completo');
 
   return (
