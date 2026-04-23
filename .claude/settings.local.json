@@ -73,7 +73,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:55031/)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(node_modules/.bin/tsc --noEmit --project \".claude/worktrees/vigorous-elbakyan-4b8d27/tsconfig.json\")",
-      "mcp__Claude_in_Chrome__tabs_context_mcp"
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__fa986939-239f-4787-ab6d-c7ef6750b5b4__clickup_get_workspace_hierarchy",
+      "mcp__fa986939-239f-4787-ab6d-c7ef6750b5b4__clickup_filter_tasks"
     ]
   }
 }
