@@ -1,8 +1,10 @@
 'use client';
 
 import { useAuth } from './AuthContext';
-import { LogOut, UserCircle2, ChevronRight } from 'lucide-react';
+import { LogOut, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
+import { useDashboard } from '@/context/DashboardContext';
+import DashboardFilters from './DashboardFilters';
 
 export default function Topbar() {
   const { role, setRole, user, signOut } = useAuth();
@@ -11,119 +13,137 @@ export default function Topbar() {
     setRole(role === 'Administrador' ? 'Consultor' : 'Administrador');
   };
 
-  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
-  const displayName = (user?.user_metadata?.full_name as string | undefined)
-    ?? user?.email
-    ?? '';
+  const avatarUrl   = user?.user_metadata?.avatar_url as string | undefined;
+  const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
 
   return (
     <header className="topbar">
+      {/* Breadcrumb */}
       <div className="breadcrumb">
-        <span>Vorp</span>
-        <ChevronRight size={14} className="separator" />
-        <span className="current-page">Recursos de Auditoria</span>
+        <span className="bc-root">Vorp</span>
+        <ChevronRight size={13} className="bc-sep" />
+        <span className="bc-current">Recursos de Auditoria</span>
       </div>
 
-      <div className="topbar-actions">
-        <button 
-          onClick={toggleRole}
-          className={`role-toggle ${role === 'Administrador' ? 'is-admin' : ''}`}
-        >
-          {role === 'Administrador' ? 'Administrador' : 'Consultor'}
-        </button>
+      {/* Filters + actions */}
+      <div className="topbar-right">
+        <DashboardFilters />
 
-        <div className="user-profile" title={displayName}>
-          {avatarUrl ? (
-            <Image
-              src={avatarUrl}
-              alt={displayName}
-              width={32}
-              height={32}
-              style={{ borderRadius: '50%', objectFit: 'cover' }}
-              unoptimized
-            />
-          ) : (
-            <UserCircle2 size={32} strokeWidth={1} />
-          )}
+        <div className="topbar-actions">
+          {/* Role badge */}
+          <button
+            onClick={toggleRole}
+            className={`role-badge ${role === 'Administrador' ? 'is-admin' : ''}`}
+            title="Alternar papel"
+          >
+            {role === 'Administrador'
+              ? <ShieldCheck size={13} />
+              : <User size={13} />
+            }
+            <span>{role === 'Administrador' ? 'Administrador' : 'Consultor'}</span>
+          </button>
+
+          {/* Avatar */}
+          <div className="user-avatar" title={displayName}>
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={displayName}
+                width={32} height={32}
+                style={{ borderRadius: '50%', objectFit: 'cover' }}
+                unoptimized
+              />
+            ) : (
+              <span className="avatar-initials">
+                {displayName ? displayName[0].toUpperCase() : 'U'}
+              </span>
+            )}
+          </div>
+
+          {/* Logout */}
+          <button className="logout-btn" onClick={signOut} title="Sair">
+            <LogOut size={16} />
+          </button>
         </div>
-        
-        <button className="logout-btn" onClick={signOut} title="Sair">
-          <LogOut size={20} />
-        </button>
       </div>
 
       <style jsx>{`
         .topbar {
-          height: 72px;
-          padding: 0 40px;
+          height: 64px;
+          padding: 0 32px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid var(--card-border);
-          background: var(--preto-vorp);
-          backdrop-filter: blur(8px);
+          gap: 16px;
+          border-bottom: 1px solid #141a2e;
+          background: #090c15;
           position: sticky;
           top: 0;
           z-index: 90;
+          font-family: 'Outfit', sans-serif;
         }
 
+        /* Breadcrumb */
         .breadcrumb {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 0.85rem;
-          color: var(--text-secondary);
+          display: flex; align-items: center; gap: 6px;
+          font-size: 13px; flex-shrink: 0;
+        }
+        .bc-root  { color: #334155; font-weight: 500; }
+        .bc-sep   { color: #1e2a3a; }
+        .bc-current { color: #64748b; font-weight: 500; }
+
+        /* Right side */
+        .topbar-right {
+          display: flex; align-items: center; gap: 12px; flex: 1;
+          justify-content: flex-end;
         }
 
-        .separator { margin: 0 4px; opacity: 0.3; }
-        .current-page { color: var(--laranja-vorp); font-weight: 600; }
-
+        /* Actions cluster */
         .topbar-actions {
-          display: flex;
-          align-items: center;
-          gap: 24px;
+          display: flex; align-items: center; gap: 10px; flex-shrink: 0;
         }
 
-        .role-toggle {
-          padding: 6px 16px;
-          border-radius: 20px;
-          border: 1px solid var(--card-border);
-          background: var(--card-bg);
-          color: var(--text-main);
-          font-weight: 700;
-          cursor: pointer;
-          font-size: 0.75rem;
-          transition: all 0.2s;
-          text-transform: uppercase;
+        /* Role badge */
+        .role-badge {
+          display: flex; align-items: center; gap: 6px;
+          padding: 6px 14px;
+          border-radius: 99px;
+          border: 1px solid #1f2d40;
+          background: #111827;
+          color: #64748b;
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px; font-weight: 600;
+          cursor: pointer; transition: all 0.2s;
+          letter-spacing: 0.04em;
+        }
+        .role-badge:hover { border-color: #FC5400; color: #94a3b8; }
+        .role-badge.is-admin {
+          background: rgba(252,84,0,0.12);
+          border-color: rgba(252,84,0,0.35);
+          color: #FC5400;
         }
 
-        .role-toggle:hover {
-          border-color: var(--laranja-vorp);
+        /* Avatar */
+        .user-avatar {
+          width: 32px; height: 32px; border-radius: 50%;
+          background: linear-gradient(135deg, #FC5400, #9333ea);
+          display: flex; align-items: center; justify-content: center;
+          overflow: hidden; cursor: default; flex-shrink: 0;
+        }
+        .avatar-initials {
+          font-size: 13px; font-weight: 700; color: #fff;
+          font-family: 'Outfit', sans-serif;
         }
 
-        .role-toggle.is-admin {
-          background: var(--laranja-vorp);
-          border-color: var(--laranja-vorp);
-          color: white;
-        }
-
-        .user-profile {
-          color: var(--text-secondary);
-          cursor: default;
-          display: flex;
-          align-items: center;
-        }
-
+        /* Logout */
         .logout-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: color 0.2s;
+          background: none; border: none; cursor: pointer;
+          color: #334155; display: flex; align-items: center;
+          padding: 6px; border-radius: 7px;
+          transition: color 0.15s, background 0.15s;
         }
-
         .logout-btn:hover {
-          color: var(--status-vermelho);
+          color: #ef4444; background: rgba(239,68,68,0.08);
         }
       `}</style>
     </header>

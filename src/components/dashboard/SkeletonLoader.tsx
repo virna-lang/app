@@ -2,32 +2,79 @@
 
 import React from 'react';
 
+function SkeletonBlock({ h, br = 14 }: { h: number | string; br?: number }) {
+  return (
+    <div className="skel" style={{ height: h, borderRadius: br }}>
+      <div className="skel-shine"/>
+      <style jsx>{`
+        .skel {
+          background: #111827;
+          border: 1px solid #1a2535;
+          position: relative; overflow: hidden;
+          width: 100%;
+        }
+        .skel-shine {
+          position: absolute; inset: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255,255,255,0.04) 40%,
+            rgba(255,255,255,0.08) 50%,
+            rgba(255,255,255,0.04) 60%,
+            transparent 100%
+          );
+          animation: shimmer 1.6s infinite;
+          transform: translateX(-100%);
+        }
+        @keyframes shimmer {
+          to { transform: translateX(200%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function SkeletonLoader() {
   return (
-    <div className="skeleton-wrapper">
-      <div className="skeleton-grid">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="card skeleton-card pulse" style={{ height: '120px' }}></div>
-        ))}
-      </div>
-      <div className="card skeleton-card pulse" style={{ height: '400px', marginTop: '20px' }}></div>
-      <div className="skeleton-grid" style={{ marginTop: '20px' }}>
-        {[1, 2].map(i => (
-          <div key={i} className="card skeleton-card pulse" style={{ height: '300px' }}></div>
-        ))}
+    <div className="skel-wrapper">
+      {/* KPI row */}
+      <div className="skel-row-4">
+        {[1,2,3,4].map(i => <SkeletonBlock key={i} h={108}/>)}
       </div>
 
+      {/* Chart + sidebar */}
+      <div className="skel-row-chart">
+        <SkeletonBlock h={360}/>
+        <SkeletonBlock h={360}/>
+      </div>
+
+      {/* Mid row */}
+      <div className="skel-row-2">
+        {[1,2].map(i => <SkeletonBlock key={i} h={240}/>)}
+      </div>
+
+      {/* Bottom */}
+      <SkeletonBlock h={200}/>
+
       <style jsx>{`
-        .skeleton-wrapper { width: 100%; display: flex; flex-direction: column; }
-        .skeleton-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-        .skeleton-card { background: rgba(255, 255, 255, 0.03); border: none; }
-        .pulse { animation: pulse 1.5s infinite ease-in-out; }
-        @keyframes pulse {
-          0% { opacity: 0.6; }
-          50% { opacity: 0.3; }
-          100% { opacity: 0.6; }
+        .skel-wrapper {
+          display: flex; flex-direction: column; gap: 16px;
+          padding-top: 8px;
         }
-        @media (max-width: 1000px) { .skeleton-grid { grid-template-columns: repeat(2, 1fr); } }
+        .skel-row-4 {
+          display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
+        }
+        .skel-row-chart {
+          display: grid; grid-template-columns: 1fr 360px; gap: 12px;
+        }
+        .skel-row-2 {
+          display: grid; grid-template-columns: repeat(2,1fr); gap: 12px;
+        }
+        @media (max-width: 1100px) {
+          .skel-row-4   { grid-template-columns: repeat(2,1fr); }
+          .skel-row-chart { grid-template-columns: 1fr; }
+          .skel-row-2   { grid-template-columns: 1fr; }
+        }
       `}</style>
     </div>
   );

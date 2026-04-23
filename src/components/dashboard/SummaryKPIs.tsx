@@ -2,159 +2,211 @@
 
 import React from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
-import { DashboardData, getSemaphorColor, COLORS } from '@/types/dashboard';
+import { DashboardData, getSemaphorColor, getSemaphorBg, COLORS } from '@/types/dashboard';
+import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
-const Variation = ({ val, label }: { val: number, label?: string }) => {
+// ── Variação pill ────────────────────────────────────────────────────────
+function VariationPill({ val }: { val: number }) {
   const isPos = val >= 0;
   return (
-    <div className="variation-pill" style={{ 
-      background: isPos ? 'rgba(30, 144, 128, 0.1)' : 'rgba(176, 48, 48, 0.1)',
-      color: isPos ? COLORS.verde : COLORS.vermelho
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '3px 8px', borderRadius: 99,
+      background: isPos ? COLORS.verdeDim : COLORS.vermelhoDim,
+      color: isPos ? COLORS.verde : COLORS.vermelho,
+      fontSize: 11, fontWeight: 700,
     }}>
-      {isPos ? '▲' : '▼'} {(Math.abs(val) || 0).toFixed(1)}pp
-      {label && <span className="var-label">{label}</span>}
+      {isPos
+        ? <TrendingUp size={11} strokeWidth={2.5}/>
+        : <TrendingDown size={11} strokeWidth={2.5}/>
+      }
+      {isPos ? '+' : ''}{(val || 0).toFixed(1)}pp
+    </span>
+  );
+}
+
+// ── Progress track ───────────────────────────────────────────────────────
+function ProgressTrack({ value, color }: { value: number; color: string }) {
+  return (
+    <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 99, overflow: 'hidden', marginTop: 'auto' }}>
+      <div style={{
+        height: '100%', width: `${Math.min(value, 100)}%`,
+        background: color, borderRadius: 99,
+        transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
+      }}/>
+    </div>
+  );
+}
+
+// ── KPI Card ─────────────────────────────────────────────────────────────
+function KpiCard({
+  label, children, accentColor,
+}: {
+  label: string;
+  children: React.ReactNode;
+  accentColor: string;
+}) {
+  return (
+    <div className="kpi-card">
+      <div className="kpi-top-bar" style={{ background: `linear-gradient(90deg,${accentColor}99,transparent)` }}/>
+      <span className="kpi-label">{label}</span>
+      {children}
+
       <style jsx>{`
-        .variation-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
-        .var-label { opacity: 0.6; font-weight: 400; font-size: 0.6rem; margin-left: 2px; }
+        .kpi-card {
+          background: #111827;
+          border: 1px solid #1f2d40;
+          border-radius: 14px;
+          padding: 20px 22px;
+          display: flex; flex-direction: column; gap: 10px;
+          position: relative; overflow: hidden;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+          border-color: rgba(252,84,0,0.25);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+        }
+        .kpi-top-bar {
+          position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        }
+        .kpi-label {
+          font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+          color: #475569; text-transform: uppercase;
+        }
       `}</style>
     </div>
   );
-};
+}
 
+// ── Main export ───────────────────────────────────────────────────────────
 export default function SummaryKPIs({ data }: { data: DashboardData }) {
-  // 1. Conformidade Geral — média do score de conformidade de processo
-  // Só inclui consultores que têm dados reais (score > 0)
-  const currentWithData = data.currentAudits.filter((c: any) => (c.score_conformidade ?? 0) > 0);
-  const prevWithData    = data.prevAudits.filter((c: any) => (c.score_conformidade ?? 0) > 0);
-  const currentAvg = currentWithData.reduce((acc: number, c: any) => acc + c.score_conformidade, 0) / (currentWithData.length || 1);
-  const prevAvg    = prevWithData.reduce((acc: number, c: any) => acc + c.score_conformidade, 0) / (prevWithData.length || 1);
-  const varScore = currentAvg - prevAvg;
+  // 1. Conformidade Geral
+  const currWith = data.currentAudits.filter((c: any) => (c.score_conformidade ?? 0) > 0);
+  const prevWith  = data.prevAudits.filter((c: any) => (c.score_conformidade ?? 0) > 0);
+  const currAvg = currWith.reduce((a: number, c: any) => a + c.score_conformidade, 0) / (currWith.length || 1);
+  const prevAvg = prevWith.reduce((a: number, c: any) => a + c.score_conformidade, 0) / (prevWith.length || 1);
+  const varScore = currAvg - prevAvg;
 
   const trendData = [
     { name: 'Anterior', value: prevAvg },
-    { name: 'Atual', value: currentAvg }
+    { name: 'Atual', value: currAvg },
   ];
 
   // 2. Melhor Categoria
-  const categories = ['score_clickup', 'score_drive', 'score_whatsapp', 'score_metas', 'score_flags', 'score_rastreabilidade'];
-  const catNames: { [key: string]: string } = { 
-    score_clickup: 'ClickUp', 
-    score_drive: 'Drive', 
-    score_whatsapp: 'WhatsApp', 
-    score_metas: 'Planilhas', 
-    score_flags: 'Flags', 
-    score_rastreabilidade: 'Rastreabilidade' 
+  const catMap: Record<string, string> = {
+    score_clickup: 'ClickUp', score_drive: 'Drive',
+    score_whatsapp: 'WhatsApp', score_metas: 'Planilhas',
+    score_flags: 'Flags', score_rastreabilidade: 'Rastreabilidade',
   };
-  
-  let bestCat = 'ClickUp';
-  let bestScore = 0;
-  categories.forEach(cat => {
-    const avg = data.currentAudits.reduce((acc: number, c: any) => acc + (c[cat] || 0), 0) / (data.currentAudits.length || 1);
-    if (avg > bestScore) { bestScore = avg; bestCat = catNames[cat]; }
+  let bestCat = 'ClickUp', bestScore = 0;
+  Object.keys(catMap).forEach(cat => {
+    const avg = data.currentAudits.reduce((a: number, c: any) => a + (c[cat] || 0), 0) / (data.currentAudits.length || 1);
+    if (avg > bestScore) { bestScore = avg; bestCat = catMap[cat]; }
   });
 
   // 3. % Reuniões
-  const currentMeetingsVal = data.currentMeetings.reduce((acc: number, curr: any) => acc + curr.reunioes_realizadas, 0);
-  const currentTotalMeetings = data.currentMeetings.reduce((acc: number, curr: any) => acc + curr.clientes_ativos, 0);
-  const currentMeetingsPct = currentTotalMeetings > 0 ? (currentMeetingsVal / currentTotalMeetings) * 100 : 0;
-  
+  const metMeetings  = data.currentMeetings.reduce((a: number, c: any) => a + c.reunioes_realizadas, 0);
+  const totalMeetings = data.currentMeetings.reduce((a: number, c: any) => a + c.clientes_ativos, 0);
+  const meetingsPct = totalMeetings > 0 ? (metMeetings / totalMeetings) * 100 : 0;
+
   // 4. NPS
-  const currentNPS = data.currentNPS.length > 0
-    ? data.currentNPS.reduce((acc: number, curr: any) => acc + curr.nota, 0) / data.currentNPS.length
+  const npsAvg = data.currentNPS.length > 0
+    ? data.currentNPS.reduce((a: number, c: any) => a + c.nota, 0) / data.currentNPS.length
     : 0;
+  const npsLabel = npsAvg >= 90 ? 'Excelente' : npsAvg >= 75 ? 'Bom' : 'Atenção';
+  const npsColor = npsAvg >= 90 ? COLORS.verde : npsAvg >= 75 ? COLORS.primary : COLORS.vermelho;
+
+  const conformColor = getSemaphorColor(currAvg);
+  const meetColor    = getSemaphorColor(meetingsPct);
 
   return (
-    <div className="summary-kpis">
-      <div className="card kpi-card card-border-top glow-on-hover">
-        <label>Conformidade Geral</label>
-        <div className="kpi-main-row">
-          <div className="val-col">
-            <span className="val-big">{(currentAvg || 0).toFixed(1)}%</span>
-            {data.prevMonth && <Variation val={varScore} />}
+    <div className="kpi-grid">
+
+      {/* ── 1. Conformidade Geral ── */}
+      <KpiCard label="Conformidade Geral" accentColor={conformColor}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 38, fontWeight: 800, color: '#f1f5f9', lineHeight: 1 }}>
+              {(currAvg || 0).toFixed(1)}%
+            </span>
+            {data.prevMonth && <VariationPill val={varScore}/>}
           </div>
-          <div className="chart-mini-box">
-             <ResponsiveContainer width="100%" height={50}>
-                <LineChart data={trendData}>
-                  <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
-                  <Tooltip 
-                    contentStyle={{ background: COLORS.cardBg, borderRadius: '8px', border: `1px solid ${COLORS.cardBorder}`, fontSize: '10px' }}
-                    itemStyle={{ color: COLORS.textMain }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke={varScore >= 0 ? COLORS.verde : COLORS.vermelho} 
-                    strokeWidth={3} 
-                    dot={{ r: 3, fill: varScore >= 0 ? COLORS.verde : COLORS.vermelho }} 
-                  />
-                </LineChart>
-             </ResponsiveContainer>
+          <div style={{ width: 80, height: 44, marginBottom: 4 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <YAxis hide domain={['dataMin - 5', 'dataMax + 5']}/>
+                <Tooltip
+                  contentStyle={{ background: '#111827', border: '1px solid #1f2d40', borderRadius: 8, fontSize: 11 }}
+                  itemStyle={{ color: '#f1f5f9' }}
+                  formatter={(v: any) => [`${(v || 0).toFixed(1)}%`]}
+                />
+                <Line
+                  type="monotone" dataKey="value"
+                  stroke={varScore >= 0 ? COLORS.verde : COLORS.vermelho}
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: varScore >= 0 ? COLORS.verde : COLORS.vermelho, strokeWidth: 0 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      </div>
+        <ProgressTrack value={currAvg} color={conformColor}/>
+      </KpiCard>
 
-      <div className="card kpi-card card-border-top glow-on-hover">
-        <label>Melhor Categoria</label>
-        <div className="val-row">
-          <span className="val-big" style={{ fontSize: '1.6rem', fontFamily: 'DM Sans', fontWeight: 800 }}>{bestCat}</span>
-          <span className="val-perc">{(bestScore || 0).toFixed(0)}%</span>
+      {/* ── 2. Melhor Categoria ── */}
+      <KpiCard label="Melhor Categoria" accentColor={COLORS.primary}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', lineHeight: 1 }}>{bestCat}</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: COLORS.primary }}>{(bestScore || 0).toFixed(0)}%</span>
         </div>
-        <div className="mini-progress">
-          <div className="fill" style={{ width: `${bestScore}%`, background: COLORS.primary }} />
-        </div>
-      </div>
+        <ProgressTrack value={bestScore} color={COLORS.primary}/>
+      </KpiCard>
 
-      <div className="card kpi-card card-border-top glow-on-hover">
-        <label>% de Reuniões Realizadas</label>
-        <div className="val-row">
-          <span className="val-big">{(currentMeetingsPct || 0).toFixed(0)}%</span>
+      {/* ── 3. Reuniões ── */}
+      <KpiCard label="% de Reuniões Realizadas" accentColor={meetColor}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 38, fontWeight: 800, color: '#f1f5f9', lineHeight: 1 }}>
+            {(meetingsPct || 0).toFixed(0)}%
+          </span>
+          {meetingsPct < 70 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 10px', borderRadius: 99,
+              background: COLORS.vermelhoDim, color: COLORS.vermelho,
+              fontSize: 11, fontWeight: 700,
+            }}>
+              <AlertTriangle size={11}/> Atenção
+            </div>
+          )}
         </div>
-        <div className="mini-progress">
-          <div className="fill" style={{ width: `${currentMeetingsPct}%`, background: getSemaphorColor(currentMeetingsPct) }} />
-        </div>
-      </div>
+        <ProgressTrack value={meetingsPct} color={meetColor}/>
+      </KpiCard>
 
-      <div className="card kpi-card card-border-top glow-on-hover">
-        <label>NPS Médio</label>
-        <div className="val-row">
-          <span className="val-big">{(currentNPS || 0).toFixed(1)}</span>
-          <span className="badge" style={{ 
-            background: currentNPS >= 90 ? COLORS.verde + '20' : currentNPS >= 75 ? COLORS.primary + '20' : COLORS.vermelho + '20',
-            color: currentNPS >= 90 ? COLORS.verde : currentNPS >= 75 ? COLORS.primary : COLORS.vermelho 
+      {/* ── 4. NPS ── */}
+      <KpiCard label="NPS Médio" accentColor={npsColor}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 38, fontWeight: 800, color: '#f1f5f9', lineHeight: 1 }}>
+            {(npsAvg || 0).toFixed(1)}
+          </span>
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 99,
+            background: getSemaphorBg(npsAvg >= 90 ? 90 : npsAvg >= 75 ? 75 : 0),
+            color: npsColor, letterSpacing: '0.06em', textTransform: 'uppercase',
           }}>
-            {currentNPS >= 90 ? 'Excelente' : currentNPS >= 75 ? 'Bom' : 'Atenção'}
+            {npsLabel}
           </span>
         </div>
-      </div>
+        <ProgressTrack value={Math.min(npsAvg, 100)} color={npsColor}/>
+      </KpiCard>
 
       <style jsx>{`
-        .summary-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-        .kpi-card { 
-          display: flex; 
-          flex-direction: column; 
-          padding: 24px; 
-          position: relative; 
-          overflow: hidden; 
-          background: var(--glass-bg);
-          backdrop-filter: blur(10px);
-          transition: all 0.3s ease;
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
         }
-        .glow-on-hover:hover {
-          box-shadow: 0 0 20px var(--glow-primary);
-          transform: translateY(-2px);
-          border-color: var(--laranja-vorp);
-        }
-        .kpi-card label { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 20px; letter-spacing: 0.05em; }
-        .val-row { display: flex; align-items: baseline; gap: 8px; justify-content: space-between; margin-bottom: 12px; }
-        .kpi-main-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-        .val-col { display: flex; flex-direction: column; gap: 8px; }
-        .chart-mini-box { width: 80px; margin-bottom: 4px; }
-        .val-big { font-family: var(--font-bebas); font-size: 2.8rem; line-height: 1; color: var(--text-main); }
-        .val-perc { color: var(--laranja-vorp); font-weight: 700; font-size: 0.9rem; }
-        .mini-progress { height: 4px; width: 100%; background: rgba(255,255,255,0.05); border-radius: 2px; margin-top: auto; overflow: hidden; }
-        .fill { height: 100%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        .badge { font-size: 0.6rem; font-weight: 900; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-        @media (max-width: 1000px) { .summary-kpis { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px)  { .kpi-grid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );

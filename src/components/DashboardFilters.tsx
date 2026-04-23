@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
 import type { Consultor } from '@/lib/supabase';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, X, Calendar, User, Package } from 'lucide-react';
 
 interface Filters {
   month: string;
@@ -18,6 +18,80 @@ interface Props {
   availableProducts: string[];
 }
 
+function FilterSelect({
+  label, icon, value, open, onToggle, children,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  value: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+    };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="filter-wrap">
+      <button className={`filter-btn ${open ? 'active' : ''}`} onClick={onToggle}>
+        <span className="filter-icon">{icon}</span>
+        <span className="filter-val">{value}</span>
+        <ChevronDown size={13} className={`filter-chevron ${open ? 'open' : ''}`} />
+      </button>
+      {open && <div className="filter-dropdown">{children}</div>}
+
+      <style jsx>{`
+        .filter-wrap { position: relative; }
+
+        .filter-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 7px 12px;
+          background: #111827; border: 1px solid #1f2d40;
+          border-radius: 8px; cursor: pointer;
+          font-family: 'Outfit', sans-serif; font-size: 13px;
+          color: #94a3b8; white-space: nowrap;
+          transition: all 0.15s;
+        }
+        .filter-btn:hover { border-color: rgba(252,84,0,0.4); color: #f1f5f9; }
+        .filter-btn.active {
+          border-color: rgba(252,84,0,0.5);
+          background: rgba(252,84,0,0.08);
+          color: #FC5400;
+        }
+
+        .filter-icon { opacity: 0.5; display: flex; align-items: center; }
+        .filter-btn.active .filter-icon { opacity: 1; }
+        .filter-val { font-weight: 500; }
+        .filter-chevron {
+          opacity: 0.4; transition: transform 0.2s;
+        }
+        .filter-chevron.open { transform: rotate(180deg); opacity: 0.8; }
+
+        .filter-dropdown {
+          position: absolute; top: calc(100% + 6px); left: 0;
+          min-width: 200px;
+          background: #111827; border: 1px solid #1f2d40;
+          border-radius: 10px;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+          z-index: 200; overflow: hidden;
+          animation: dropIn 0.15s ease-out;
+        }
+        @keyframes dropIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function DashboardFilters({ onFilterChange, availableConsultants, availableProducts }: Props) {
   const { role } = useAuth();
   const { meses } = useDashboard();
@@ -28,283 +102,187 @@ export default function DashboardFilters({ onFilterChange, availableConsultants,
     consultantId: 'all',
     products: availableProducts,
   });
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  const [isDropdownOpen, setIsDropdownOpen] = useState<{ [key: string]: boolean }>({
-    month: false,
-    consultant: false,
-    product: false,
-  });
+  const toggle = (key: string) =>
+    setOpen(prev => ({ month: false, consultant: false, product: false, [key]: !prev[key] }));
 
-  // Load from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('vorp_dashboard_filters');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Verifica se o mês salvo ainda existe na lista gerada dinamicamente
         if (meses.includes(parsed.month)) {
           setFilters(parsed);
           onFilterChange(parsed);
-        } else {
-          onFilterChange(filters);
+          return;
         }
-      } catch (e) {
-        console.error('Error parsing filters', e);
-        onFilterChange(filters);
-      }
-    } else {
-      onFilterChange(filters);
+      } catch {}
     }
+    onFilterChange(filters);
   }, []);
 
-  // Save to localStorage whenever filters change
   useEffect(() => {
     localStorage.setItem('vorp_dashboard_filters', JSON.stringify(filters));
     onFilterChange(filters);
   }, [filters]);
 
-  const toggleDropdown = (key: string) => {
-    setIsDropdownOpen(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
+  const clearFilters = () =>
+    setFilters({ month: meses[meses.length - 1], consultantId: 'all', products: availableProducts });
 
-  const handleProductToggle = (product: string) => {
-    setFilters(prev => ({
-      ...prev,
-      products: prev.products.includes(product)
-        ? prev.products.filter(p => p !== product)
-        : [...prev.products, product]
-    }));
-  };
+  const consultantLabel = filters.consultantId === 'all'
+    ? 'Todos os consultores'
+    : availableConsultants.find(c => String(c.id) === filters.consultantId)?.nome ?? 'Consultor';
 
-  const clearFilters = () => {
-    const defaultFilters: Filters = {
-      month: meses[meses.length - 1],
-      consultantId: 'all',
-      products: availableProducts,
-    };
-    setFilters(defaultFilters);
-  };
+  const productLabel = filters.products.length === availableProducts.length
+    ? 'Todos os produtos'
+    : `${filters.products.length} selecionados`;
+
+  const hasActiveFilters =
+    filters.consultantId !== 'all' ||
+    filters.products.length !== availableProducts.length;
 
   return (
-    <div className="filters-sticky">
-      <div className="filters-container">
-        <div className="filter-group">
-          <label>Mês/Ano</label>
-          <div className="select-custom" onClick={() => toggleDropdown('month')}>
-            <span>{filters.month}</span>
-            <ChevronDown size={14} />
-            {isDropdownOpen.month && (
-              <div className="dropdown-menu">
-                {meses.map(m => (
-                  <div 
-                    key={m} 
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFilters({ ...filters, month: m });
-                      setIsDropdownOpen({ ...isDropdownOpen, month: false });
-                    }}
-                  >
-                    {m}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+    <div className="filters-bar">
+      <div className="filters-inner">
 
-        {isAdmin && (
-          <div className="filter-group">
-            <label>Consultor</label>
-            <div className="select-custom" onClick={() => toggleDropdown('consultant')}>
-              <span>{filters.consultantId === 'all' ? 'Todos os consultores' : availableConsultants.find(c => String(c.id) === filters.consultantId)?.nome}</span>
-              <ChevronDown size={14} />
-              {isDropdownOpen.consultant && (
-                <div className="dropdown-menu">
-                  <div 
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFilters({ ...filters, consultantId: 'all' });
-                      setIsDropdownOpen({ ...isDropdownOpen, consultant: false });
-                    }}
-                  >
-                    Todos os consultores
-                  </div>
-                  {availableConsultants.filter(c => c.status === 'Ativo').map(c => (
-                    <div 
-                      key={c.id} 
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFilters({ ...filters, consultantId: String(c.id) });
-                        setIsDropdownOpen({ ...isDropdownOpen, consultant: false });
-                      }}
-                    >
-                      {c.nome}
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Mês */}
+        <FilterSelect
+          label="Mês/Ano" icon={<Calendar size={13}/>}
+          value={filters.month} open={!!open.month}
+          onToggle={() => toggle('month')}
+        >
+          {meses.map(m => (
+            <div
+              key={m}
+              className={`drop-item ${m === filters.month ? 'selected' : ''}`}
+              onClick={() => { setFilters(f => ({ ...f, month: m })); setOpen({}); }}
+            >
+              {m}
             </div>
-          </div>
+          ))}
+        </FilterSelect>
+
+        {/* Consultor (admin only) */}
+        {isAdmin && (
+          <FilterSelect
+            label="Consultor" icon={<User size={13}/>}
+            value={consultantLabel} open={!!open.consultant}
+            onToggle={() => toggle('consultant')}
+          >
+            {[{ id: 'all', nome: 'Todos os consultores' }, ...availableConsultants.filter(c => c.status === 'Ativo')].map(c => (
+              <div
+                key={c.id}
+                className={`drop-item ${String(c.id) === filters.consultantId ? 'selected' : ''}`}
+                onClick={() => { setFilters(f => ({ ...f, consultantId: String(c.id) })); setOpen({}); }}
+              >
+                {c.nome}
+              </div>
+            ))}
+          </FilterSelect>
         )}
 
-        <div className="filter-group">
-          <label>Produtos</label>
-          <div className="select-custom" onClick={() => toggleDropdown('product')}>
-            <span>{filters.products.length === availableProducts.length ? 'Todos selecionados' : `${filters.products.length} selecionados`}</span>
-            <ChevronDown size={14} />
-            {isDropdownOpen.product && (
-              <div className="dropdown-menu multi-menu" onClick={(e) => e.stopPropagation()}>
-                {availableProducts.map(p => (
-                  <label key={p} className="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.products.includes(p)}
-                      onChange={() => handleProductToggle(p)}
-                    />
-                    <span>{p}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+        {/* Produtos */}
+        <FilterSelect
+          label="Produtos" icon={<Package size={13}/>}
+          value={productLabel} open={!!open.product}
+          onToggle={() => toggle('product')}
+        >
+          <div className="drop-multi">
+            {availableProducts.map(p => {
+              const checked = filters.products.includes(p);
+              return (
+                <label key={p} className="check-item">
+                  <div className={`check-box ${checked ? 'checked' : ''}`}>
+                    {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span>{p}</span>
+                  <input type="checkbox" checked={checked} onChange={() =>
+                    setFilters(f => ({
+                      ...f,
+                      products: checked
+                        ? f.products.filter(x => x !== p)
+                        : [...f.products, p],
+                    }))
+                  } style={{ display: 'none' }}/>
+                </label>
+              );
+            })}
           </div>
-        </div>
+        </FilterSelect>
 
-        <button className="clear-btn" onClick={clearFilters}>
-          <X size={14} /> <span>Limpar Filtros</span>
-        </button>
+        {/* Clear */}
+        {hasActiveFilters && (
+          <button className="clear-btn" onClick={clearFilters}>
+            <X size={12}/> Limpar
+          </button>
+        )}
       </div>
 
       <style jsx>{`
-        .filters-sticky {
+        .filters-bar {
           position: sticky;
-          top: 72px; /* Topbar height */
+          top: 64px; /* topbar height */
           z-index: 80;
-          background: rgba(15, 15, 35, 0.8);
-          backdrop-filter: blur(12px);
-          padding: 16px 40px;
-          border-bottom: 1px solid var(--card-border);
-          margin: -40px -40px 40px -40px; /* Offset parent padding */
+          background: rgba(9,12,21,0.85);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid #141a2e;
+          padding: 10px 32px;
+          margin: -32px -40px 32px -32px;
+        }
+        .filters-inner {
+          display: flex; align-items: center; gap: 8px;
+          max-width: 1600px; margin: 0 auto;
+          flex-wrap: wrap;
         }
 
-        .filters-container {
-          display: flex;
-          align-items: center;
-          gap: 24px;
-          max-width: 1600px;
-          margin: 0 auto;
-          width: 100%;
+        /* Dropdown items */
+        :global(.drop-item) {
+          padding: 9px 16px;
+          font-family: 'Outfit', sans-serif; font-size: 13px;
+          color: #94a3b8; cursor: pointer;
+          transition: background 0.12s, color 0.12s;
+        }
+        :global(.drop-item:hover) {
+          background: rgba(252,84,0,0.08); color: #f1f5f9;
+        }
+        :global(.drop-item.selected) {
+          color: #FC5400; font-weight: 600;
+          background: rgba(252,84,0,0.06);
         }
 
-        .filter-group {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
+        /* Multi-select */
+        :global(.drop-multi) { padding: 6px; }
+        :global(.check-item) {
+          display: flex; align-items: center; gap: 10px;
+          padding: 8px 10px; border-radius: 7px;
+          cursor: pointer; font-family: 'Outfit', sans-serif;
+          font-size: 13px; color: #94a3b8;
+          transition: background 0.12s;
+        }
+        :global(.check-item:hover) { background: rgba(255,255,255,0.04); color: #f1f5f9; }
+        :global(.check-box) {
+          width: 16px; height: 16px; border-radius: 4px;
+          border: 1.5px solid #1f2d40; background: #0f1620;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0; transition: all 0.15s;
+        }
+        :global(.check-box.checked) {
+          background: #FC5400; border-color: #FC5400;
         }
 
-        .filter-group label {
-          font-size: 0.7rem;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: var(--text-muted);
-          font-weight: 700;
-        }
-
-        .select-custom {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
-          padding: 8px 16px;
-          border-radius: 6px;
-          min-width: 160px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 0.85rem;
-          cursor: pointer;
-          position: relative;
-          color: var(--text-main);
-          transition: border-color 0.2s;
-        }
-
-        .select-custom:hover {
-          border-color: var(--laranja-vorp);
-        }
-
-        .dropdown-menu {
-          position: absolute;
-          top: calc(100% + 8px);
-          left: 0;
-          width: 100%;
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
-          border-radius: 8px;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-          overflow: hidden;
-          animation: slideDown 0.2s ease-out;
-        }
-
-        .multi-menu {
-          min-width: 200px;
-          padding: 8px;
-        }
-
-        .dropdown-item {
-          padding: 10px 16px;
-          transition: background 0.2s;
-        }
-
-        .dropdown-item:hover {
-          background: rgba(252, 84, 0, 0.1);
-          color: var(--laranja-vorp);
-        }
-
-        .checkbox-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 12px;
-          cursor: pointer;
-          border-radius: 4px;
-          transition: background 0.2s;
-        }
-
-        .checkbox-item:hover {
-          background: rgba(255, 255, 255, 0.03);
-        }
-
-        .checkbox-item input {
-          accent-color: var(--laranja-vorp);
-        }
-
+        /* Clear */
         .clear-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-muted);
-          font-size: 0.75rem;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-left: auto;
-          padding: 8px;
-          border-radius: 6px;
-          transition: all 0.2s;
+          display: flex; align-items: center; gap: 5px;
+          padding: 7px 11px; border-radius: 8px;
+          background: none; border: 1px solid #1f2d40;
+          font-family: 'Outfit', sans-serif; font-size: 12px;
+          color: #475569; cursor: pointer;
+          transition: all 0.15s; margin-left: 4px;
         }
-
         .clear-btn:hover {
-          color: var(--status-vermelho);
-          background: rgba(176, 48, 48, 0.05);
-        }
-
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+          border-color: rgba(239,68,68,0.4);
+          color: #ef4444; background: rgba(239,68,68,0.06);
         }
       `}</style>
     </div>

@@ -1,42 +1,62 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --preto-vorp: #0F0F23;
-  --card-bg: #0F1020;
-  --card-border: #1A1A38;
-  --laranja-vorp: #FC5400;
-  --laranja-escuro: #C24200;
-  
-  --text-main: #E0E0EE;
-  --text-secondary: #8080A8;
-  --text-muted: #404060;
-  
-  /* Semáforo colors */
-  --status-verde: #1E9080;
-  --status-laranja: #FC5400;
-  --status-vermelho: #B03030;
-  
-  /* Glassmorphism & Glows */
-  --glass-bg: rgba(26, 26, 56, 0.4);
-  --glass-border: rgba(252, 84, 0, 0.1);
-  --glow-primary: rgba(252, 84, 0, 0.15);
-  --sidebar-width: 280px;
-  
-  --font-bebas: 'Inter', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* ── Paleta base ── */
+  --preto-vorp:      #090c15;
+  --card-bg:         #111827;
+  --card-bg-raised:  #141e2e;
+  --card-border:     #1f2d40;
+  --card-border-soft: rgba(255,255,255,0.05);
 
-  /* Standard Next.js / Tailwind mappings */
+  /* ── Marca ── */
+  --laranja-vorp:   #FC5400;
+  --laranja-escuro: #c94300;
+  --laranja-glow:   rgba(252, 84, 0, 0.18);
+
+  /* ── Semáforo ── */
+  --status-verde:     #10b981;
+  --status-verde-bg:  rgba(16, 185, 129, 0.1);
+  --status-laranja:   #FC5400;
+  --status-laranja-bg: rgba(252, 84, 0, 0.1);
+  --status-vermelho:  #ef4444;
+  --status-vermelho-bg: rgba(239, 68, 68, 0.1);
+
+  /* ── Texto ── */
+  --text-main:      #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #475569;
+  --text-faint:     #334155;
+
+  /* ── Layout ── */
+  --sidebar-width:  260px;
+  --topbar-height:  64px;
+  --content-pad:    32px;
+  --radius-card:    14px;
+  --radius-sm:      8px;
+
+  /* ── Fontes ── */
+  --font-body: 'Outfit', sans-serif;
+
+  /* ── Sombras ── */
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.35);
+  --shadow-elevated: 0 8px 40px rgba(0,0,0,0.5);
+
+  /* ── Next.js mappings ── */
   --background: var(--preto-vorp);
   --foreground: var(--text-main);
-  
-  --section-border-width: 4px;
+
+  /* ── Legado (mantido para compatibilidade) ── */
+  --glass-bg:   rgba(26,26,56,0.4);
+  --glass-border: rgba(252,84,0,0.1);
+  --glow-primary: var(--laranja-glow);
+  --section-border-width: 3px;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base ───────────────────────────────────────────────────────────── */
+html { font-size: 16px; }
 
 body {
   background-color: var(--preto-vorp);
@@ -45,119 +65,152 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, .bebas-font {
-  font-family: var(--font-bebas);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+/* ── Tipografia ─────────────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--font-body);
+  font-weight: 700;
   color: var(--text-main);
-}
-
-.text-laranja { color: var(--laranja-vorp); }
-.text-secondary { color: var(--text-secondary); }
-.text-muted { color: var(--text-muted); }
-
-/* Controler conforme visual identities */
-.bg-vorp-card { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; }
-.text-status-v { color: var(--status-verde); }
-.text-status-l { color: var(--status-laranja); }
-.text-status-r { color: var(--status-vermelho); }
-
-/* Antigravity Utilities */
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.section-anchor {
-  border-left: var(--section-border-width) solid var(--laranja-vorp);
-  padding-left: 16px;
-  margin-bottom: 24px;
-}
-
-.section-anchor h2 {
-  font-size: 1.5rem;
-  margin: 0;
   line-height: 1.2;
+  /* Removido text-transform: uppercase — deixa o app decidir */
 }
 
+/* ── Links ──────────────────────────────────────────────────────────── */
+a { color: inherit; text-decoration: none; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--laranja-vorp); }
+
+/* ── Utilidades de texto ────────────────────────────────────────────── */
+.text-laranja    { color: var(--laranja-vorp); }
+.text-secondary  { color: var(--text-secondary); }
+.text-muted      { color: var(--text-muted); }
+.text-status-v   { color: var(--status-verde); }
+.text-status-l   { color: var(--status-laranja); }
+.text-status-r   { color: var(--status-vermelho); }
+
+/* ── Cards ──────────────────────────────────────────────────────────── */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  border: 1px solid var(--card-border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-card);
+}
+.card:hover {
+  border-color: rgba(252, 84, 0, 0.3);
+  box-shadow: 0 4px 32px rgba(252,84,0,0.08);
+}
+
+/* ── Card com destaque no topo ──────────────────────────────────────── */
 .card-border-top {
   border-top: 2px solid var(--laranja-vorp) !important;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--preto-vorp);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--card-border);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--laranja-vorp);
-}
-
-.card {
-  background: var(--card-bg);
-  border-radius: 10px;
-  padding: 24px;
+/* ── Bg card legado ─────────────────────────────────────────────────── */
+.bg-vorp-card {
+  background-color: var(--card-bg);
   border: 1px solid var(--card-border);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  border-radius: var(--radius-card);
 }
 
-.card:hover {
-  border-color: var(--laranja-vorp);
+/* ── Section anchor (barra | TÍTULO) ───────────────────────────────── */
+.section-anchor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.section-anchor::before {
+  content: '';
+  display: block;
+  width: var(--section-border-width);
+  height: 22px;
+  border-radius: 2px;
+  background: var(--laranja-vorp);
+  flex-shrink: 0;
+}
+.section-anchor h2 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1;
 }
 
+/* ── Botões ─────────────────────────────────────────────────────────── */
 .btn-primary {
-  background-color: var(--laranja-vorp);
+  background: var(--laranja-vorp);
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
+  padding: 10px 22px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-weight: 500;
+  font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
-  transition: background-color 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  letter-spacing: 0.04em;
 }
-
 .btn-primary:hover {
-  background-color: var(--laranja-escuro);
+  background: var(--laranja-escuro);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(252,84,0,0.35);
 }
+.btn-primary:active { transform: translateY(0); }
 
 .btn-outline {
   background: transparent;
   color: var(--laranja-vorp);
-  border: 2px solid var(--laranja-vorp);
-  padding: 8px 18px;
-  border-radius: 6px;
+  border: 1.5px solid var(--laranja-vorp);
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
   font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .btn-outline:hover {
-  background-color: var(--laranja-vorp);
+  background: var(--laranja-vorp);
   color: white;
 }
 
+/* ── Badge ──────────────────────────────────────────────────────────── */
 .badge {
-  padding: 4px 12px;
-  border-radius: 100px;
-  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  background-color: rgba(26, 26, 56, 0.5);
+  letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.06);
   color: var(--text-secondary);
 }
 
-/* Layout Styles */
+/* ── Progress bar ───────────────────────────────────────────────────── */
+.progress-track {
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+/* ── Layout principal ───────────────────────────────────────────────── */
 .layout-container {
   display: flex;
   min-height: 100vh;
@@ -165,18 +218,19 @@ a {
 
 .main-wrapper {
   flex: 1;
-  margin-left: 260px; /* Sidebar width */
+  margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  background-color: var(--preto-vorp);
-  background-image: 
-    radial-gradient(circle at 10% 10%, rgba(252, 84, 0, 0.03) 0%, transparent 40%),
-    radial-gradient(circle at 90% 90%, rgba(30, 144, 128, 0.02) 0%, transparent 40%);
+  background: var(--preto-vorp);
+  background-image:
+    radial-gradient(circle at 8% 8%, rgba(252,84,0,0.04) 0%, transparent 40%),
+    radial-gradient(circle at 92% 92%, rgba(16,185,129,0.02) 0%, transparent 40%);
+  min-height: 100vh;
 }
 
 .content-area {
   flex: 1;
-  padding: 40px;
+  padding: var(--content-pad) calc(var(--content-pad) + 8px);
   max-width: 1600px;
   margin: 0 auto;
   width: 100%;
@@ -184,4 +238,13 @@ a {
 
 @media (max-width: 1024px) {
   .main-wrapper { margin-left: 0; }
+  .content-area { padding: 20px; }
+}
+
+/* ── Animações globais ──────────────────────────────────────────────── */
+@keyframes spin        { to { transform: rotate(360deg); } }
+@keyframes fadeInUp    { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse-glow  {
+  0%,100% { box-shadow: 0 0 0 0 rgba(252,84,0,0.3); }
+  50%     { box-shadow: 0 0 0 8px rgba(252,84,0,0); }
 }

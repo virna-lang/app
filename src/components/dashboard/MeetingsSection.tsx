@@ -1,104 +1,88 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell, LabelList, CartesianGrid,
+} from 'recharts';
 import { DashboardData, getSemaphorColor, COLORS } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
+
+const tooltipStyle = {
+  background: '#111827', borderRadius: 10,
+  border: '1px solid #1f2d40', fontSize: 12,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+};
 
 export default function MeetingsSection({ data }: { data: DashboardData }) {
   const { consultores } = useDashboard();
 
-  // Usa dados da pergunta de auditoria "Quantas clientes da carteira foram atendidos dentro do mês?"
-  // Deduplica por consultor_id somando atendidos e carteira
   const ranking = useMemo(() => {
     const source = data.rankingAtendidos.length > 0 ? data.rankingAtendidos : data.currentMeetings;
-    const useAuditData = data.rankingAtendidos.length > 0;
+    const useAudit = data.rankingAtendidos.length > 0;
 
     const map: Record<string, { consultor_id: string; atendidos: number; carteira: number }> = {};
     source.forEach((r: any) => {
       const cid = r.consultor_id;
       if (!map[cid]) map[cid] = { consultor_id: cid, atendidos: 0, carteira: 0 };
-      if (useAuditData) {
-        map[cid].atendidos += r.atendidos ?? 0;
-        map[cid].carteira  += r.carteira  ?? 0;
-      } else {
-        map[cid].atendidos += r.reunioes_realizadas ?? 0;
-        map[cid].carteira  += r.clientes_ativos     ?? 0;
-      }
+      map[cid].atendidos += useAudit ? (r.atendidos ?? 0) : (r.reunioes_realizadas ?? 0);
+      map[cid].carteira  += useAudit ? (r.carteira  ?? 0) : (r.clientes_ativos    ?? 0);
     });
 
-    return Object.values(map)
-      .map(r => ({
-        consultor_id:        r.consultor_id,
-        reunioes_realizadas: r.atendidos,
-        clientes_ativos:     r.carteira,
-        pct_reunioes:        r.carteira > 0 ? Math.round((r.atendidos / r.carteira) * 100) : 0,
-        consulName:          consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
-      }))
-      .sort((a, b) => b.pct_reunioes - a.pct_reunioes);
+    return Object.values(map).map(r => ({
+      consultor_id:        r.consultor_id,
+      reunioes_realizadas: r.atendidos,
+      clientes_ativos:     r.carteira,
+      pct_reunioes:        r.carteira > 0 ? Math.round((r.atendidos / r.carteira) * 100) : 0,
+      consulName:          consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
+    })).sort((a, b) => b.pct_reunioes - a.pct_reunioes);
   }, [data.rankingAtendidos, data.currentMeetings, consultores]);
 
-  return (
-    <section className="section-block">
-      <div className="section-anchor">
-        <h2>Ranking de Reuniões Realizadas</h2>
-      </div>
+  const getStatusLabel = (pct: number) =>
+    pct >= 90 ? 'Excelente' : pct >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta';
 
-      <div className="meetings-layout">
-        {/* Gráfico vertical — % da carteira atendida */}
-        <div className="card ranking-visual-card">
-          <h3 className="card-subtitle">% da Carteira Atendida no Mês</h3>
-          <div className="chart-container">
+  return (
+    <section>
+      <div className="section-anchor"><h2>Ranking de Reuniões Realizadas</h2></div>
+
+      <div className="meetings-grid">
+        {/* Gráfico de barras */}
+        <div className="card chart-card">
+          <p className="card-sub">% da Carteira Atendida no Mês</p>
+          <div style={{ height: 360 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ranking} margin={{ top: 30, right: 20, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                <XAxis
-                  dataKey="consulName"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: COLORS.textSecondary, fontSize: 11, fontWeight: 700 }}
-                  dy={8}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                  tickFormatter={(v) => `${v}%`}
-                  width={36}
-                />
-                <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                  contentStyle={{ background: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.cardBorder}` }}
+              <BarChart data={ranking} margin={{ top: 28, right: 20, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)"/>
+                <XAxis dataKey="consulName" axisLine={false} tickLine={false}
+                  tick={{ fill: COLORS.textSecondary, fontSize: 11, fontWeight: 600 }} dy={8}/>
+                <YAxis domain={[0,100]} axisLine={false} tickLine={false}
+                  tick={{ fill: COLORS.textMuted, fontSize: 10 }} tickFormatter={v=>`${v}%`} width={36}/>
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
                   formatter={(v: any, _: any, props: any) => [
-                    `${v}% (${props.payload.reunioes_realizadas}/${props.payload.clientes_ativos} clientes)`,
-                    '% Carteira'
-                  ]}
-                />
-                <Bar dataKey="pct_reunioes" radius={[6, 6, 0, 0]} barSize={36}>
-                  {ranking.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={getSemaphorColor(entry.pct_reunioes)} fillOpacity={0.8} />
+                    `${v}% (${props.payload.reunioes_realizadas}/${props.payload.clientes_ativos})`,
+                    '% Carteira',
+                  ]}/>
+                <Bar dataKey="pct_reunioes" radius={[6,6,0,0]} barSize={36}>
+                  {ranking.map((e, i) => (
+                    <Cell key={i} fill={getSemaphorColor(e.pct_reunioes)} fillOpacity={0.85}/>
                   ))}
-                  <LabelList
-                    dataKey="pct_reunioes"
-                    position="top"
-                    fill="rgba(255,255,255,0.5)"
+                  <LabelList dataKey="pct_reunioes" position="top"
+                    fill="rgba(255,255,255,0.45)"
                     formatter={(v: any) => `${v}%`}
-                    style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }}
-                  />
+                    style={{ fontSize: 11, fontWeight: 700 }}/>
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Tabela de detalhamento */}
-        <div className="table-card card">
-          <div className="table-header-box">
-            <h3 className="table-t">Detalhamento Mensal</h3>
-            <span className="table-label">Realizado / Carteira</span>
+        {/* Tabela */}
+        <div className="card table-card">
+          <div className="table-head-row">
+            <span className="table-title">Detalhamento Mensal</span>
+            <span className="table-sub">Realizado / Carteira</span>
           </div>
-          <table className="meetings-table">
+          <table className="meets-table">
             <thead>
               <tr>
                 <th>Pos</th>
@@ -108,51 +92,59 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
               </tr>
             </thead>
             <tbody>
-              {ranking.map((r, i) => (
-                <tr key={i} className="hover-row">
-                  <td className="rank-idx">#{i + 1}</td>
-                  <td className="consul-name-cell">{r.consulName}</td>
-                  <td>
-                    <div className="status-pill" style={{
-                      background: getSemaphorColor(r.pct_reunioes) + '18',
-                      color: getSemaphorColor(r.pct_reunioes)
-                    }}>
-                      {r.pct_reunioes >= 90 ? 'Excelente' : r.pct_reunioes >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta'}
-                    </div>
-                  </td>
-                  <td className="val-cell">
-                    <span className="abs-val">{r.reunioes_realizadas}/{r.clientes_ativos}</span>
-                  </td>
-                </tr>
-              ))}
+              {ranking.map((r, i) => {
+                const color = getSemaphorColor(r.pct_reunioes);
+                return (
+                  <tr key={i} className="t-row">
+                    <td className="t-pos">#{i+1}</td>
+                    <td className="t-name">{r.consulName}</td>
+                    <td>
+                      <span className="status-pill" style={{ background: `${color}18`, color }}>
+                        {getStatusLabel(r.pct_reunioes)}
+                      </span>
+                    </td>
+                    <td className="t-val">{r.reunioes_realizadas}/{r.clientes_ativos}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
       <style jsx>{`
-        .meetings-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
-        .ranking-visual-card { padding: 30px; background: var(--glass-bg); backdrop-filter: blur(10px); }
-        .card-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .chart-container { height: 380px; }
+        .meetings-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
 
-        .table-card { padding: 24px; background: var(--glass-bg); backdrop-filter: blur(10px); }
-        .table-header-box { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
-        .table-t { font-size: 1rem; color: var(--text-main); }
-        .table-label { font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
+        .chart-card { padding: 24px 28px; }
+        .card-sub { font-size: 11px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
 
-        .meetings-table { width: 100%; border-collapse: collapse; }
-        .meetings-table th { text-align: left; padding: 10px 12px; color: var(--text-muted); text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--card-border); }
-        .meetings-table td { padding: 14px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-        .hover-row:hover { background: rgba(255,255,255,0.01); }
+        .table-card { padding: 24px; }
+        .table-head-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+        .table-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+        .table-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #334155; font-weight: 700; }
 
-        .rank-idx { font-family: var(--font-bebas); color: var(--text-muted); font-size: 1.1rem; width: 40px; }
-        .consul-name-cell { font-weight: 700; color: var(--text-secondary); font-size: 0.85rem; }
-        .status-pill { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; }
-        .val-cell { text-align: right; }
-        .abs-val { font-family: var(--font-bebas); font-size: 1.2rem; color: var(--text-main); }
+        .meets-table { width: 100%; border-collapse: collapse; }
+        .meets-table th {
+          text-align: left; padding: 8px 10px;
+          color: #334155; font-size: 10px; text-transform: uppercase;
+          letter-spacing: 0.08em; border-bottom: 1px solid #1f2d40;
+          font-weight: 700;
+        }
+        .meets-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .t-row:hover { background: rgba(255,255,255,0.015); }
+        .t-row:last-child td { border-bottom: none; }
 
-        @media (max-width: 1100px) { .meetings-layout { grid-template-columns: 1fr; } }
+        .t-pos { font-size: 11px; color: #334155; font-weight: 700; width: 32px; }
+        .t-name { font-size: 13px; font-weight: 600; color: #94a3b8; }
+        .t-val { text-align: right; font-size: 15px; font-weight: 800; color: #f1f5f9; }
+
+        .status-pill {
+          display: inline-block; padding: 3px 9px; border-radius: 99px;
+          font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 1100px) { .meetings-grid { grid-template-columns: 1fr; } }
       `}</style>
     </section>
   );

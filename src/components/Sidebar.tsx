@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardCheck, Users, ShieldCheck,
   BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart,
   Edit3, TrendingDown, Zap, GitBranch, ChevronRight, ChevronDown,
-  Flame, Building2,
+  Flame, Building2, LogOut,
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -15,7 +15,7 @@ import { useDashboard } from '@/context/DashboardContext';
 function SidebarInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { role } = useAuth();
+  const { role, user, signOut } = useAuth();
   const { setActiveTab } = useDashboard();
 
   const isDashboard = pathname === '/';
@@ -25,38 +25,46 @@ function SidebarInner() {
   const [openAuditoria, setOpenAuditoria] = useState(isAuditoria);
 
   const dashboardTabs = [
-    { name: 'Visão Geral',  id: 'visao-geral',  icon: <BarChart2 size={14} /> },
-    { name: 'Evolução',     id: 'evolucao',     icon: <LineChart size={14} /> },
-    { name: 'Conformidade', id: 'conformidade', icon: <ClipboardCheck size={14} /> },
-    { name: 'Processos',    id: 'processos',    icon: <ShieldCheck size={14} /> },
-    { name: 'Reuniões',     id: 'reunioes',     icon: <Users size={14} /> },
-    { name: 'Metas',        id: 'metas',        icon: <Target size={14} /> },
-    { name: 'NPS / CSAT',   id: 'nps',          icon: <MessageSquare size={14} /> },
-    { name: 'Churn',        id: 'churn',        icon: <AlertTriangle size={14} /> },
-    { name: 'Correlação',   id: 'correlacao',   icon: <GitBranch size={14} /> },
-    { name: 'Time Completo',id: 'time-completo',icon: <Users2 size={14} />, adminOnly: true },
-    { name: 'Vorp System',  id: 'vorp-system',  icon: <Building2 size={14} /> },
+    { name: 'Visão Geral',   id: 'visao-geral',   icon: <BarChart2 size={13} /> },
+    { name: 'Evolução',      id: 'evolucao',      icon: <LineChart size={13} /> },
+    { name: 'Conformidade',  id: 'conformidade',  icon: <ClipboardCheck size={13} /> },
+    { name: 'Processos',     id: 'processos',     icon: <ShieldCheck size={13} /> },
+    { name: 'Reuniões',      id: 'reunioes',      icon: <Users size={13} /> },
+    { name: 'Metas',         id: 'metas',         icon: <Target size={13} /> },
+    { name: 'NPS / CSAT',    id: 'nps',           icon: <MessageSquare size={13} /> },
+    { name: 'Churn',         id: 'churn',         icon: <AlertTriangle size={13} /> },
+    { name: 'Correlação',    id: 'correlacao',    icon: <GitBranch size={13} /> },
+    { name: 'Time Completo', id: 'time-completo', icon: <Users2 size={13} />, adminOnly: true },
+    { name: 'Vorp System',   id: 'vorp-system',   icon: <Building2 size={13} /> },
   ];
 
   const auditoriaSubItems = [
-    { name: 'Edição Completa',   tab: 'edicao', adminOnly: true },
-    { name: 'Churn Rápido',      tab: 'churn' },
-    { name: 'Auditoria Rápida',  tab: 'rapida', adminOnly: true },
+    { name: 'Edição Completa',  tab: 'edicao', adminOnly: true },
+    { name: 'Churn Rápido',     tab: 'churn' },
+    { name: 'Auditoria Rápida', tab: 'rapida', adminOnly: true },
   ];
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
   };
 
   const currentAudTab = searchParams.get('tab') ?? '';
+  const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
+  const avatarUrl   = user?.user_metadata?.avatar_url as string | undefined;
 
   return (
     <aside className="sidebar">
       {/* ── LOGO ── */}
-      <div className="logo-card">
-        <div className="logo-icon">
-          <Flame size={20} color="#FC5400" />
+      <div className="logo-area">
+        <div className="logo-icon-wrap">
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+            <rect x="14" y="8" width="11" height="11" rx="2" transform="rotate(45 19.5 13.5)" stroke="#FC5400" strokeWidth="2.2"/>
+            <rect x="7" y="13" width="11" height="11" rx="2" transform="rotate(45 12.5 18.5)" stroke="#FC5400" strokeWidth="2.2"/>
+          </svg>
         </div>
         <div className="logo-text">
           <span className="logo-title">GRUPO VORP</span>
@@ -69,313 +77,247 @@ function SidebarInner() {
 
         {/* Dashboard */}
         <div className="nav-group">
+          <div className="nav-section-label">DASHBOARD</div>
           <button
-            className={`nav-item ${isDashboard ? 'active' : ''}`}
-            onClick={() => {
-              setOpenDashboard(v => !v);
-            }}
+            className={`nav-parent ${isDashboard ? 'active' : ''}`}
+            onClick={() => setOpenDashboard(v => !v)}
           >
-            <LayoutDashboard size={18} className="nav-icon" />
-            <span className="nav-label">DASHBOARD</span>
-            <span className="nav-chevron">
-              {openDashboard ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <LayoutDashboard size={16} className="nav-icon" />
+            <span className="nav-label">Visão Geral</span>
+            <span className={`nav-chevron ${openDashboard ? 'open' : ''}`}>
+              <ChevronRight size={13} />
             </span>
           </button>
 
           <div className={`submenu ${openDashboard ? 'open' : ''}`}>
-            <div className="submenu-inner">
-              {dashboardTabs.map((tab) => {
-                if (tab.adminOnly && role !== 'Administrador') return null;
-                return (
-                  <Link
-                    key={tab.id}
-                    href="/"
-                    onClick={() => scrollToSection(tab.id)}
-                    className="sub-item"
-                  >
-                    <span className="sub-bullet" />
-                    <span>{tab.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
+            {dashboardTabs.map((tab) => {
+              if (tab.adminOnly && role !== 'Administrador') return null;
+              return (
+                <Link
+                  key={tab.id}
+                  href="/"
+                  onClick={() => scrollToSection(tab.id)}
+                  className="sub-item"
+                >
+                  <span className="sub-icon">{tab.icon}</span>
+                  <span>{tab.name}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
         {/* Auditoria */}
         <div className="nav-group">
+          <div className="nav-section-label">AUDITORIA</div>
           <button
-            className={`nav-item ${isAuditoria ? 'active' : ''}`}
+            className={`nav-parent ${isAuditoria ? 'active' : ''}`}
             onClick={() => setOpenAuditoria(v => !v)}
           >
-            <ClipboardCheck size={18} className="nav-icon" />
-            <span className="nav-label">AUDITORIA</span>
-            <span className="nav-chevron">
-              {openAuditoria ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <ClipboardCheck size={16} className="nav-icon" />
+            <span className="nav-label">Auditorias</span>
+            <span className={`nav-chevron ${openAuditoria ? 'open' : ''}`}>
+              <ChevronRight size={13} />
             </span>
           </button>
 
           <div className={`submenu ${openAuditoria ? 'open' : ''}`}>
-            <div className="submenu-inner">
-              {auditoriaSubItems.map((sub) => {
-                if (sub.adminOnly && role !== 'Administrador') return null;
-                const isSubActive = isAuditoria && currentAudTab === sub.tab;
-                return (
-                  <Link
-                    key={sub.tab}
-                    href={`/auditoria?tab=${sub.tab}`}
-                    className={`sub-item ${isSubActive ? 'sub-active' : ''}`}
-                  >
-                    <span className="sub-bullet" />
-                    <span>{sub.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
+            {auditoriaSubItems.map((sub) => {
+              if (sub.adminOnly && role !== 'Administrador') return null;
+              const isSubActive = isAuditoria && currentAudTab === sub.tab;
+              return (
+                <Link
+                  key={sub.tab}
+                  href={`/auditoria?tab=${sub.tab}`}
+                  className={`sub-item ${isSubActive ? 'sub-active' : ''}`}
+                >
+                  <span className="sub-icon"><Zap size={13}/></span>
+                  <span>{sub.name}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
       </nav>
 
-      {/* ── FOOTER ── */}
+      {/* ── FOOTER / USER ── */}
       <div className="sidebar-footer">
         <div className="user-card">
-          <div className="user-icon">
-            {role === 'Administrador' ? <ShieldCheck size={16} /> : <Users size={16} />}
+          <div className="user-avatar">
+            {avatarUrl
+              ? <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              : <span>{displayName ? displayName[0].toUpperCase() : 'U'}</span>
+            }
           </div>
-          <div className="user-text">
+          <div className="user-info">
             <span className="user-role">{role}</span>
             <span className="user-handle">@grupovorp</span>
           </div>
+          <button className="logout-btn" onClick={signOut} title="Sair">
+            <LogOut size={15} />
+          </button>
         </div>
       </div>
 
       <style jsx>{`
-        /* ── Shell ── */
+        /* ── Shell ─────────────────────────────────────────────────────── */
         .sidebar {
           width: 260px;
           height: 100vh;
-          background: #07071a;
-          border-right: 1px solid #1A1A38;
+          background: #0b0e19;
+          border-right: 1px solid #141a2e;
           display: flex;
           flex-direction: column;
           position: fixed;
-          left: 0;
-          top: 0;
+          left: 0; top: 0;
           z-index: 100;
-          font-family: 'Inter', sans-serif;
+          font-family: 'Outfit', sans-serif;
         }
 
-        /* ── Logo card ── */
-        .logo-card {
-          margin: 20px 16px;
-          background: #0f1030;
-          border: 1px solid #1e1e45;
-          border-radius: 12px;
-          padding: 14px 16px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .logo-icon {
-          width: 38px;
-          height: 38px;
-          background: rgba(252, 84, 0, 0.12);
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .logo-text {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          min-width: 0;
-        }
-
-        .logo-title {
-          font-size: 0.85rem;
-          font-weight: 800;
-          color: #e0e0ee;
-          letter-spacing: 0.08em;
-          line-height: 1;
-        }
-
-        .logo-sub {
-          font-size: 0.62rem;
-          font-weight: 500;
-          color: #6060a0;
-          letter-spacing: 0.1em;
-        }
-
-        /* ── Nav ── */
-        .sidebar-nav {
-          flex: 1;
-          padding: 8px 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          overflow-y: auto;
-        }
-
-        .nav-group {
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* ── Nav item (button) ── */
-        .nav-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 11px 14px;
-          width: 100%;
-          background: none;
-          border: none;
-          border-radius: 10px;
-          cursor: pointer;
-          transition: background 0.18s, color 0.18s;
-          text-align: left;
-          color: #6868a0;
-        }
-
-        .nav-item:hover {
-          background: rgba(255, 255, 255, 0.04);
-          color: #a0a0cc;
-        }
-
-        .nav-item.active {
-          background: #0d0d2e;
-          border: 1px solid #1e1e48;
-          color: #FC5400;
-        }
-
-        .nav-icon {
-          flex-shrink: 0;
-          color: inherit;
-        }
-
-        .nav-label {
-          flex: 1;
-          font-size: 0.75rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          color: inherit;
-        }
-
-        .nav-chevron {
-          flex-shrink: 0;
-          color: inherit;
-          display: flex;
-          align-items: center;
-          transition: transform 0.2s;
-        }
-
-        /* ── Submenu accordion ── */
-        .submenu {
-          overflow: hidden;
-          max-height: 0;
-          transition: max-height 0.28s ease;
-        }
-
-        .submenu.open {
-          max-height: 400px;
-        }
-
-        .submenu-inner {
-          padding: 4px 0 8px 28px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          border-left: 2px solid #1e1e42;
-          margin-left: 22px;
-        }
-
-        /* ── Sub item ── */
-        .sub-item {
+        /* ── Logo ──────────────────────────────────────────────────────── */
+        .logo-area {
+          padding: 20px 18px 18px;
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 7px 12px;
-          border-radius: 8px;
+          border-bottom: 1px solid #141a2e;
+        }
+        .logo-icon-wrap {
+          width: 36px; height: 36px;
+          border-radius: 9px;
+          background: transparent;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 4px 12px rgba(252,84,0,0.2);
+        }
+        .logo-text { display: flex; flex-direction: column; gap: 1px; }
+        .logo-title {
+          font-size: 13px; font-weight: 800;
+          color: #f1f5f9; letter-spacing: 0.07em; line-height: 1.2;
+        }
+        .logo-sub {
+          font-size: 9px; font-weight: 500;
+          color: #334155; letter-spacing: 0.1em;
+        }
+
+        /* ── Nav ───────────────────────────────────────────────────────── */
+        .sidebar-nav {
+          flex: 1;
+          padding: 16px 10px;
+          display: flex; flex-direction: column; gap: 20px;
+          overflow-y: auto;
+        }
+        .nav-group { display: flex; flex-direction: column; gap: 2px; }
+
+        .nav-section-label {
+          font-size: 9px; font-weight: 700;
+          letter-spacing: 0.12em; color: #1e2a3a;
+          padding: 0 10px; margin-bottom: 4px;
+        }
+
+        /* Parent button */
+        .nav-parent {
+          display: flex; align-items: center; gap: 10px;
+          width: 100%; padding: 9px 12px;
+          background: none; border: none; border-radius: 9px;
+          cursor: pointer; text-align: left;
+          color: #475569; transition: all 0.15s;
+          border-left: 2px solid transparent;
+        }
+        .nav-parent:hover {
+          background: rgba(255,255,255,0.04);
+          color: #94a3b8;
+        }
+        .nav-parent.active {
+          background: rgba(252,84,0,0.1);
+          border-left-color: #FC5400;
+          color: #FC5400;
+        }
+        .nav-icon { flex-shrink: 0; color: inherit; }
+        .nav-label {
+          flex: 1; font-size: 13px; font-weight: 600;
+          color: inherit;
+        }
+        .nav-chevron {
+          flex-shrink: 0; display: flex; align-items: center;
+          transition: transform 0.22s ease; color: inherit;
+        }
+        .nav-chevron.open { transform: rotate(90deg); }
+
+        /* Submenu */
+        .submenu {
+          overflow: hidden; max-height: 0;
+          transition: max-height 0.28s ease;
+          margin-left: 14px;
+          padding-left: 14px;
+          border-left: 1.5px solid #141a2e;
+        }
+        .submenu.open { max-height: 500px; }
+
+        /* Sub items */
+        .sub-item {
+          display: flex; align-items: center; gap: 9px;
+          padding: 7px 10px; border-radius: 7px;
           text-decoration: none !important;
-          color: #7a7a8a !important;
-          font-size: 0.76rem;
-          font-weight: 500;
-          transition: background 0.15s, color 0.15s;
+          color: #475569 !important;
+          font-size: 12.5px; font-weight: 400;
+          transition: all 0.15s;
+          margin: 1px 0;
         }
-
         .sub-item:hover {
-          background: rgba(252, 84, 0, 0.08);
-          color: #ffffff !important;
-          font-weight: 600;
+          background: rgba(252,84,0,0.08);
+          color: #e2e8f0 !important;
+          font-weight: 500;
         }
-
-        .sub-item:hover .sub-bullet {
-          background: #FC5400;
-          box-shadow: 0 0 6px rgba(252, 84, 0, 0.5);
+        .sub-active {
+          background: rgba(252,84,0,0.12) !important;
+          color: #FC5400 !important;
+          font-weight: 600 !important;
         }
-
-        /* Bullet */
-        .sub-bullet {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #2e2e5a;
-          flex-shrink: 0;
-          transition: background 0.15s;
+        .sub-icon {
+          flex-shrink: 0; color: inherit; opacity: 0.7;
+          display: flex; align-items: center;
         }
+        .sub-item:hover .sub-icon,
+        .sub-active .sub-icon { opacity: 1; }
 
-        /* ── Footer ── */
+        /* ── Footer ────────────────────────────────────────────────────── */
         .sidebar-footer {
-          padding: 16px;
-          border-top: 1px solid #1A1A38;
+          padding: 14px;
+          border-top: 1px solid #141a2e;
         }
-
         .user-card {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: #0f1030;
-          border: 1px solid #1e1e45;
-          border-radius: 10px;
-          padding: 12px;
+          display: flex; align-items: center; gap: 10px;
+          background: #111827; border: 1px solid #1f2d40;
+          border-radius: 10px; padding: 10px 12px;
         }
-
-        .user-icon {
-          width: 34px;
-          height: 34px;
-          background: #FC5400;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          flex-shrink: 0;
+        .user-avatar {
+          width: 30px; height: 30px; border-radius: 50%;
+          background: linear-gradient(135deg, #FC5400, #9333ea);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 13px; font-weight: 700; color: #fff;
+          flex-shrink: 0; overflow: hidden;
         }
-
-        .user-text {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          overflow: hidden;
+        .user-info {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column; gap: 1px;
         }
-
         .user-role {
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: #e0e0ee;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font-size: 12px; font-weight: 700;
+          color: #e2e8f0;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-
-        .user-handle {
-          font-size: 0.68rem;
-          color: #505080;
+        .user-handle { font-size: 10px; color: #334155; }
+        .logout-btn {
+          background: none; border: none; cursor: pointer;
+          color: #334155; display: flex; align-items: center;
+          padding: 4px; border-radius: 5px;
+          transition: color 0.15s, background 0.15s;
+        }
+        .logout-btn:hover {
+          color: #ef4444;
+          background: rgba(239,68,68,0.1);
         }
       `}</style>
     </aside>
