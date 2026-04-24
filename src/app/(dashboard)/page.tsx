@@ -1,25 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, Component } from 'react';
-
-class SectionErrorBoundary extends Component<
-  { name: string; children: React.ReactNode },
-  { error: Error | null }
-> {
-  state = { error: null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ background: '#1f0a0a', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#ef4444', fontFamily: 'monospace', fontSize: 12 }}>
-          <strong>Erro em: {this.props.name}</strong><br/>
-          {(this.state.error as Error).message}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+import React, { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/components/AuthContext';
 import DashboardFilters from '@/components/DashboardFilters';
@@ -174,87 +155,67 @@ export default function Dashboard() {
         {isEmpty ? <EmptyState /> : (
           <div className="dash-sections">
 
-            <SectionErrorBoundary name="SummaryKPIs">
-              <section id="visao-geral" data-screen-label="01 Visão Geral">
-                <SummaryKPIs data={data!} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="visao-geral" data-screen-label="01 Visão Geral">
+              <SummaryKPIs data={data!} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="EvolutionSection">
-              <section id="evolucao" data-screen-label="02 Evolução">
-                <EvolutionSection data={data!} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="evolucao" data-screen-label="02 Evolução">
+              <EvolutionSection data={data!} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="CategoryGaps">
-              <section id="conformidade" data-screen-label="03 Conformidade">
-                <CategoryGaps data={data!} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="conformidade" data-screen-label="03 Conformidade">
+              <CategoryGaps data={data!} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="PerformanceRankings">
-              <section id="processos" data-screen-label="04 Processos">
-                <PerformanceRankings data={data!} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="processos" data-screen-label="04 Processos">
+              <PerformanceRankings data={data!} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="MeetingsSection">
-              <section id="reunioes" data-screen-label="05 Reuniões">
-                <MeetingsSection data={data!} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="reunioes" data-screen-label="05 Reuniões">
+              <MeetingsSection data={data!} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="GoalsSection">
-              <section id="metas" data-screen-label="06 Metas">
-                <GoalsSection data={data!} filterProducts={activeFilters.products} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="metas" data-screen-label="06 Metas">
+              <GoalsSection data={data!} filterProducts={activeFilters.products} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="NPSSection">
-              <section id="nps" data-screen-label="07 NPS">
-                <NPSSection auditorias={data!.currentAudits} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="nps" data-screen-label="07 NPS">
+              <NPSSection auditorias={data!.currentAudits} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="ChurnSection">
-              <section id="churn" data-screen-label="08 Churn">
-                <ChurnSection churn={data!.currentChurn} />
-              </section>
-            </SectionErrorBoundary>
+            <section id="churn" data-screen-label="08 Churn">
+              <ChurnSection churn={data!.currentChurn} />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="CorrelacaoSection">
-              <section id="correlacao" data-screen-label="09 Correlação">
-                <CorrelacaoSection />
-              </section>
-            </SectionErrorBoundary>
+            <section id="correlacao" data-screen-label="09 Correlação">
+              <CorrelacaoSection />
+            </section>
 
             <div className="section-divider"/>
 
-            <SectionErrorBoundary name="VorpSection">
-              <section id="vorp-system" data-screen-label="10 Vorp System">
-                <VorpSection
-                  consultorNome={activeFilters.consultantId === 'all'
-                    ? 'all'
-                    : consultores.find(c => c.id === activeFilters.consultantId)?.nome}
-                />
-              </section>
-            </SectionErrorBoundary>
+            <section id="vorp-system" data-screen-label="10 Vorp System">
+              <VorpSection
+                consultorNome={activeFilters.consultantId === 'all'
+                  ? 'all'
+                  : consultores.find(c => c.id === activeFilters.consultantId)?.nome}
+              />
+            </section>
 
             {role === 'Administrador' && (
               <>
@@ -286,12 +247,10 @@ export default function Dashboard() {
           display: flex; flex-direction: column;
         }
 
-        /* Each section gets top padding for scroll offset */
         section {
           padding-top: 48px;
         }
 
-        /* Refined divider */
         .section-divider {
           height: 1px;
           background: linear-gradient(90deg,

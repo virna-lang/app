@@ -3,7 +3,6 @@
 import { useAuth } from './AuthContext';
 import { LogOut, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
-import { useDashboard } from '@/context/DashboardContext';
 export default function Topbar() {
   const { role, setRole, user, signOut } = useAuth();
 
