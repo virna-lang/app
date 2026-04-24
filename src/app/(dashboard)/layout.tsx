@@ -28,7 +28,7 @@ export default function DashboardLayout({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0c0c1e',
+        background: '#090c15',
       }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
