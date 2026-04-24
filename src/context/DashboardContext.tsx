@@ -4,6 +4,14 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { getConsultores, gerarMeses } from '@/lib/api';
 import type { Consultor } from '@/lib/supabase';
 
+export const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
+
+export interface DashboardFilters {
+  month:       string;
+  consultantId: string;
+  products:    string[];
+}
+
 type DashboardTab =
   | 'Visão Geral'
   | 'Conformidade'
@@ -14,22 +22,54 @@ type DashboardTab =
   | 'Time Completo';
 
 interface DashboardContextType {
-  activeTab: DashboardTab;
-  setActiveTab: (tab: DashboardTab) => void;
-  consultores: Consultor[];
-  setConsultores: React.Dispatch<React.SetStateAction<Consultor[]>>;
-  meses: string[];
+  activeTab:         DashboardTab;
+  setActiveTab:      (tab: DashboardTab) => void;
+  consultores:       Consultor[];
+  setConsultores:    React.Dispatch<React.SetStateAction<Consultor[]>>;
+  meses:             string[];
   loadingConsultores: boolean;
+  filters:           DashboardFilters;
+  setFilters:        React.Dispatch<React.SetStateAction<DashboardFilters>>;
+  availableProducts: string[];
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [activeTab, setActiveTab] = useState<DashboardTab>('Visão Geral');
-  const [consultores, setConsultores] = useState<Consultor[]>([]);
+  const [activeTab,          setActiveTab]          = useState<DashboardTab>('Visão Geral');
+  const [consultores,        setConsultores]        = useState<Consultor[]>([]);
   const [loadingConsultores, setLoadingConsultores] = useState(true);
 
-  const meses = gerarMeses(6);
+  const meses             = gerarMeses(6);
+  const availableProducts = PRODUTOS_PADRAO;
+
+  const [filters, setFilters] = useState<DashboardFilters>({
+    month:        meses[meses.length - 1],
+    consultantId: 'all',
+    products:     PRODUTOS_PADRAO,
+  });
+
+  // Carrega filtros salvos após mount (evita problema SSR com localStorage)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vorp_dashboard_filters');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (meses.includes(parsed.month)) {
+          setFilters({
+            month:        parsed.month,
+            consultantId: parsed.consultantId ?? 'all',
+            products:     parsed.products     ?? PRODUTOS_PADRAO,
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Persiste filtros no localStorage sempre que mudam
+  useEffect(() => {
+    localStorage.setItem('vorp_dashboard_filters', JSON.stringify(filters));
+  }, [filters]);
 
   useEffect(() => {
     getConsultores().then((data) => {
@@ -40,7 +80,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   return (
     <DashboardContext.Provider
-      value={{ activeTab, setActiveTab, consultores, setConsultores, meses, loadingConsultores }}
+      value={{
+        activeTab, setActiveTab,
+        consultores, setConsultores,
+        meses, loadingConsultores,
+        filters, setFilters,
+        availableProducts,
+      }}
     >
       {children}
     </DashboardContext.Provider>

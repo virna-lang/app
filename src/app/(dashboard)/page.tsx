@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/components/AuthContext';
-import DashboardFilters from '@/components/DashboardFilters';
 import { useDashboard } from '@/context/DashboardContext';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { addConsultor, toggleConsultor, getMesAnterior } from '@/lib/api';
@@ -26,18 +25,9 @@ const CorrelacaoSection   = dynamic(() => import('@/components/dashboard/Correla
 const VorpSection         = dynamic(() => import('@/components/dashboard/VorpSection'));
 const AdminManagement     = dynamic(() => import('@/components/dashboard/AdminManagement'));
 
-const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
-
 export default function Dashboard() {
   const { role } = useAuth();
-  const { activeTab, consultores, setConsultores, meses, loadingConsultores } = useDashboard();
-
-  const [products]       = useState<string[]>(PRODUTOS_PADRAO);
-  const [activeFilters, setActiveFilters] = useState({
-    month:         meses[meses.length - 1],
-    consultantId:  'all',
-    products:      PRODUTOS_PADRAO,
-  });
+  const { activeTab, consultores, setConsultores, loadingConsultores, filters: activeFilters, availableProducts: products } = useDashboard();
 
   const { data: raw, isLoading } = useDashboardData(
     activeFilters.month,
@@ -126,11 +116,6 @@ export default function Dashboard() {
   if (loadingConsultores || (isLoading && !data)) {
     return (
       <div className="dash-wrapper">
-        <DashboardFilters
-          onFilterChange={() => {}}
-          availableConsultants={consultores}
-          availableProducts={products}
-        />
         <div className="dash-body"><SkeletonLoader /></div>
       </div>
     );
@@ -145,12 +130,6 @@ export default function Dashboard() {
 
   return (
     <div className="dash-wrapper">
-      <DashboardFilters
-        availableConsultants={consultores}
-        availableProducts={products}
-        onFilterChange={f => setActiveFilters({ month: f.month, consultantId: f.consultantId, products: f.products })}
-      />
-
       <div className="dash-body">
         {isEmpty ? <EmptyState /> : (
           <div className="dash-sections">
