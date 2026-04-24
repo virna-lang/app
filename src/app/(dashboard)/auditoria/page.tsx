@@ -3,188 +3,129 @@
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
-import { ChevronDown, Save, CheckCircle, AlertCircle, Loader, Trash2, Plus, X, Edit3, Zap, TrendingDown } from 'lucide-react';
+import {
+  ChevronDown, Save, CheckCircle, AlertCircle, Loader,
+  Trash2, Plus, X, Edit3, Zap, TrendingDown,
+} from 'lucide-react';
 import ChurnRapido from '@/components/auditoria/ChurnRapido';
 import AuditoriaRapida from '@/components/auditoria/AuditoriaRapida';
 import {
-  getConsultores,
-  getAuditoriasMensais,
-  getAuditoriaItens,
-  updateAuditoriaItem,
-  deleteAuditoriaItem,
-  addAuditoriaItem,
-  upsertAuditoriaMensal,
-  gerarMeses,
-  labelToMesAno,
+  getConsultores, getAuditoriasMensais, getAuditoriaItens,
+  updateAuditoriaItem, deleteAuditoriaItem, addAuditoriaItem,
+  upsertAuditoriaMensal, gerarMeses, labelToMesAno,
 } from '@/lib/api';
 import type { Consultor, AuditoriaItem, AuditoriaMensal } from '@/lib/supabase';
 
-const COLORS = {
-  verde:    '#1E9080',
-  amarelo:  '#D97706',
-  vermelho: '#B03030',
+const C = {
+  verde:    '#10b981',
+  amarelo:  '#f59e0b',
+  vermelho: '#ef4444',
   primary:  '#FC5400',
 };
 
 function getSemaphor(nota: number) {
-  if (nota >= 80) return COLORS.verde;
-  if (nota >= 60) return COLORS.amarelo;
-  return COLORS.vermelho;
+  if (nota >= 80) return C.verde;
+  if (nota >= 60) return C.amarelo;
+  return C.vermelho;
 }
 
 type ItemEditState = {
-  tipo:          string;
-  qtd_avaliados: number;
-  qtd_conformes: number;
-  observacao:    string;
-  evidencia_url: string;
-  saving: boolean;
-  saved:  boolean;
-  error:  boolean;
-  dirty:  boolean;
+  tipo: string; qtd_avaliados: number; qtd_conformes: number;
+  observacao: string; evidencia_url: string;
+  saving: boolean; saved: boolean; error: boolean; dirty: boolean;
 };
-
 type AuditTab = 'edicao' | 'churn' | 'rapida';
 
-const AUDIT_TABS: { id: AuditTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'edicao',  label: 'Edição Completa', icon: <Edit3 size={15} /> },
-  { id: 'churn',   label: 'Churn Rápido',    icon: <TrendingDown size={15} /> },
-  { id: 'rapida',  label: 'Auditoria Rápida', icon: <Zap size={15} /> },
+const TABS: { id: AuditTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'edicao', label: 'Edição Completa', icon: <Edit3 size={14}/> },
+  { id: 'churn',  label: 'Churn Rápido',   icon: <TrendingDown size={14}/> },
+  { id: 'rapida', label: 'Auditoria Rápida', icon: <Zap size={14}/> },
 ];
 
+const CAT_COLORS: Record<string, string> = {
+  ClickUp: '#3b82f6', Drive: '#8b5cf6', WhatsApp: '#10b981',
+  'Vorp System': '#f59e0b', Dados: '#ec4899', Flags: '#14b8a6',
+};
+
 export default function AuditoriaPage() {
-  return (
-    <Suspense fallback={null}>
-      <AuditoriaPageInner />
-    </Suspense>
-  );
+  return <Suspense fallback={null}><AuditoriaPageInner/></Suspense>;
 }
 
 function AuditoriaPageInner() {
   const { role } = useAuth();
-  const router   = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<AuditTab>(
     (searchParams.get('tab') as AuditTab) ?? 'edicao',
   );
 
-  useEffect(() => {
-    if (role && role !== 'Administrador') router.replace('/');
-  }, [role]);
+  useEffect(() => { if (role && role !== 'Administrador') router.replace('/'); }, [role]);
 
-  const meses = gerarMeses(24); // últimos 24 meses
-  const [consultores,   setConsultores]   = useState<Consultor[]>([]);
-  const [selectedCons,  setSelectedCons]  = useState('');
-  const [selectedMes,   setSelectedMes]   = useState(meses[meses.length - 1]);
-
-  const [auditoria,  setAuditoria]  = useState<AuditoriaMensal | null>(null);
-  const [itens,      setItens]      = useState<AuditoriaItem[]>([]);
-  const [editState,  setEditState]  = useState<Record<string, ItemEditState>>({});
-  const [loading,    setLoading]    = useState(false);
-  const [notFound,   setNotFound]   = useState(false);
-
-  // estado para criar nova auditoria
-  const [creating,      setCreating]      = useState(false);
-  const [newCarteira,   setNewCarteira]   = useState(1);
-  const [newDataAud,    setNewDataAud]    = useState('');
-  const [savingNew,     setSavingNew]     = useState(false);
+  const meses = gerarMeses(24);
+  const [consultores,  setConsultores]  = useState<Consultor[]>([]);
+  const [selectedCons, setSelectedCons] = useState('');
+  const [selectedMes,  setSelectedMes]  = useState(meses[meses.length - 1]);
+  const [auditoria,    setAuditoria]    = useState<AuditoriaMensal | null>(null);
+  const [itens,        setItens]        = useState<AuditoriaItem[]>([]);
+  const [editState,    setEditState]    = useState<Record<string, ItemEditState>>({});
+  const [loading,      setLoading]      = useState(false);
+  const [notFound,     setNotFound]     = useState(false);
+  const [creating,     setCreating]     = useState(false);
+  const [newCarteira,  setNewCarteira]  = useState(1);
+  const [newDataAud,   setNewDataAud]   = useState('');
+  const [savingNew,    setSavingNew]    = useState(false);
+  const [addingTo,     setAddingTo]     = useState<string | null>(null);
+  const [newQuestion,  setNewQuestion]  = useState({
+    categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any, tipo: 'Conformidade', evidencia_url: '',
+  });
 
   useEffect(() => { getConsultores().then(setConsultores); }, []);
 
   const handleCarregar = useCallback(async () => {
     if (!selectedCons) return;
-    setLoading(true);
-    setNotFound(false);
-    setAuditoria(null);
-    setItens([]);
-    setEditState({});
-    setCreating(false);
-
+    setLoading(true); setNotFound(false); setAuditoria(null); setItens([]); setEditState({}); setCreating(false);
     const mesAno = labelToMesAno(selectedMes);
-    const auds   = await getAuditoriasMensais(mesAno, selectedCons);
-
-    if (!auds.length) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
-
-    const aud   = auds[0];
+    const auds = await getAuditoriasMensais(mesAno, selectedCons);
+    if (!auds.length) { setNotFound(true); setLoading(false); return; }
+    const aud = auds[0];
     const items = await getAuditoriaItens(aud.id);
-
-    setAuditoria(aud);
-    setItens(items);
-    setEditState(
-      Object.fromEntries(
-        items.map(i => [
-          i.id,
-          {
-            tipo:          i.tipo ?? '',
-            qtd_avaliados: i.qtd_avaliados,
-            qtd_conformes: i.qtd_conformes,
-            observacao:    i.observacao ?? '',
-            evidencia_url: i.evidencia_url ?? '',
-            saving: false, saved: false, error: false, dirty: false,
-          },
-        ]),
-      ),
-    );
+    setAuditoria(aud); setItens(items);
+    setEditState(Object.fromEntries(items.map(i => [i.id, {
+      tipo: i.tipo ?? '', qtd_avaliados: i.qtd_avaliados, qtd_conformes: i.qtd_conformes,
+      observacao: i.observacao ?? '', evidencia_url: i.evidencia_url ?? '',
+      saving: false, saved: false, error: false, dirty: false,
+    }])));
     setLoading(false);
   }, [selectedCons, selectedMes]);
 
   const handleCriarAuditoria = async () => {
     if (!selectedCons || !newDataAud) return;
     setSavingNew(true);
-    const mesAno = labelToMesAno(selectedMes);
     const aud = await upsertAuditoriaMensal({
-      consultor_id:     selectedCons,
-      mes_ano:          mesAno,
-      data_auditoria:   newDataAud,
-      tamanho_carteira: newCarteira,
-      clientes_tratativa: 0,
+      consultor_id: selectedCons, mes_ano: labelToMesAno(selectedMes),
+      data_auditoria: newDataAud, tamanho_carteira: newCarteira, clientes_tratativa: 0,
     });
     setSavingNew(false);
     if (!aud) { alert('Erro ao criar auditoria.'); return; }
-    setAuditoria(aud);
-    setNotFound(false);
-    setCreating(false);
-    setItens([]);
-    setEditState({});
+    setAuditoria(aud); setNotFound(false); setCreating(false); setItens([]); setEditState({});
   };
 
-  const handleChange = (
-    id: string,
-    field: keyof Pick<ItemEditState, 'tipo' | 'qtd_avaliados' | 'qtd_conformes' | 'observacao' | 'evidencia_url'>,
-    value: string | number,
-  ) => {
-    setEditState(prev => ({
-      ...prev,
-      [id]: { ...prev[id], [field]: value, dirty: true, saved: false, error: false },
-    }));
+  const handleChange = (id: string, field: keyof Pick<ItemEditState,'tipo'|'qtd_avaliados'|'qtd_conformes'|'observacao'|'evidencia_url'>, value: string|number) => {
+    setEditState(prev => ({ ...prev, [id]: { ...prev[id], [field]: value, dirty: true, saved: false, error: false } }));
   };
 
   const handleSave = async (id: string) => {
-    const s = editState[id];
-    if (!s) return;
+    const s = editState[id]; if (!s) return;
     setEditState(prev => ({ ...prev, [id]: { ...prev[id], saving: true } }));
-
     const ok = await updateAuditoriaItem(id, {
-      tipo:          s.tipo || null,
-      qtd_avaliados: Number(s.qtd_avaliados),
-      qtd_conformes: Number(s.qtd_conformes),
-      observacao:    s.observacao || null,
-      evidencia_url: s.evidencia_url || null,
+      tipo: s.tipo || null, qtd_avaliados: Number(s.qtd_avaliados),
+      qtd_conformes: Number(s.qtd_conformes), observacao: s.observacao || null, evidencia_url: s.evidencia_url || null,
     });
-
-    setEditState(prev => ({
-      ...prev,
-      [id]: { ...prev[id], saving: false, saved: ok, error: !ok, dirty: false },
-    }));
+    setEditState(prev => ({ ...prev, [id]: { ...prev[id], saving: false, saved: ok, error: !ok, dirty: false } }));
   };
 
   const handleSaveAll = async () => {
-    const dirtyIds = Object.keys(editState).filter(id => editState[id].dirty);
-    await Promise.all(dirtyIds.map(handleSave));
+    await Promise.all(Object.keys(editState).filter(id => editState[id].dirty).map(handleSave));
   };
 
   const calcNota = (id: string) => {
@@ -193,568 +134,527 @@ function AuditoriaPageInner() {
     return Math.round((s.qtd_conformes / s.qtd_avaliados) * 1000) / 10;
   };
 
-  const dirtyCount = Object.values(editState).filter(s => s.dirty).length;
-
   const handleDeleteItem = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta pergunta?')) return;
+    if (!confirm('Excluir esta pergunta?')) return;
     const ok = await deleteAuditoriaItem(id);
-    if (ok) {
-      setItens(prev => prev.filter(i => i.id !== id));
-      setEditState(prev => { const next = { ...prev }; delete next[id]; return next; });
-    } else {
-      alert('Erro ao excluir item.');
-    }
+    if (ok) { setItens(prev => prev.filter(i => i.id !== id)); setEditState(prev => { const n = { ...prev }; delete n[id]; return n; }); }
+    else alert('Erro ao excluir.');
   };
-
-  const [addingTo,    setAddingTo]    = useState<string | null>(null);
-  const [newQuestion, setNewQuestion] = useState({
-    categoria:      'ClickUp',
-    pergunta:       '',
-    tipo_amostragem: '30% da carteira' as any,
-    tipo:           'Conformidade',
-    evidencia_url:  '',
-  });
 
   const handleAddItem = async (tipoGrupo: string) => {
     if (!auditoria || !newQuestion.pergunta) return;
-    const payload = {
-      auditoria_id:    auditoria.id,
-      categoria:       newQuestion.categoria as any,
-      pergunta:        newQuestion.pergunta,
-      tipo:            newQuestion.tipo,
-      tipo_amostragem: newQuestion.tipo_amostragem,
-      qtd_avaliados:   0,
-      qtd_conformes:   0,
-      observacao:      '',
-      evidencia_url:   newQuestion.evidencia_url,
-    };
-    const newItem = await addAuditoriaItem(payload);
+    const newItem = await addAuditoriaItem({
+      auditoria_id: auditoria.id, categoria: newQuestion.categoria as any,
+      pergunta: newQuestion.pergunta, tipo: newQuestion.tipo,
+      tipo_amostragem: newQuestion.tipo_amostragem, qtd_avaliados: 0, qtd_conformes: 0,
+      observacao: '', evidencia_url: newQuestion.evidencia_url,
+    });
     if (newItem) {
       setItens(prev => [...prev, newItem]);
-      setEditState(prev => ({
-        ...prev,
-        [newItem.id]: {
-          tipo: newItem.tipo ?? newQuestion.tipo,
-          qtd_avaliados: 0, qtd_conformes: 0,
-          observacao: '', evidencia_url: newItem.evidencia_url ?? '',
-          saving: false, saved: false, error: false, dirty: false,
-        },
-      }));
+      setEditState(prev => ({ ...prev, [newItem.id]: {
+        tipo: newItem.tipo ?? newQuestion.tipo, qtd_avaliados: 0, qtd_conformes: 0,
+        observacao: '', evidencia_url: newItem.evidencia_url ?? '',
+        saving: false, saved: false, error: false, dirty: false,
+      }}));
       setAddingTo(null);
       setNewQuestion({ categoria: 'ClickUp', pergunta: '', tipo_amostragem: '30% da carteira' as any, tipo: 'Conformidade', evidencia_url: '' });
-    } else {
-      alert('Erro ao adicionar pergunta.');
-    }
+    } else alert('Erro ao adicionar.');
   };
 
-  // Agrupa por tipo (usando editState para refletir mudanças)
   const resultado    = itens.filter(i => (editState[i.id]?.tipo ?? i.tipo) === 'Resultado');
   const conformidade = itens.filter(i => (editState[i.id]?.tipo ?? i.tipo) === 'Conformidade');
   const semTipo      = itens.filter(i => !((editState[i.id]?.tipo ?? i.tipo)));
+  const dirtyCount   = Object.values(editState).filter(s => s.dirty).length;
 
   if (role && role !== 'Administrador') return null;
 
   return (
-    <div className="edit-page">
+    <div className="page">
       {/* Tab bar */}
-      <div className="audit-tabs">
-        {AUDIT_TABS.map(tab => (
-          <button
-            key={tab.id}
-            className={`audit-tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.icon}
-            {tab.label}
+      <div className="tab-bar">
+        {TABS.map(tab => (
+          <button key={tab.id} className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}>
+            {tab.icon}{tab.label}
           </button>
         ))}
       </div>
 
-      {/* Churn Rápido */}
-      {activeTab === 'churn' && <ChurnRapido />}
+      {activeTab === 'churn'  && <ChurnRapido/>}
+      {activeTab === 'rapida' && <AuditoriaRapida/>}
 
-      {/* Auditoria Rápida */}
-      {activeTab === 'rapida' && <AuditoriaRapida />}
-
-      {/* Edição completa (existente) */}
-      {activeTab === 'edicao' && (<>
-      <header className="page-header">
-        <div>
-          <h2>EDIÇÃO DE AUDITORIA</h2>
-          <p>Selecione o consultor e o mês para carregar e editar os itens de auditoria.</p>
-        </div>
-        {dirtyCount > 0 && (
-          <button className="btn-save-all" onClick={handleSaveAll}>
-            <Save size={16} />
-            Salvar {dirtyCount} alteraç{dirtyCount === 1 ? 'ão' : 'ões'}
-          </button>
-        )}
-      </header>
-
-      {/* Filtros */}
-      <div className="card filter-card">
-        <div className="filters-row">
-          <div className="filter-group">
-            <label>CONSULTOR</label>
-            <div className="select-wrapper">
-              <select value={selectedCons} onChange={e => setSelectedCons(e.target.value)} className="select-input">
-                <option value="">Selecionar consultor...</option>
-                {consultores.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="select-icon" />
+      {activeTab === 'edicao' && (
+        <div className="edicao-content">
+          {/* Header */}
+          <div className="page-header">
+            <div>
+              <h2>Edição de Auditoria</h2>
+              <p>Selecione o consultor e o mês para carregar e editar os itens de auditoria.</p>
             </div>
+            {dirtyCount > 0 && (
+              <button className="btn-save-all" onClick={handleSaveAll}>
+                <Save size={15}/>
+                Salvar {dirtyCount} alteraç{dirtyCount === 1 ? 'ão' : 'ões'}
+              </button>
+            )}
           </div>
 
-          <div className="filter-group">
-            <label>MÊS</label>
-            <div className="select-wrapper">
-              <select value={selectedMes} onChange={e => setSelectedMes(e.target.value)} className="select-input">
-                {meses.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <ChevronDown size={16} className="select-icon" />
+          {/* Filtros */}
+          <div className="card filter-card">
+            <div className="filters-row">
+              <div className="filter-group">
+                <label>Consultor</label>
+                <div className="sel-wrap">
+                  <select className="sel-input" value={selectedCons} onChange={e => setSelectedCons(e.target.value)}>
+                    <option value="">Selecionar consultor...</option>
+                    {consultores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="sel-icon"/>
+                </div>
+              </div>
+              <div className="filter-group">
+                <label>Mês</label>
+                <div className="sel-wrap">
+                  <select className="sel-input" value={selectedMes} onChange={e => setSelectedMes(e.target.value)}>
+                    {meses.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="sel-icon"/>
+                </div>
+              </div>
+              <button className="btn-carregar" onClick={handleCarregar} disabled={!selectedCons || loading}>
+                {loading ? <Loader size={15} className="spin"/> : 'Carregar'}
+              </button>
             </div>
+
+            {auditoria && (
+              <div className="audit-meta">
+                <span>📅 {auditoria.data_auditoria}</span>
+                <span>👥 Carteira: {auditoria.tamanho_carteira} clientes</span>
+                <span className="meta-id">🆔 {auditoria.id.slice(0,8)}…</span>
+              </div>
+            )}
           </div>
 
-          <button className="btn-carregar" onClick={handleCarregar} disabled={!selectedCons || loading}>
-            {loading ? <Loader size={16} className="spin" /> : 'Carregar'}
-          </button>
-        </div>
-
-        {auditoria && (
-          <div className="audit-meta">
-            <span>📅 {auditoria.data_auditoria}</span>
-            <span>👥 Carteira: {auditoria.tamanho_carteira} clientes</span>
-            <span>🆔 {auditoria.id}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Não encontrado — opção de criar */}
-      {notFound && !creating && (
-        <div className="card empty-card">
-          <AlertCircle size={32} color={COLORS.amarelo} />
-          <p>Nenhuma auditoria encontrada para este consultor no mês selecionado.</p>
-          <button className="btn-create" onClick={() => setCreating(true)}>
-            <Plus size={16} /> Criar auditoria manualmente
-          </button>
-        </div>
-      )}
-
-      {notFound && creating && (
-        <div className="card create-card">
-          <h3>Nova Auditoria — {selectedMes}</h3>
-          <p className="create-sub">Preencha as informações básicas para criar a auditoria.</p>
-          <div className="create-form">
-            <div className="filter-group">
-              <label>DATA DA AUDITORIA</label>
-              <input
-                type="date"
-                className="date-input"
-                value={newDataAud}
-                onChange={e => setNewDataAud(e.target.value)}
-              />
+          {/* Não encontrado */}
+          {notFound && !creating && (
+            <div className="card empty-card">
+              <AlertCircle size={28} color={C.amarelo}/>
+              <p>Nenhuma auditoria encontrada para este consultor no mês selecionado.</p>
+              <button className="btn-create" onClick={() => setCreating(true)}>
+                <Plus size={14}/> Criar auditoria manualmente
+              </button>
             </div>
-            <div className="filter-group">
-              <label>TAMANHO DA CARTEIRA</label>
-              <input
-                type="number"
-                min={1}
-                className="num-input-lg"
-                value={newCarteira}
-                onChange={e => setNewCarteira(Number(e.target.value))}
-              />
-            </div>
-            <button className="btn-carregar" onClick={handleCriarAuditoria} disabled={!newDataAud || savingNew}>
-              {savingNew ? <Loader size={16} className="spin" /> : 'Criar'}
-            </button>
-            <button className="btn-cancel" onClick={() => setCreating(false)}>
-              <X size={16} /> Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Tabela de itens */}
-      {(itens.length > 0 || auditoria) && (
-        <div className="itens-container">
-          {[
-            { label: 'Resultado',               list: resultado },
-            { label: 'Conformidade de Processo', list: conformidade },
-            ...(semTipo.length ? [{ label: 'Sem tipo definido', list: semTipo }] : []),
-          ].map(({ label, list }) => (
-            <div key={label} className="grupo">
-              <div className="grupo-header">
-                <span className={`tipo-badge ${label === 'Resultado' ? 'badge-resultado' : 'badge-conformidade'}`}>
-                  {label}
-                </span>
-                {list.length > 0 && <span className="grupo-count">{list.length} itens</span>}
-                <button
-                  className="btn-add-inline"
-                  onClick={() => { setAddingTo(addingTo === label ? null : label); setNewQuestion(prev => ({ ...prev, tipo: label === 'Resultado' ? 'Resultado' : 'Conformidade' })); }}
-                >
-                  {addingTo === label ? <X size={14} /> : <Plus size={14} />}
-                  {addingTo === label ? 'Cancelar' : 'Adicionar Pergunta'}
+          {notFound && creating && (
+            <div className="card create-card">
+              <h3>Nova Auditoria — {selectedMes}</h3>
+              <p className="create-sub">Preencha as informações básicas para criar a auditoria.</p>
+              <div className="create-form">
+                <div className="filter-group">
+                  <label>Data da Auditoria</label>
+                  <input type="date" className="sel-input" value={newDataAud} onChange={e => setNewDataAud(e.target.value)}/>
+                </div>
+                <div className="filter-group">
+                  <label>Tamanho da Carteira</label>
+                  <input type="number" min={1} className="sel-input" value={newCarteira} onChange={e => setNewCarteira(Number(e.target.value))}/>
+                </div>
+                <button className="btn-carregar" onClick={handleCriarAuditoria} disabled={!newDataAud || savingNew}>
+                  {savingNew ? <Loader size={15} className="spin"/> : 'Criar'}
+                </button>
+                <button className="btn-cancel" onClick={() => setCreating(false)}>
+                  <X size={14}/> Cancelar
                 </button>
               </div>
+            </div>
+          )}
 
-              {addingTo === label && (
-                <div className="card add-question-card animate-slide-down">
-                  <div className="add-form-row">
-                    <div className="add-field">
-                      <label>TIPO</label>
-                      <select value={newQuestion.tipo} onChange={e => setNewQuestion(prev => ({ ...prev, tipo: e.target.value }))}>
-                        <option value="Resultado">Resultado</option>
-                        <option value="Conformidade">Conformidade</option>
-                      </select>
-                    </div>
-                    <div className="add-field">
-                      <label>CATEGORIA</label>
-                      <select value={newQuestion.categoria} onChange={e => setNewQuestion(prev => ({ ...prev, categoria: e.target.value as any }))}>
-                        <option value="ClickUp">ClickUp</option>
-                        <option value="Drive">Drive</option>
-                        <option value="WhatsApp">WhatsApp</option>
-                        <option value="Vorp System">Vorp System</option>
-                        <option value="Dados">Dados</option>
-                      </select>
-                    </div>
-                    <div className="add-field flex-3">
-                      <label>PERGUNTA</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Clientes com flags em safe?"
-                        value={newQuestion.pergunta}
-                        onChange={e => setNewQuestion(prev => ({ ...prev, pergunta: e.target.value }))}
-                      />
-                    </div>
-                    <div className="add-field">
-                      <label>AMOSTRAGEM</label>
-                      <select value={newQuestion.tipo_amostragem} onChange={e => setNewQuestion(prev => ({ ...prev, tipo_amostragem: e.target.value as any }))}>
-                        <option value="Totalidade">Totalidade</option>
-                        <option value="30% da carteira">30% da carteira</option>
-                      </select>
-                    </div>
-                    <button className="btn-confirm-add" onClick={() => handleAddItem(label)}>
-                      Confirmar
+          {/* Tabela de itens */}
+          {(itens.length > 0 || auditoria) && (
+            <div className="grupos">
+              {[
+                { label: 'Resultado',               list: resultado },
+                { label: 'Conformidade de Processo', list: conformidade },
+                ...(semTipo.length ? [{ label: 'Sem tipo definido', list: semTipo }] : []),
+              ].map(({ label, list }) => (
+                <div key={label} className="grupo">
+                  {/* Grupo header */}
+                  <div className="grupo-header">
+                    <span className={`tipo-badge ${label === 'Resultado' ? 'badge-r' : label === 'Conformidade de Processo' ? 'badge-c' : 'badge-x'}`}>
+                      {label}
+                    </span>
+                    {list.length > 0 && <span className="grupo-count">{list.length} itens</span>}
+                    <button className="btn-add-inline"
+                      onClick={() => { setAddingTo(addingTo === label ? null : label); setNewQuestion(prev => ({ ...prev, tipo: label === 'Resultado' ? 'Resultado' : 'Conformidade' })); }}>
+                      {addingTo === label ? <X size={13}/> : <Plus size={13}/>}
+                      {addingTo === label ? 'Cancelar' : 'Adicionar Pergunta'}
                     </button>
                   </div>
-                </div>
-              )}
 
-              {list.length > 0 && (
-                <div className="card tabela-card">
-                  <table className="tabela">
-                    <thead>
-                      <tr>
-                        <th className="col-tipo">Tipo</th>
-                        <th className="col-cat">Categoria</th>
-                        <th className="col-pergunta">Pergunta</th>
-                        <th className="col-num">Avaliados</th>
-                        <th className="col-num">Conformes</th>
-                        <th className="col-nota">Nota</th>
-                        <th className="col-obs">Observação</th>
-                        <th className="col-acao"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.map(item => {
-                        const s    = editState[item.id];
-                        const nota = s ? calcNota(item.id) : (item.nota_pct ?? 0);
-                        const cor  = getSemaphor(nota);
-                        if (!s) return null;
+                  {/* Formulário novo item */}
+                  {addingTo === label && (
+                    <div className="card add-card">
+                      <div className="add-row">
+                        <div className="add-field">
+                          <label>Tipo</label>
+                          <div className="sel-wrap">
+                            <select className="sel-input" value={newQuestion.tipo} onChange={e => setNewQuestion(p => ({ ...p, tipo: e.target.value }))}>
+                              <option value="Resultado">Resultado</option>
+                              <option value="Conformidade">Conformidade</option>
+                            </select>
+                            <ChevronDown size={13} className="sel-icon"/>
+                          </div>
+                        </div>
+                        <div className="add-field">
+                          <label>Categoria</label>
+                          <div className="sel-wrap">
+                            <select className="sel-input" value={newQuestion.categoria} onChange={e => setNewQuestion(p => ({ ...p, categoria: e.target.value as any }))}>
+                              {['ClickUp','Drive','WhatsApp','Vorp System','Dados'].map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <ChevronDown size={13} className="sel-icon"/>
+                          </div>
+                        </div>
+                        <div className="add-field flex-3">
+                          <label>Pergunta</label>
+                          <input type="text" className="sel-input" placeholder="Ex: Clientes com flags em safe?"
+                            value={newQuestion.pergunta} onChange={e => setNewQuestion(p => ({ ...p, pergunta: e.target.value }))}/>
+                        </div>
+                        <div className="add-field">
+                          <label>Amostragem</label>
+                          <div className="sel-wrap">
+                            <select className="sel-input" value={newQuestion.tipo_amostragem} onChange={e => setNewQuestion(p => ({ ...p, tipo_amostragem: e.target.value as any }))}>
+                              <option value="Totalidade">Totalidade</option>
+                              <option value="30% da carteira">30% da carteira</option>
+                            </select>
+                            <ChevronDown size={13} className="sel-icon"/>
+                          </div>
+                        </div>
+                        <button className="btn-confirm" onClick={() => handleAddItem(label)}>
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                        return (
-                          <tr key={item.id} className={s.dirty ? 'row-dirty' : ''}>
-                            <td className="col-tipo">
-                              <select
-                                className="tipo-select"
-                                value={s.tipo}
-                                onChange={e => handleChange(item.id, 'tipo', e.target.value)}
-                              >
-                                <option value="">—</option>
-                                <option value="Resultado">Resultado</option>
-                                <option value="Conformidade">Conformidade</option>
-                              </select>
-                            </td>
-                            <td className="col-cat">
-                              <span className="cat-badge">{item.categoria}</span>
-                            </td>
-                            <td className="col-pergunta">
-                              <span className="pergunta-text">{item.pergunta}</span>
-                            </td>
-                            <td className="col-num">
-                              <input
-                                type="number" min={0} className="num-input"
-                                value={s.qtd_avaliados}
-                                onChange={e => handleChange(item.id, 'qtd_avaliados', e.target.value)}
-                              />
-                            </td>
-                            <td className="col-num">
-                              <input
-                                type="number" min={0} max={s.qtd_avaliados} className="num-input"
-                                value={s.qtd_conformes}
-                                onChange={e => handleChange(item.id, 'qtd_conformes', e.target.value)}
-                              />
-                            </td>
-                            <td className="col-nota">
-                              <span className="nota-val" style={{ color: cor }}>
-                                {nota.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="col-obs">
-                              <textarea
-                                className="obs-input"
-                                value={s.observacao}
-                                onChange={e => handleChange(item.id, 'observacao', e.target.value)}
-                                rows={2}
-                                placeholder="—"
-                              />
-                            </td>
-                            <td className="col-acao">
-                              <div className="actions-stack">
-                                {s.saving  && <Loader      size={16} className="spin" color={COLORS.primary} />}
-                                {!s.saving && s.saved && <CheckCircle size={16} color={COLORS.verde} />}
-                                {!s.saving && s.error && <AlertCircle size={16} color={COLORS.vermelho} />}
-                                {!s.saving && s.dirty && (
-                                  <button className="btn-save-row" onClick={() => handleSave(item.id)}>
-                                    <Save size={14} />
-                                  </button>
-                                )}
-                                <button className="btn-delete-row" onClick={() => handleDeleteItem(item.id)}>
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
+                  {/* Tabela */}
+                  {list.length > 0 && (
+                    <div className="card table-card">
+                      <table className="tabela">
+                        <thead>
+                          <tr>
+                            <th className="w-tipo">Tipo</th>
+                            <th className="w-cat">Categoria</th>
+                            <th>Pergunta</th>
+                            <th className="w-num">Avaliados</th>
+                            <th className="w-num">Conformes</th>
+                            <th className="w-nota">Nota</th>
+                            <th className="w-obs">Observação</th>
+                            <th className="w-acao"></th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {list.map(item => {
+                            const s = editState[item.id];
+                            if (!s) return null;
+                            const nota = calcNota(item.id);
+                            const cor  = getSemaphor(nota);
+                            return (
+                              <tr key={item.id} className={s.dirty ? 'row-dirty' : ''}>
+                                <td>
+                                  <div className="sel-wrap">
+                                    <select className="tipo-sel" value={s.tipo} onChange={e => handleChange(item.id,'tipo',e.target.value)}>
+                                      <option value="">—</option>
+                                      <option value="Resultado">Resultado</option>
+                                      <option value="Conformidade">Conformidade</option>
+                                    </select>
+                                    <ChevronDown size={11} className="sel-icon" style={{ right: 6 }}/>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="cat-badge" style={{
+                                    background: `${CAT_COLORS[item.categoria] ?? '#94a3b8'}18`,
+                                    color: CAT_COLORS[item.categoria] ?? '#94a3b8',
+                                  }}>{item.categoria}</span>
+                                </td>
+                                <td><span className="pergunta-text">{item.pergunta}</span></td>
+                                <td>
+                                  <input type="number" min={0} className="num-input" value={s.qtd_avaliados}
+                                    onChange={e => handleChange(item.id,'qtd_avaliados',e.target.value)}/>
+                                </td>
+                                <td>
+                                  <input type="number" min={0} max={s.qtd_avaliados} className="num-input" value={s.qtd_conformes}
+                                    onChange={e => handleChange(item.id,'qtd_conformes',e.target.value)}/>
+                                </td>
+                                <td>
+                                  <span className="nota-val" style={{ color: cor, background: `${cor}15` }}>
+                                    {nota.toFixed(1)}%
+                                  </span>
+                                </td>
+                                <td>
+                                  <textarea className="obs-input" rows={2} placeholder="—"
+                                    value={s.observacao} onChange={e => handleChange(item.id,'observacao',e.target.value)}/>
+                                </td>
+                                <td>
+                                  <div className="actions">
+                                    {s.saving  && <Loader size={15} className="spin" color={C.primary}/>}
+                                    {!s.saving && s.saved && <CheckCircle size={15} color={C.verde}/>}
+                                    {!s.saving && s.error && <AlertCircle size={15} color={C.vermelho}/>}
+                                    {!s.saving && s.dirty && (
+                                      <button className="btn-row-save" onClick={() => handleSave(item.id)}>
+                                        <Save size={13}/>
+                                      </button>
+                                    )}
+                                    <button className="btn-row-del" onClick={() => handleDeleteItem(item.id)}>
+                                      <Trash2 size={13}/>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      </>)}
-
       <style jsx>{`
-        .edit-page { display: flex; flex-direction: column; gap: 24px; padding-bottom: 80px; animation: fadeIn 0.4s ease; }
+        .page { display: flex; flex-direction: column; gap: 24px; padding-bottom: 80px; font-family: 'Outfit', sans-serif; }
 
-        /* Tabs */
-        .audit-tabs {
-          display: flex; gap: 4px; border-bottom: 1px solid var(--card-border); padding-bottom: 0;
+        /* ── Tabs ──────────────────────────────────────────────────────── */
+        .tab-bar {
+          display: flex; gap: 2px;
+          border-bottom: 1px solid #1f2d40;
+          padding-bottom: 0; margin-bottom: 4px;
         }
-        .audit-tab {
-          display: flex; align-items: center; gap: 8px;
-          padding: 10px 20px; background: none; border: none;
-          color: var(--text-muted); font-size: 0.82rem; font-weight: 700;
-          cursor: pointer; border-bottom: 2px solid transparent;
-          margin-bottom: -1px; transition: all 0.2s;
+        .tab-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 10px 18px; background: none; border: none;
+          color: #475569; font-family: 'Outfit', sans-serif;
+          font-size: 13px; font-weight: 600; cursor: pointer;
+          border-bottom: 2px solid transparent; margin-bottom: -1px;
+          transition: all 0.15s; border-radius: 6px 6px 0 0;
         }
-        .audit-tab:hover { color: var(--text-secondary); }
-        .audit-tab.active { color: var(--laranja-vorp); border-bottom-color: var(--laranja-vorp); }
+        .tab-btn:hover { color: #94a3b8; background: rgba(255,255,255,0.03); }
+        .tab-btn.active { color: #FC5400; border-bottom-color: #FC5400; }
 
+        /* ── Page header ────────────────────────────────────────────────── */
+        .edicao-content { display: flex; flex-direction: column; gap: 20px; }
         .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .page-header h2 { font-family: var(--font-bebas); font-size: 2rem; color: var(--text-main); margin-bottom: 6px; }
-        .page-header p { color: var(--text-muted); font-size: 0.85rem; }
+        .page-header h2 {
+          font-size: 22px; font-weight: 800; color: #f1f5f9;
+          margin-bottom: 4px; letter-spacing: -0.01em;
+        }
+        .page-header p { color: #475569; font-size: 13px; }
 
         .btn-save-all {
-          display: flex; align-items: center; gap: 8px;
-          background: var(--laranja-vorp); color: #fff;
-          border: none; border-radius: 8px; padding: 12px 20px;
-          font-weight: 700; font-size: 0.85rem; cursor: pointer;
-          transition: opacity 0.2s; white-space: nowrap;
+          display: flex; align-items: center; gap: 7px;
+          background: #FC5400; color: #fff; border: none;
+          border-radius: 9px; padding: 10px 20px;
+          font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px;
+          cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+          box-shadow: 0 4px 16px rgba(252,84,0,0.3);
         }
         .btn-save-all:hover { opacity: 0.85; }
 
-        .filter-card { padding: 24px; }
-        .filters-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-        .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
-        .filter-group label { font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
-        .select-wrapper { position: relative; }
-        .select-input {
-          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          border-radius: 8px; padding: 12px 16px; color: var(--text-main); font-size: 0.9rem;
-          appearance: none; cursor: pointer; transition: border-color 0.2s;
+        /* ── Filter card ─────────────────────────────────────────────────── */
+        .filter-card { padding: 22px 24px; }
+        .filters-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 180px; }
+        .filter-group > label {
+          font-size: 10px; font-weight: 700; color: #334155;
+          text-transform: uppercase; letter-spacing: 0.1em;
         }
-        .select-input:focus { border-color: var(--laranja-vorp); outline: none; }
-        .select-input option { background: #0F1020; }
-        .select-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+
+        .sel-wrap { position: relative; }
+        .sel-input {
+          width: 100%; background: #0f1620; border: 1px solid #1f2d40;
+          border-radius: 9px; padding: 10px 36px 10px 14px;
+          color: #f1f5f9; font-family: 'Outfit', sans-serif; font-size: 13px;
+          appearance: none; cursor: pointer; transition: border-color 0.15s;
+        }
+        .sel-input:focus { border-color: #FC5400; outline: none; box-shadow: 0 0 0 3px rgba(252,84,0,0.12); }
+        .sel-input option { background: #111827; }
+        .sel-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #334155; pointer-events: none; }
 
         .btn-carregar {
-          background: var(--laranja-vorp); color: #fff; border: none; border-radius: 8px;
-          padding: 12px 28px; font-weight: 700; font-size: 0.9rem; cursor: pointer;
-          display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;
-          white-space: nowrap; height: 46px;
+          background: #FC5400; color: #fff; border: none;
+          border-radius: 9px; padding: 10px 24px; height: 42px;
+          font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px;
+          cursor: pointer; display: flex; align-items: center; gap: 7px;
+          white-space: nowrap; transition: opacity 0.2s;
+          box-shadow: 0 4px 16px rgba(252,84,0,0.25);
         }
         .btn-carregar:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-carregar:hover:not(:disabled) { opacity: 0.85; }
 
         .btn-cancel {
           display: flex; align-items: center; gap: 6px;
-          background: transparent; color: var(--text-muted);
-          border: 1px solid var(--card-border); border-radius: 8px;
-          padding: 12px 20px; font-weight: 700; font-size: 0.85rem;
-          cursor: pointer; height: 46px; transition: border-color 0.2s;
+          background: transparent; color: #475569;
+          border: 1px solid #1f2d40; border-radius: 9px;
+          padding: 10px 18px; height: 42px;
+          font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 13px;
+          cursor: pointer; transition: all 0.15s;
         }
-        .btn-cancel:hover { border-color: var(--text-muted); color: var(--text-main); }
+        .btn-cancel:hover { border-color: #475569; color: #94a3b8; }
 
         .audit-meta {
-          display: flex; gap: 24px; margin-top: 16px; padding-top: 16px;
-          border-top: 1px solid var(--card-border);
-          font-size: 0.75rem; color: var(--text-muted); flex-wrap: wrap;
+          display: flex; gap: 20px; flex-wrap: wrap;
+          margin-top: 14px; padding-top: 14px;
+          border-top: 1px solid #1a2535;
+          font-size: 12px; color: #475569;
         }
+        .meta-id { font-size: 11px; font-family: monospace; opacity: 0.6; }
 
-        /* Empty / Create */
+        /* ── Empty / Create ──────────────────────────────────────────────── */
         .empty-card {
-          padding: 40px; display: flex; flex-direction: column; align-items: center;
-          gap: 16px; text-align: center; color: var(--text-muted); font-size: 0.9rem;
+          padding: 40px; display: flex; flex-direction: column;
+          align-items: center; gap: 14px; text-align: center;
+          color: #475569; font-size: 13px;
         }
         .btn-create {
-          display: flex; align-items: center; gap: 8px;
-          background: rgba(252,84,0,0.1); color: var(--laranja-vorp);
-          border: 1px solid rgba(252,84,0,0.3); border-radius: 8px;
-          padding: 12px 24px; font-weight: 700; font-size: 0.85rem;
-          cursor: pointer; transition: all 0.2s;
+          display: flex; align-items: center; gap: 7px;
+          background: rgba(252,84,0,0.1); color: #FC5400;
+          border: 1px solid rgba(252,84,0,0.3); border-radius: 9px;
+          padding: 10px 22px; font-family: 'Outfit', sans-serif;
+          font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.15s;
         }
-        .btn-create:hover { background: rgba(252,84,0,0.2); }
+        .btn-create:hover { background: rgba(252,84,0,0.18); }
 
-        .create-card { padding: 28px; display: flex; flex-direction: column; gap: 16px; }
-        .create-card h3 { font-family: var(--font-bebas); font-size: 1.4rem; color: var(--text-main); }
-        .create-sub { color: var(--text-muted); font-size: 0.85rem; }
-        .create-form { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-        .date-input, .num-input-lg {
-          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          border-radius: 8px; padding: 12px 16px; color: var(--text-main); font-size: 0.9rem;
-          width: 100%; transition: border-color 0.2s;
-        }
-        .date-input:focus, .num-input-lg:focus { border-color: var(--laranja-vorp); outline: none; }
+        .create-card { padding: 24px; }
+        .create-card h3 { font-size: 17px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
+        .create-sub { color: #475569; font-size: 12px; margin-bottom: 16px; }
+        .create-form { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 
-        /* Grupos */
-        .itens-container { display: flex; flex-direction: column; gap: 32px; }
-        .grupo { display: flex; flex-direction: column; gap: 12px; }
-        .grupo-header { display: flex; align-items: center; gap: 12px; }
+        /* ── Grupos ──────────────────────────────────────────────────────── */
+        .grupos { display: flex; flex-direction: column; gap: 28px; }
+        .grupo  { display: flex; flex-direction: column; gap: 10px; }
+
+        .grupo-header { display: flex; align-items: center; gap: 10px; }
         .tipo-badge {
-          font-family: var(--font-bebas); font-size: 1.1rem; padding: 4px 14px;
-          border-radius: 6px; letter-spacing: 0.05em;
+          font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+          text-transform: uppercase; padding: 4px 12px; border-radius: 99px;
         }
-        .badge-resultado    { background: rgba(252,84,0,0.12);  color: var(--laranja-vorp); }
-        .badge-conformidade { background: rgba(0,163,224,0.12); color: #00A3E0; }
-        .grupo-count { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
+        .badge-r { background: rgba(252,84,0,0.12); color: #FC5400; }
+        .badge-c { background: rgba(59,130,246,0.12); color: #3b82f6; }
+        .badge-x { background: rgba(255,255,255,0.06); color: #94a3b8; }
+        .grupo-count { font-size: 11px; color: #334155; font-weight: 600; }
 
-        /* Tabela */
-        .tabela-card { padding: 0; overflow: hidden; }
+        .btn-add-inline {
+          display: flex; align-items: center; gap: 6px;
+          background: rgba(255,255,255,0.03); border: 1px solid #1f2d40;
+          color: #64748b; border-radius: 7px; padding: 5px 12px;
+          font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
+          cursor: pointer; transition: all 0.15s; margin-left: auto;
+        }
+        .btn-add-inline:hover { background: rgba(252,84,0,0.08); border-color: #FC5400; color: #FC5400; }
+
+        /* ── Add question form ───────────────────────────────────────────── */
+        .add-card { padding: 18px 20px; border: 1px dashed rgba(252,84,0,0.4); background: rgba(252,84,0,0.03); }
+        .add-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+        .add-field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 110px; }
+        .add-field.flex-3 { flex: 3; }
+        .add-field > label {
+          font-size: 10px; font-weight: 700; color: #334155;
+          text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        .btn-confirm {
+          background: #FC5400; color: #fff; border: none; border-radius: 8px;
+          padding: 10px 18px; font-family: 'Outfit', sans-serif;
+          font-weight: 700; font-size: 13px; cursor: pointer;
+          white-space: nowrap; height: 42px;
+        }
+        .btn-confirm:hover { opacity: 0.85; }
+
+        /* ── Table ───────────────────────────────────────────────────────── */
+        .table-card { padding: 0; overflow: hidden; }
         .tabela { width: 100%; border-collapse: collapse; }
         .tabela thead { background: rgba(255,255,255,0.02); }
         .tabela th {
-          padding: 12px 16px; text-align: left; font-size: 0.6rem;
-          font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
-          color: var(--text-muted); border-bottom: 1px solid var(--card-border);
-          white-space: nowrap;
+          padding: 11px 16px; text-align: left;
+          font-size: 10px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 0.09em; color: #334155;
+          border-bottom: 1px solid #1f2d40; white-space: nowrap;
         }
         .tabela td {
-          padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.03);
+          padding: 11px 16px; border-bottom: 1px solid rgba(255,255,255,0.03);
           vertical-align: middle;
         }
         .tabela tr:last-child td { border-bottom: none; }
-        .tabela tr.row-dirty { background: rgba(252, 84, 0, 0.04); }
-        .tabela tr:hover { background: rgba(255,255,255,0.01); }
+        .tabela tr.row-dirty { background: rgba(252,84,0,0.04); }
+        .tabela tr:hover td { background: rgba(255,255,255,0.01); }
 
-        .col-tipo  { width: 130px; }
-        .col-cat   { width: 110px; }
-        .col-pergunta { }
-        .col-num   { width: 90px; }
-        .col-nota  { width: 70px; }
-        .col-obs   { width: 220px; }
-        .col-acao  { width: 80px; text-align: center; }
+        .w-tipo { width: 130px; }
+        .w-cat  { width: 120px; }
+        .w-num  { width: 86px; }
+        .w-nota { width: 80px; }
+        .w-obs  { width: 200px; }
+        .w-acao { width: 70px; }
 
-        .tipo-select {
-          background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
-          border-radius: 6px; padding: 6px 10px; color: var(--text-main); font-size: 0.75rem;
-          font-weight: 700; width: 100%; cursor: pointer;
+        /* Tipo select */
+        .tipo-sel {
+          width: 100%; background: rgba(255,255,255,0.04);
+          border: 1px solid #1f2d40; border-radius: 6px;
+          padding: 6px 28px 6px 10px; color: #f1f5f9;
+          font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
+          appearance: none; cursor: pointer;
         }
-        .tipo-select:focus { border-color: var(--laranja-vorp); outline: none; }
+        .tipo-sel:focus { border-color: #FC5400; outline: none; }
 
+        /* Category badge */
         .cat-badge {
-          display: inline-block; font-size: 0.6rem; font-weight: 800;
-          text-transform: uppercase; padding: 3px 8px; border-radius: 4px;
-          background: rgba(255,255,255,0.05); color: var(--text-secondary);
-          white-space: nowrap;
+          display: inline-block; font-size: 10px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: 0.07em;
+          padding: 3px 9px; border-radius: 99px; white-space: nowrap;
         }
-        .pergunta-text { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
+
+        .pergunta-text { font-size: 12px; color: #94a3b8; line-height: 1.45; }
 
         .num-input {
-          width: 70px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
-          border-radius: 6px; padding: 6px 10px; color: var(--text-main); font-size: 0.85rem;
-          font-weight: 700; text-align: center; transition: border-color 0.2s;
+          width: 68px; background: rgba(255,255,255,0.04); border: 1px solid #1f2d40;
+          border-radius: 7px; padding: 6px 8px; color: #f1f5f9;
+          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700;
+          text-align: center; transition: border-color 0.15s;
         }
-        .num-input:focus { border-color: var(--laranja-vorp); outline: none; }
+        .num-input:focus { border-color: #FC5400; outline: none; }
 
-        .nota-val { font-family: var(--font-bebas); font-size: 1.2rem; }
+        .nota-val {
+          display: inline-block; padding: 3px 10px; border-radius: 99px;
+          font-size: 13px; font-weight: 800; letter-spacing: 0.02em;
+        }
 
         .obs-input {
-          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          border-radius: 6px; padding: 8px 10px; color: var(--text-secondary); font-size: 0.75rem;
-          resize: vertical; transition: border-color 0.2s; min-height: 52px;
+          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid #1f2d40;
+          border-radius: 7px; padding: 7px 10px; color: #94a3b8;
+          font-family: 'Outfit', sans-serif; font-size: 12px;
+          resize: vertical; min-height: 48px; transition: border-color 0.15s;
         }
-        .obs-input:focus { border-color: var(--laranja-vorp); outline: none; }
+        .obs-input:focus { border-color: #FC5400; outline: none; }
+        .obs-input::placeholder { color: #334155; }
 
-        .actions-stack { display: flex; align-items: center; gap: 6px; justify-content: center; }
+        .actions { display: flex; align-items: center; gap: 5px; justify-content: center; }
+        .btn-row-save {
+          background: rgba(252,84,0,0.1); border: 1px solid rgba(252,84,0,0.25);
+          color: #FC5400; border-radius: 6px; padding: 5px;
+          cursor: pointer; display: flex; align-items: center; transition: all 0.15s;
+        }
+        .btn-row-save:hover { background: rgba(252,84,0,0.2); }
+        .btn-row-del {
+          background: rgba(255,255,255,0.03); border: 1px solid #1f2d40;
+          color: #475569; border-radius: 6px; padding: 5px;
+          cursor: pointer; display: flex; align-items: center; transition: all 0.15s;
+        }
+        .btn-row-del:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #ef4444; }
 
-        .btn-save-row {
-          background: rgba(252,84,0,0.1); border: 1px solid rgba(252,84,0,0.2);
-          color: var(--laranja-vorp); border-radius: 6px; padding: 6px;
-          cursor: pointer; display: flex; align-items: center; transition: all 0.22s;
-        }
-        .btn-save-row:hover { background: rgba(252,84,0,0.2); }
-
-        .btn-delete-row {
-          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          color: var(--text-muted); border-radius: 6px; padding: 6px;
-          cursor: pointer; display: flex; align-items: center; transition: all 0.22s;
-        }
-        .btn-delete-row:hover { background: rgba(176,48,48,0.15); border-color: rgba(176,48,48,0.3); color: #B03030; }
-
-        /* Add Question */
-        .btn-add-inline {
-          display: flex; align-items: center; gap: 6px;
-          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          color: var(--text-secondary); border-radius: 6px; padding: 6px 14px;
-          font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.22s;
-          margin-left: auto;
-        }
-        .btn-add-inline:hover { background: rgba(252,84,0,0.1); border-color: var(--laranja-vorp); color: #fff; }
-
-        .add-question-card { margin-top: 8px; border: 1px dashed var(--laranja-vorp); background: rgba(252,84,0,0.02); }
-        .add-form-row { display: flex; align-items: flex-end; gap: 16px; padding: 20px; flex-wrap: wrap; }
-        .add-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
-        .flex-3 { flex: 3; }
-        .add-field label { font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
-        .add-field input, .add-field select {
-          background: #0F1020; border: 1px solid var(--card-border); border-radius: 6px;
-          padding: 8px 12px; color: #fff; font-size: 0.85rem;
-        }
-        .btn-confirm-add {
-          background: var(--laranja-vorp); color: #fff; border: none; border-radius: 6px;
-          padding: 10px 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
-        }
-
-        @keyframes animate-slide-down {
-          from { opacity: 0; transform: translateY(-10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-down { animation: animate-slide-down 0.3s ease-out; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 0.8s linear infinite; display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-        @media (max-width: 1000px) {
-          .filters-row { flex-direction: column; }
-          .col-obs { width: 160px; }
-        }
+        @media (max-width: 1000px) { .filters-row { flex-direction: column; } .w-obs { width: 140px; } }
       `}</style>
     </div>
   );
