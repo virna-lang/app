@@ -628,3 +628,13 @@ export async function getVorpColaboradores() {
   if (error) throw error;
   return data ?? [];
 }
+
+/** Produtos Growth do Vorp — retorna apenas os nomes, ordenados */
+export async function getVorpProdutos(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('vorp_produtos')
+    .select('nome')
+    .order('nome');
+  if (error) throw error;
+  return (data ?? []).map((p: { nome: string }) => p.nome);
+}

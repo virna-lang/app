@@ -60,6 +60,9 @@ export async function syncColaboradores() {
       if (error) throw error;
     }
 
+    // Vincula consultores locais que ainda não têm vorp_id, cruzando pelo nome.
+    await supabase.rpc('link_consultores_vorp');
+
     await logSync('vorp_colaboradores', upsert.length, 'ok');
     return { ok: true, count: upsert.length };
   } catch (err) {
@@ -287,6 +290,9 @@ export async function syncAll(): Promise<SyncResult> {
     syncHealthScores(),
     syncMetas(),
   ]);
+
+  // Atualiza todas as FKs de correlação após o sync completo
+  await supabase.rpc('link_vorp_fks');
 
   return { colaboradores, produtos, projetos, churn, healthscores, metas };
 }

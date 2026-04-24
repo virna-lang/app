@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardCheck, Users, ShieldCheck,
   BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart,
   Edit3, TrendingDown, Zap, GitBranch, ChevronRight, ChevronDown,
-  Flame, Building2, LogOut,
+  Flame, Building2, LogOut, BookOpen, Package,
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -20,9 +20,11 @@ function SidebarInner() {
 
   const isDashboard = pathname === '/';
   const isAuditoria = pathname === '/auditoria';
+  const isCadastro  = pathname === '/cadastro';
 
   const [openDashboard, setOpenDashboard] = useState(isDashboard);
   const [openAuditoria, setOpenAuditoria] = useState(isAuditoria);
+  const [openCadastro,  setOpenCadastro]  = useState(isCadastro);
 
   const dashboardTabs = [
     { name: 'Visão Geral',   id: 'visao-geral',   icon: <BarChart2 size={13} /> },
@@ -104,6 +106,35 @@ function SidebarInner() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+
+        {/* Cadastro */}
+        <div className="nav-group">
+          <div className="nav-section-label">CADASTRO</div>
+          <button
+            className={`nav-parent ${isCadastro ? 'active' : ''}`}
+            onClick={() => setOpenCadastro(v => !v)}
+          >
+            <BookOpen size={16} className="nav-icon" />
+            <span className="nav-label">Cadastro</span>
+            <span className={`nav-chevron ${openCadastro ? 'open' : ''}`}>
+              <ChevronRight size={13} />
+            </span>
+          </button>
+          <div className={`submenu ${openCadastro ? 'open' : ''}`}>
+            <Link href="/cadastro?tab=time-completo" className={`sub-item ${isCadastro && searchParams.get('tab') === 'time-completo' ? 'sub-active' : ''}`}>
+              <span className="sub-icon"><Users2 size={13} /></span>
+              <span>Time Completo</span>
+            </Link>
+            <Link href="/cadastro?tab=produtos" className={`sub-item ${isCadastro && searchParams.get('tab') === 'produtos' ? 'sub-active' : ''}`}>
+              <span className="sub-icon"><Package size={13} /></span>
+              <span>Produtos</span>
+            </Link>
+            <Link href="/cadastro?tab=projetos" className={`sub-item ${isCadastro && searchParams.get('tab') === 'projetos' ? 'sub-active' : ''}`}>
+              <span className="sub-icon"><Building2 size={13} /></span>
+              <span>Projetos Ativos</span>
+            </Link>
           </div>
         </div>
 

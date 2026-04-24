@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getConsultores, gerarMeses } from '@/lib/api';
+import { getConsultores, gerarMeses, getVorpProdutos } from '@/lib/api';
 import type { Consultor } from '@/lib/supabase';
 
 export const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
@@ -39,9 +39,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [activeTab,          setActiveTab]          = useState<DashboardTab>('Visão Geral');
   const [consultores,        setConsultores]        = useState<Consultor[]>([]);
   const [loadingConsultores, setLoadingConsultores] = useState(true);
+  const [availableProducts,  setAvailableProducts]  = useState<string[]>(PRODUTOS_PADRAO);
 
-  const meses             = gerarMeses(6);
-  const availableProducts = PRODUTOS_PADRAO;
+  const meses = gerarMeses(6);
 
   const [filters, setFilters] = useState<DashboardFilters>({
     month:        meses[meses.length - 1],
@@ -76,6 +76,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setConsultores(data);
       setLoadingConsultores(false);
     });
+    getVorpProdutos().then((nomes) => {
+      if (nomes.length > 0) {
+        setAvailableProducts(nomes);
+        setFilters(f => ({ ...f, products: nomes }));
+      }
+    }).catch(() => {});
   }, []);
 
   return (
