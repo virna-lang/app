@@ -4,8 +4,6 @@ import { useAuth } from './AuthContext';
 import { LogOut, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
 import { useDashboard } from '@/context/DashboardContext';
-import DashboardFilters from './DashboardFilters';
-
 export default function Topbar() {
   const { role, setRole, user, signOut } = useAuth();
 
@@ -25,9 +23,8 @@ export default function Topbar() {
         <span className="bc-current">Recursos de Auditoria</span>
       </div>
 
-      {/* Filters + actions */}
+      {/* Actions */}
       <div className="topbar-right">
-        <DashboardFilters />
 
         <div className="topbar-actions">
           {/* Role badge */}
