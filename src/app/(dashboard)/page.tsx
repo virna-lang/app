@@ -22,7 +22,6 @@ const MeetingsSection     = dynamic(() => import('@/components/dashboard/Meeting
 const GoalsSection        = dynamic(() => import('@/components/dashboard/GoalsSection'));
 const ChurnSection        = dynamic(() => import('@/components/dashboard/ChurnSection'));
 const CorrelacaoSection   = dynamic(() => import('@/components/dashboard/CorrelacaoSection'));
-const VorpSection         = dynamic(() => import('@/components/dashboard/VorpSection'));
 const AdminManagement     = dynamic(() => import('@/components/dashboard/AdminManagement'));
 
 export default function Dashboard() {
@@ -184,16 +183,6 @@ export default function Dashboard() {
 
             <section id="correlacao" data-screen-label="09 Correlação">
               <CorrelacaoSection />
-            </section>
-
-            <div className="section-divider"/>
-
-            <section id="vorp-system" data-screen-label="10 Vorp System">
-              <VorpSection
-                consultorNome={activeFilters.consultantId === 'all'
-                  ? 'all'
-                  : consultores.find(c => c.id === activeFilters.consultantId)?.nome}
-              />
             </section>
 
             {role === 'Administrador' && (

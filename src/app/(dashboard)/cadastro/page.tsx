@@ -6,8 +6,11 @@ import { Users, Package, Building2, Mail, Phone, Briefcase, RefreshCw } from 'lu
 import { getVorpColaboradores, getVorpProdutos, getVorpProjetosAtivos } from '@/lib/api';
 import type { VorpColaboradorRow, VorpProjetoRow } from '@/lib/supabase';
 import { COLORS } from '@/types/dashboard';
+import dynamic from 'next/dynamic';
 
-type Tab = 'time-completo' | 'produtos' | 'projetos';
+const VorpSection = dynamic(() => import('@/components/dashboard/VorpSection'));
+
+type Tab = 'time-completo' | 'produtos' | 'projetos' | 'vorp-system';
 
 function CadastroInner() {
   const searchParams = useSearchParams();
@@ -79,9 +82,10 @@ function CadastroInner() {
   );
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count: number }[] = [
-    { id: 'time-completo', label: 'Time Completo',   icon: <Users size={15} />,    count: colabs.length },
-    { id: 'produtos',      label: 'Produtos',         icon: <Package size={15} />,  count: produtos.length },
+    { id: 'time-completo', label: 'Time Completo',   icon: <Users size={15} />,     count: colabs.length },
+    { id: 'produtos',      label: 'Produtos',         icon: <Package size={15} />,   count: produtos.length },
     { id: 'projetos',      label: 'Projetos Ativos',  icon: <Building2 size={15} />, count: projetos.length },
+    { id: 'vorp-system',   label: 'Vorp System',      icon: <Building2 size={15} />, count: 0 },
   ];
 
   return (
@@ -190,6 +194,11 @@ function CadastroInner() {
               </table>
               <p className="table-footer">{produtosFiltrados.length} produtos</p>
             </div>
+          )}
+
+          {/* ── Vorp System ── */}
+          {activeTab === 'vorp-system' && (
+            <VorpSection consultorNome="all" />
           )}
 
           {/* ── Projetos Ativos ── */}

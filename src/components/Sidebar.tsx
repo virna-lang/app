@@ -36,8 +36,6 @@ function SidebarInner() {
     { name: 'NPS / CSAT',    id: 'nps',           icon: <MessageSquare size={13} /> },
     { name: 'Churn',         id: 'churn',         icon: <AlertTriangle size={13} /> },
     { name: 'Correlação',    id: 'correlacao',    icon: <GitBranch size={13} /> },
-    { name: 'Time Completo', id: 'time-completo', icon: <Users2 size={13} />, adminOnly: true },
-    { name: 'Vorp System',   id: 'vorp-system',   icon: <Building2 size={13} /> },
   ];
 
   const auditoriaSubItems = [
@@ -134,6 +132,10 @@ function SidebarInner() {
             <Link href="/cadastro?tab=projetos" className={`sub-item ${isCadastro && searchParams.get('tab') === 'projetos' ? 'sub-active' : ''}`}>
               <span className="sub-icon"><Building2 size={13} /></span>
               <span>Projetos Ativos</span>
+            </Link>
+            <Link href="/cadastro?tab=vorp-system" className={`sub-item ${isCadastro && searchParams.get('tab') === 'vorp-system' ? 'sub-active' : ''}`}>
+              <span className="sub-icon"><Building2 size={13} /></span>
+              <span>Vorp System</span>
             </Link>
           </div>
         </div>
