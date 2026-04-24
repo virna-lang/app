@@ -1,6 +1,5 @@
 import React from 'react';
 import { DashboardData, getSemaphorColor, COLORS } from '@/types/dashboard';
-import { MonthlyAudit, mockConsultants } from '@/lib/mockData';
 
 export default function ConsultantScorecards({ data, role }: { data: DashboardData, role: string | null }) {
   const consultantsToShow = role === 'Consultor' ? data.currentAudits.slice(0, 1) : data.currentAudits;
@@ -11,8 +10,7 @@ export default function ConsultantScorecards({ data, role }: { data: DashboardDa
         <h2>Scorecard por Consultor</h2>
       </div>
       <div className="scorecard-grid">
-        {consultantsToShow.map((audit: MonthlyAudit) => {
-          const consul = mockConsultants.find(c => c.id === audit.consultor_id);
+        {consultantsToShow.map((audit: any) => {
           const prev = data.prevAudits.find((pa: any) => pa.consultor_id === audit.consultor_id);
           const diff = audit.score_geral - (prev?.score_geral || audit.score_geral);
           
@@ -20,7 +18,7 @@ export default function ConsultantScorecards({ data, role }: { data: DashboardDa
             <div key={audit.id} className="card sc-card">
               <header className="sc-header">
                 <div className="sc-header-left">
-                  <span className="sc-name">{consul?.nome}</span>
+                  <span className="sc-name">{audit.consultor_nome ?? audit.consultor_id}</span>
                   <div className="dot" style={{ background: getSemaphorColor(audit.score_geral) }} />
                 </div>
                 <div className="sc-header-right">

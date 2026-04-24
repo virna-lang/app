@@ -5,11 +5,7 @@ import { LogOut, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
 import { useDashboard } from '@/context/DashboardContext';
 export default function Topbar() {
-  const { role, setRole, user, signOut } = useAuth();
-
-  const toggleRole = () => {
-    setRole(role === 'Administrador' ? 'Consultor' : 'Administrador');
-  };
+  const { role, user, signOut } = useAuth();
 
   const avatarUrl   = user?.user_metadata?.avatar_url as string | undefined;
   const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
@@ -27,18 +23,14 @@ export default function Topbar() {
       <div className="topbar-right">
 
         <div className="topbar-actions">
-          {/* Role badge */}
-          <button
-            onClick={toggleRole}
-            className={`role-badge ${role === 'Administrador' ? 'is-admin' : ''}`}
-            title="Alternar papel"
-          >
+          {/* Role badge — display only */}
+          <span className={`role-badge ${role === 'Administrador' ? 'is-admin' : ''}`}>
             {role === 'Administrador'
               ? <ShieldCheck size={13} />
               : <User size={13} />
             }
             <span>{role === 'Administrador' ? 'Administrador' : 'Consultor'}</span>
-          </button>
+          </span>
 
           {/* Avatar */}
           <div className="user-avatar" title={displayName}>
@@ -48,7 +40,6 @@ export default function Topbar() {
                 alt={displayName}
                 width={32} height={32}
                 style={{ borderRadius: '50%', objectFit: 'cover' }}
-                unoptimized
               />
             ) : (
               <span className="avatar-initials">
@@ -110,10 +101,8 @@ export default function Topbar() {
           color: #64748b;
           font-family: 'Outfit', sans-serif;
           font-size: 12px; font-weight: 600;
-          cursor: pointer; transition: all 0.2s;
           letter-spacing: 0.04em;
         }
-        .role-badge:hover { border-color: #FC5400; color: #94a3b8; }
         .role-badge.is-admin {
           background: rgba(252,84,0,0.12);
           border-color: rgba(252,84,0,0.35);

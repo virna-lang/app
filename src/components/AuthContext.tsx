@@ -4,6 +4,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   ReactNode,
 } from 'react';
@@ -17,57 +18,81 @@ interface AuthContextType {
   session: Session | null;
   role: UserRole;
   loading: boolean;
-  setRole: (role: UserRole) => void;
   signInWithGoogle: (rememberMe?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function fetchUserRole(userId: string): Promise<UserRole> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+  return data?.role === 'Administrador' ? 'Administrador' : 'Consultor';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<UserRole>('Administrador');
+  const [role, setRole] = useState<UserRole>('Consultor');
   const [loading, setLoading] = useState(true);
+  const unloadHandlerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    // Recupera a sessão atual ao montar
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        const r = await fetchUserRole(session.user.id);
+        setRole(r);
+      }
       setLoading(false);
     });
 
-    // Escuta mudanças de estado de autenticação (login, logout, refresh de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
 
-        // Se o usuário escolheu NÃO manter conectado, desloga ao fechar a aba
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const r = await fetchUserRole(session.user.id);
+          setRole(r);
+
           const remember = localStorage.getItem('vorp-remember-me');
+          if (unloadHandlerRef.current) {
+            window.removeEventListener('beforeunload', unloadHandlerRef.current);
+            unloadHandlerRef.current = null;
+          }
           if (remember === 'false') {
             const handleUnload = () => { supabase.auth.signOut(); };
+            unloadHandlerRef.current = handleUnload;
             window.addEventListener('beforeunload', handleUnload);
-            // Salva referência para limpar depois
-            (window as any).__vorpUnloadHandler = handleUnload;
-          } else {
-            // Remove handler anterior se existir
-            if ((window as any).__vorpUnloadHandler) {
-              window.removeEventListener('beforeunload', (window as any).__vorpUnloadHandler);
-            }
           }
         }
+
+        if (event === 'SIGNED_OUT') {
+          setRole('Consultor');
+          if (unloadHandlerRef.current) {
+            window.removeEventListener('beforeunload', unloadHandlerRef.current);
+            unloadHandlerRef.current = null;
+          }
+        }
+
+        setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (unloadHandlerRef.current) {
+        window.removeEventListener('beforeunload', unloadHandlerRef.current);
+      }
+    };
   }, []);
 
   const signInWithGoogle = async (rememberMe = true) => {
-    // Salva preferência antes do redirect OAuth
     localStorage.setItem('vorp-remember-me', rememberMe ? 'true' : 'false');
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -82,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, setRole, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -95,4 +120,3 @@ export function useAuth() {
   }
   return context;
 }
-

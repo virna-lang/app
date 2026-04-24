@@ -22,7 +22,8 @@ export async function getConsultores(): Promise<Consultor[]> {
   const { data, error } = await supabase
     .from('consultores')
     .select('*')
-    .order('nome');
+    .order('nome')
+    .limit(500);
   if (error) { console.error('getConsultores:', error); return []; }
   return data ?? [];
 }
@@ -50,7 +51,7 @@ export async function toggleConsultor(id: string, status: 'Ativo' | 'Inativo'): 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getClientes(consultorId?: string): Promise<Cliente[]> {
-  let query = supabase.from('clientes').select('*').order('nome');
+  let query = supabase.from('clientes').select('*').order('nome').limit(500);
   if (consultorId && consultorId !== 'all') {
     query = query.eq('consultor_id', consultorId);
   }
@@ -74,7 +75,7 @@ export async function getAuditoriasMensais(
   if (consultorId && consultorId !== 'all') {
     query = query.eq('consultor_id', consultorId);
   }
-  const { data, error } = await query;
+  const { data, error } = await query.limit(500);
   if (error) { console.error('getAuditoriasMensais:', error); return []; }
   return data ?? [];
 }
@@ -83,7 +84,8 @@ export async function getAuditoriaItens(auditoriaId: string): Promise<AuditoriaI
   const { data, error } = await supabase
     .from('auditoria_itens')
     .select('*')
-    .eq('auditoria_id', auditoriaId);
+    .eq('auditoria_id', auditoriaId)
+    .limit(500);
   if (error) { console.error('getAuditoriaItens:', error); return []; }
   return data ?? [];
 }
@@ -166,7 +168,7 @@ export async function getReunioes(
   if (consultorId && consultorId !== 'all') {
     query = query.eq('consultor_id', consultorId);
   }
-  const { data, error } = await query;
+  const { data, error } = await query.limit(500);
   if (error) { console.error('getReunioes:', error); return []; }
   return data ?? [];
 }
@@ -179,7 +181,8 @@ export async function getMetas(mesAno: string): Promise<MetaMensal[]> {
   const { data, error } = await supabase
     .from('metas_mensais')
     .select('id, cliente_id, mes_ano, meta_projetada, meta_realizada, bateu_meta, preenchido_ate_dia5, clientes(nome, produto, consultor_id)')
-    .eq('mes_ano', mesAno);
+    .eq('mes_ano', mesAno)
+    .limit(500);
   if (error) { console.error('getMetas:', error); return []; }
   return data ?? [];
 }
@@ -192,7 +195,8 @@ export async function getFlags(mesAno: string): Promise<FlagHealthScore[]> {
   const { data, error } = await supabase
     .from('flags_health_score')
     .select('*')
-    .eq('mes_ano', mesAno);
+    .eq('mes_ano', mesAno)
+    .limit(500);
   if (error) { console.error('getFlags:', error); return []; }
   return data ?? [];
 }
@@ -202,7 +206,7 @@ export async function getFlags(mesAno: string): Promise<FlagHealthScore[]> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getChurn(mesAno?: string): Promise<Churn[]> {
-  let query = supabase.from('churn').select('id, cliente_id, consultor_id, mes_churn, motivo, detalhes, receita_perdida').order('created_at', { ascending: false });
+  let query = supabase.from('churn').select('id, cliente_id, consultor_id, mes_churn, motivo, detalhes, receita_perdida').order('created_at', { ascending: false }).limit(500);
   if (mesAno) query = query.eq('mes_churn', mesAno);
   const { data, error } = await query;
   if (error) { console.error('getChurn:', error); return []; }
