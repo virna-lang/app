@@ -539,6 +539,18 @@ export async function getVorpProjetosAtivos(consultorNome?: string) {
   return data ?? [];
 }
 
+/** Conta projetos ativos auditáveis de um consultor (exclui Tratativa CS) */
+export async function countProjetosAtivosPorConsultor(consultorId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('vorp_projetos')
+    .select('*', { count: 'exact', head: true })
+    .eq('consultor_id', consultorId)
+    .eq('status', 'Ativo')
+    .eq('tratativa_cs', false);
+  if (error) { console.error('countProjetosAtivosPorConsultor:', error); return 0; }
+  return count ?? 0;
+}
+
 /** Marca / desmarca um projeto como Tratativa CS */
 export async function setTrativaCS(
   vorpId: string,

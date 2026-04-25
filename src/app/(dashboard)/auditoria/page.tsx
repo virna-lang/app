@@ -13,6 +13,7 @@ import {
   getConsultores, getAuditoriasMensais, getAuditoriaItens,
   updateAuditoriaItem, deleteAuditoriaItem, addAuditoriaItem,
   upsertAuditoriaMensal, gerarMeses, labelToMesAno,
+  countProjetosAtivosPorConsultor,
 } from '@/lib/api';
 import type { Consultor, AuditoriaItem, AuditoriaMensal } from '@/lib/supabase';
 
@@ -68,8 +69,9 @@ function AuditoriaPageInner() {
   const [auditoria,    setAuditoria]    = useState<AuditoriaMensal | null>(null);
   const [itens,        setItens]        = useState<AuditoriaItem[]>([]);
   const [editState,    setEditState]    = useState<Record<string, ItemEditState>>({});
-  const [loading,      setLoading]      = useState(false);
-  const [notFound,     setNotFound]     = useState(false);
+  const [loading,          setLoading]          = useState(false);
+  const [notFound,         setNotFound]         = useState(false);
+  const [projetosAtivos,   setProjetosAtivos]   = useState<number | null>(null);
   const [creating,     setCreating]     = useState(false);
   const [newCarteira,  setNewCarteira]  = useState(1);
   const [newDataAud,   setNewDataAud]   = useState('');
@@ -83,18 +85,28 @@ function AuditoriaPageInner() {
 
   const handleCarregar = useCallback(async () => {
     if (!selectedCons) return;
-    setLoading(true); setNotFound(false); setAuditoria(null); setItens([]); setEditState({}); setCreating(false);
+    setLoading(true); setNotFound(false); setAuditoria(null); setItens([]); setEditState({}); setCreating(false); setProjetosAtivos(null);
     const mesAno = labelToMesAno(selectedMes);
-    const auds = await getAuditoriasMensais(mesAno, selectedCons);
+    const [auds, qtdProjetos] = await Promise.all([
+      getAuditoriasMensais(mesAno, selectedCons),
+      countProjetosAtivosPorConsultor(selectedCons),
+    ]);
+    setProjetosAtivos(qtdProjetos);
     if (!auds.length) { setNotFound(true); setLoading(false); return; }
     const aud = auds[0];
     const items = await getAuditoriaItens(aud.id);
     setAuditoria(aud); setItens(items);
-    setEditState(Object.fromEntries(items.map(i => [i.id, {
-      tipo: i.tipo ?? '', qtd_avaliados: i.qtd_avaliados, qtd_conformes: i.qtd_conformes,
-      observacao: i.observacao ?? '', evidencia_url: i.evidencia_url ?? '',
-      saving: false, saved: false, error: false, dirty: false,
-    }])));
+    setEditState(Object.fromEntries(items.map(i => {
+      const isResultado = (i.tipo ?? '') === 'Resultado';
+      // Auto-preenche qtd_avaliados com projetos ativos para itens do tipo Resultado
+      const qtdAvaliados = isResultado && qtdProjetos > 0 ? qtdProjetos : i.qtd_avaliados;
+      const isDirty = isResultado && qtdProjetos > 0 && qtdAvaliados !== i.qtd_avaliados;
+      return [i.id, {
+        tipo: i.tipo ?? '', qtd_avaliados: qtdAvaliados, qtd_conformes: i.qtd_conformes,
+        observacao: i.observacao ?? '', evidencia_url: i.evidencia_url ?? '',
+        saving: false, saved: false, error: false, dirty: isDirty,
+      }];
+    })));
     setLoading(false);
   }, [selectedCons, selectedMes]);
 
@@ -230,6 +242,11 @@ function AuditoriaPageInner() {
               <div className="audit-meta">
                 <span>📅 {auditoria.data_auditoria}</span>
                 <span>👥 Carteira: {auditoria.tamanho_carteira} clientes</span>
+                {projetosAtivos !== null && (
+                  <span className="meta-projetos">
+                    📊 Projetos ativos (Resultado): <strong>{projetosAtivos}</strong>
+                  </span>
+                )}
                 <span className="meta-id">🆔 {auditoria.id.slice(0,8)}…</span>
               </div>
             )}
@@ -378,7 +395,11 @@ function AuditoriaPageInner() {
                                 </td>
                                 <td><span className="pergunta-text">{item.pergunta}</span></td>
                                 <td>
-                                  <input type="number" min={0} className="num-input" value={s.qtd_avaliados}
+                                  <input
+                                    type="number" min={0}
+                                    className={`num-input${item.tipo === 'Resultado' && projetosAtivos !== null && projetosAtivos > 0 ? ' num-auto' : ''}`}
+                                    value={s.qtd_avaliados}
+                                    title={item.tipo === 'Resultado' && projetosAtivos !== null && projetosAtivos > 0 ? `Auto: ${projetosAtivos} projetos ativos` : undefined}
                                     onChange={e => handleChange(item.id,'qtd_avaliados',e.target.value)}/>
                                 </td>
                                 <td>
@@ -510,6 +531,8 @@ function AuditoriaPageInner() {
           font-size: 12px; color: #475569;
         }
         .meta-id { font-size: 11px; font-family: monospace; opacity: 0.6; }
+        .meta-projetos { color: #FC5400; font-weight: 600; }
+        .meta-projetos strong { font-weight: 800; }
 
         /* ── Empty / Create ──────────────────────────────────────────────── */
         .empty-card {
@@ -622,6 +645,7 @@ function AuditoriaPageInner() {
           text-align: center; transition: border-color 0.15s;
         }
         .num-input:focus { border-color: #FC5400; outline: none; }
+        .num-input.num-auto { border-color: rgba(252,84,0,0.4); background: rgba(252,84,0,0.06); }
 
         .nota-val {
           display: inline-block; padding: 3px 10px; border-radius: 99px;
