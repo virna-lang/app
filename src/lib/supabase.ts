@@ -5,11 +5,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publish
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Necessário para capturar o token no hash da URL após o redirect do Google
     detectSessionInUrl: true,
-    // Persiste a sessão no localStorage para recarregamentos da página
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession:     true,
+    autoRefreshToken:   true,
+    storageKey:         'vorp-auth-session',
   },
 });
 
