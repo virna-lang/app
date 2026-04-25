@@ -217,13 +217,23 @@ function CadastroInner() {
                 <tbody>
                   {projetosFiltrados.length === 0 ? (
                     <tr><td colSpan={5} className="td-empty">Nenhum projeto encontrado.</td></tr>
-                  ) : projetosFiltrados.map(p => (
+                  ) : projetosFiltrados.map(p => {
+                    const colabNome = typeof p.colaborador_nome === 'string' && p.colaborador_nome.startsWith('[')
+                      ? (() => { try { return JSON.parse(p.colaborador_nome!)[0] ?? null; } catch { return p.colaborador_nome; } })()
+                      : p.colaborador_nome ?? null;
+                    const isAuditor = !!p.consultor_id;
+                    return (
                     <tr key={p.vorp_id} className={p.tratativa_cs ? 'row-dim' : ''}>
                       <td className="td-bold">{p.nome}</td>
-                      <td className="td-muted">
-                        {typeof p.colaborador_nome === 'string' && p.colaborador_nome.startsWith('[')
-                          ? (() => { try { return JSON.parse(p.colaborador_nome)[0] ?? '—'; } catch { return p.colaborador_nome; } })()
-                          : p.colaborador_nome ?? '—'}
+                      <td>
+                        {colabNome ? (
+                          <span className={isAuditor ? 'consultor-auditor' : 'consultor-vorp'}>
+                            {colabNome}
+                            {!isAuditor && <span className="badge-vorp-only">Vorp</span>}
+                          </span>
+                        ) : (
+                          <span className="td-muted">—</span>
+                        )}
                       </td>
                       <td>
                         {p.produto_nome && <span className="badge badge-orange">{p.produto_nome}</span>}
@@ -239,7 +249,8 @@ function CadastroInner() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
               <p className="table-footer">{projetosFiltrados.length} de {projetos.length} projetos ativos</p>
@@ -332,6 +343,15 @@ function CadastroInner() {
         .badge-gray   { background: rgba(255,255,255,0.05); color: var(--text-muted); }
         .badge-orange { background: rgba(255,107,0,0.1); color: var(--laranja-vorp); }
         .badge-yellow { background: rgba(245,158,11,0.1); color: #f59e0b; }
+
+        .consultor-auditor { color: var(--text-main); font-weight: 500; }
+        .consultor-vorp { color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px; }
+        .badge-vorp-only {
+          font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+          padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em;
+          background: rgba(255,255,255,0.05); color: var(--text-muted);
+          border: 1px solid rgba(255,255,255,0.08);
+        }
 
         .table-footer { padding: 10px 16px; font-size: 0.75rem; color: var(--text-muted); text-align: right; border-top: 1px solid var(--card-border); }
 
