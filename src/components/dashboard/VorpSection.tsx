@@ -1,31 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
 import { getVorpProjetosAtivos, setTrativaCS } from '@/lib/api';
 import { COLORS } from '@/types/dashboard';
 import type { VorpProjetoRow } from '@/lib/supabase';
+import FilterDropdown from '@/components/ui/FilterDropdown';
 
 interface Props {
-  consultorNome?: string; // 'all' ou nome exato do colaborador
+  consultorNome?: string;
 }
 
 export default function VorpSection({ consultorNome }: Props) {
-  const [projetos, setProjetos]   = useState<VorpProjetoRow[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [busca, setBusca]         = useState('');
-  const [salvando, setSalvando]   = useState<string | null>(null);
-  const [filtroCS, setFiltroCS]   = useState<'todos' | 'auditaveis' | 'tratativa'>('auditaveis');
-  const [dropOpen, setDropOpen]   = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
+  const [projetos,  setProjetos]  = useState<VorpProjetoRow[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [busca,     setBusca]     = useState('');
+  const [salvando,  setSalvando]  = useState<string | null>(null);
 
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false);
-    };
-    if (dropOpen) document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [dropOpen]);
+  const [filtroCS,        setFiltroCS]        = useState('auditaveis');
+  const [filtroConsultor, setFiltroConsultor] = useState('todos');
+  const [filtroProduto,   setFiltroProduto]   = useState('todos');
+  const [filtroFeeSort,   setFiltroFeeSort]   = useState('none');
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -45,31 +40,40 @@ export default function VorpSection({ consultorNome }: Props) {
     try {
       await setTrativaCS(projeto.vorp_id, !projeto.tratativa_cs);
       setProjetos(prev =>
-        prev.map(p =>
-          p.vorp_id === projeto.vorp_id
-            ? { ...p, tratativa_cs: !p.tratativa_cs }
-            : p
-        )
+        prev.map(p => p.vorp_id === projeto.vorp_id ? { ...p, tratativa_cs: !p.tratativa_cs } : p)
       );
     } finally {
       setSalvando(null);
     }
   };
 
-  const filtrados = projetos.filter(p => {
+  const getConsultorNome = (p: VorpProjetoRow): string => {
+    const raw = p.colaborador_nome ?? '';
+    if (raw.startsWith('[')) { try { return JSON.parse(raw)[0] ?? ''; } catch { return raw; } }
+    return raw;
+  };
+
+  const consultoresUnicos = Array.from(new Set(projetos.map(getConsultorNome).filter(Boolean))).sort();
+  const produtosUnicos    = Array.from(new Set(projetos.map(p => p.produto_nome).filter((v): v is string => !!v))).sort();
+
+  let filtrados = projetos.filter(p => {
+    const cn = getConsultorNome(p);
+    const q  = busca.toLowerCase();
     const matchBusca =
       !busca ||
-      p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
-      (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase());
-
-    const matchFiltro =
+      p.nome.toLowerCase().includes(q) ||
+      cn.toLowerCase().includes(q) ||
+      (p.produto_nome ?? '').toLowerCase().includes(q);
+    const matchCS =
       filtroCS === 'todos' ||
-      (filtroCS === 'tratativa' && p.tratativa_cs) ||
+      (filtroCS === 'tratativa'  &&  p.tratativa_cs) ||
       (filtroCS === 'auditaveis' && !p.tratativa_cs);
-
-    return matchBusca && matchFiltro;
+    const matchConsultor = filtroConsultor === 'todos' || cn            === filtroConsultor;
+    const matchProduto   = filtroProduto   === 'todos' || p.produto_nome === filtroProduto;
+    return matchBusca && matchCS && matchConsultor && matchProduto;
   });
+  if (filtroFeeSort === 'asc')  filtrados = [...filtrados].sort((a, b) => (a.fee ?? 0) - (b.fee ?? 0));
+  if (filtroFeeSort === 'desc') filtrados = [...filtrados].sort((a, b) => (b.fee ?? 0) - (a.fee ?? 0));
 
   const totalAtivos     = projetos.length;
   const totalTratativa  = projetos.filter(p => p.tratativa_cs).length;
@@ -77,22 +81,16 @@ export default function VorpSection({ consultorNome }: Props) {
 
   return (
     <div className="vorp-section section-block">
-      {/* ── Cabeçalho ───────────────────────────────────── */}
+      {/* ── Cabeçalho ── */}
       <div className="section-anchor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <h2>Projetos Ativos — Vorp System</h2>
-        <button
-          onClick={carregar}
-          className="btn-icon"
-          title="Recarregar"
-          style={{ opacity: loading ? 0.5 : 1 }}
-          disabled={loading}
-        >
+        <button onClick={carregar} className="btn-icon" disabled={loading} style={{ opacity: loading ? 0.5 : 1 }}>
           <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           <span>Atualizar</span>
         </button>
       </div>
 
-      {/* ── KPI cards ───────────────────────────────────── */}
+      {/* ── KPI cards ── */}
       <div className="kpi-row">
         <div className="card kpi-card">
           <Building2 size={20} color={COLORS.primary} />
@@ -101,7 +99,6 @@ export default function VorpSection({ consultorNome }: Props) {
             <p className="kpi-label">Projetos Ativos</p>
           </div>
         </div>
-
         <div className="card kpi-card">
           <CheckCircle2 size={20} color={COLORS.verde} />
           <div>
@@ -109,7 +106,6 @@ export default function VorpSection({ consultorNome }: Props) {
             <p className="kpi-label">Auditáveis</p>
           </div>
         </div>
-
         <div className="card kpi-card">
           <AlertCircle size={20} color={COLORS.amarelo} />
           <div>
@@ -117,7 +113,6 @@ export default function VorpSection({ consultorNome }: Props) {
             <p className="kpi-label">Tratativa CS</p>
           </div>
         </div>
-
         <div className="card kpi-card">
           <Users size={20} color={COLORS.textMuted} />
           <div>
@@ -129,7 +124,7 @@ export default function VorpSection({ consultorNome }: Props) {
         </div>
       </div>
 
-      {/* ── Controles de filtro ─────────────────────────── */}
+      {/* ── Controles ── */}
       <div className="controles-row">
         <div className="search-box">
           <Search size={14} color={COLORS.textMuted} />
@@ -141,39 +136,51 @@ export default function VorpSection({ consultorNome }: Props) {
           />
         </div>
 
-        <div ref={dropRef} className="filter-wrap">
-          <button
-            className={`filter-btn ${filtroCS !== 'auditaveis' ? 'filter-btn-alt' : ''}`}
-            onClick={() => setDropOpen(o => !o)}
-          >
-            <span className="filter-icon"><CheckCircle2 size={13} /></span>
-            <span className="filter-val">
-              {filtroCS === 'auditaveis' ? `Auditáveis (${totalAuditaveis})` :
-               filtroCS === 'tratativa'  ? `Tratativa CS (${totalTratativa})` : 'Todos'}
-            </span>
-            <ChevronDown size={13} className={`filter-chevron ${dropOpen ? 'open' : ''}`} />
-          </button>
-          {dropOpen && (
-            <div className="filter-dropdown">
-              {([
-                { key: 'auditaveis', label: `Auditáveis (${totalAuditaveis})` },
-                { key: 'tratativa',  label: `Tratativa CS (${totalTratativa})` },
-                { key: 'todos',      label: 'Todos' },
-              ] as const).map(({ key, label }) => (
-                <div
-                  key={key}
-                  className={`drop-item ${filtroCS === key ? 'drop-selected' : ''}`}
-                  onClick={() => { setFiltroCS(key); setDropOpen(false); }}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <FilterDropdown
+          icon={<Users size={13} />}
+          value={filtroConsultor}
+          options={[
+            { value: 'todos', label: 'Todos os consultores' },
+            ...consultoresUnicos.map(c => ({ value: c, label: c })),
+          ]}
+          onChange={setFiltroConsultor}
+        />
+
+        <FilterDropdown
+          icon={<Building2 size={13} />}
+          value={filtroProduto}
+          options={[
+            { value: 'todos', label: 'Todos os produtos' },
+            ...produtosUnicos.map(p => ({ value: p, label: p })),
+          ]}
+          onChange={setFiltroProduto}
+        />
+
+        <FilterDropdown
+          value={filtroFeeSort}
+          options={[
+            { value: 'none', label: 'Fee (padrão)' },
+            { value: 'desc', label: 'Maior → Menor' },
+            { value: 'asc',  label: 'Menor → Maior' },
+          ]}
+          onChange={setFiltroFeeSort}
+          defaultValue="none"
+        />
+
+        <FilterDropdown
+          icon={<CheckCircle2 size={13} />}
+          value={filtroCS}
+          options={[
+            { value: 'auditaveis', label: `Auditáveis (${totalAuditaveis})` },
+            { value: 'tratativa',  label: `Tratativa CS (${totalTratativa})` },
+            { value: 'todos',      label: 'Todos' },
+          ]}
+          onChange={setFiltroCS}
+          defaultValue="auditaveis"
+        />
       </div>
 
-      {/* ── Tabela ──────────────────────────────────────── */}
+      {/* ── Tabela ── */}
       {loading ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: COLORS.textMuted }}>
           Carregando projetos...
@@ -198,11 +205,9 @@ export default function VorpSection({ consultorNome }: Props) {
               {filtrados.map(p => (
                 <tr key={p.vorp_id} className={p.tratativa_cs ? 'row-tratativa' : ''}>
                   <td className="td-nome">{p.nome}</td>
-                  <td className="td-muted">{p.colaborador_nome ?? '—'}</td>
+                  <td className="td-muted">{getConsultorNome(p) || '—'}</td>
                   <td>
-                    {p.produto_nome && (
-                      <span className="badge-produto">{p.produto_nome}</span>
-                    )}
+                    {p.produto_nome && <span className="badge-produto">{p.produto_nome}</span>}
                   </td>
                   <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                     {p.fee != null
@@ -223,201 +228,70 @@ export default function VorpSection({ consultorNome }: Props) {
               ))}
             </tbody>
           </table>
-          <p className="table-footer">
-            {filtrados.length} de {projetos.length} projetos
-          </p>
+          <p className="table-footer">{filtrados.length} de {projetos.length} projetos</p>
         </div>
       )}
 
       <style jsx>{`
         .vorp-section { display: flex; flex-direction: column; gap: 20px; }
 
-        .kpi-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 14px;
-        }
-        .kpi-card {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 20px;
-          background: var(--glass-bg);
-          backdrop-filter: blur(10px);
-        }
-        .kpi-val {
-          font-family: var(--font-bebas);
-          font-size: 2.2rem;
-          line-height: 1;
-          color: var(--text-main);
-        }
-        .kpi-label {
-          font-size: 0.72rem;
-          color: var(--text-muted);
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-top: 2px;
-        }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+        .kpi-card { display: flex; align-items: center; gap: 14px; padding: 20px; background: var(--glass-bg); backdrop-filter: blur(10px); }
+        .kpi-val   { font-family: var(--font-bebas); font-size: 2.2rem; line-height: 1; color: var(--text-main); }
+        .kpi-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 
-        .controles-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
+        .controles-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .search-box {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: var(--glass-bg);
-          border: 1px solid var(--card-border);
-          border-radius: 8px;
-          padding: 8px 14px;
-          flex: 1;
-          min-width: 240px;
+          display: flex; align-items: center; gap: 8px;
+          background: var(--glass-bg); border: 1px solid var(--card-border);
+          border-radius: 8px; padding: 8px 14px;
+          flex: 1; min-width: 240px;
         }
-        .search-box input {
-          background: transparent;
-          border: none;
-          outline: none;
-          color: var(--text-main);
-          font-size: 0.85rem;
-          width: 100%;
-        }
+        .search-box input { background: transparent; border: none; outline: none; color: var(--text-main); font-size: 0.85rem; width: 100%; }
         .search-box input::placeholder { color: var(--text-muted); }
 
-        .filter-wrap { position: relative; }
-        .filter-btn {
-          display: flex; align-items: center; gap: 7px;
-          padding: 8px 12px;
-          background: var(--glass-bg); border: 1px solid var(--card-border);
-          border-radius: 8px; cursor: pointer;
-          font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;
-          transition: all 0.15s;
-        }
-        .filter-btn:hover { border-color: rgba(252,84,0,0.4); color: var(--text-main); }
-        .filter-btn-alt { border-color: rgba(252,84,0,0.5); background: rgba(252,84,0,0.08); color: var(--laranja-vorp); }
-        .filter-icon { opacity: 0.5; display: flex; align-items: center; }
-        .filter-btn-alt .filter-icon { opacity: 1; }
-        .filter-val { font-weight: 600; }
-        .filter-chevron { opacity: 0.4; transition: transform 0.2s; }
-        .filter-chevron.open { transform: rotate(180deg); opacity: 0.8; }
-
-        .filter-dropdown {
-          position: absolute; top: calc(100% + 6px); left: 0;
-          min-width: 210px;
-          background: #111827; border: 1px solid #1f2d40;
-          border-radius: 10px;
-          box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-          z-index: 200; overflow: hidden;
-          animation: dropIn 0.15s ease-out;
-        }
-        @keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-        .drop-item {
-          padding: 9px 16px;
-          font-size: 0.82rem; color: var(--text-muted);
-          cursor: pointer; transition: background 0.12s, color 0.12s;
-        }
-        .drop-item:hover { background: rgba(252,84,0,0.08); color: var(--text-main); }
-        .drop-selected { color: var(--laranja-vorp); font-weight: 600; background: rgba(252,84,0,0.06); }
-
         .btn-icon {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 7px 14px;
-          border-radius: 8px;
-          border: 1px solid var(--card-border);
-          background: transparent;
-          color: var(--text-muted);
-          font-size: 0.8rem;
-          cursor: pointer;
-          transition: all 0.15s;
+          display: flex; align-items: center; gap: 6px;
+          padding: 7px 14px; border-radius: 8px; border: 1px solid var(--card-border);
+          background: transparent; color: var(--text-muted); font-size: 0.8rem;
+          cursor: pointer; transition: all 0.15s;
         }
         .btn-icon:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
 
         .table-wrap { padding: 0; overflow: hidden; }
-        .vorp-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.83rem;
-        }
+        .vorp-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
         .vorp-table th {
-          padding: 12px 16px;
-          text-align: left;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--text-muted);
-          border-bottom: 1px solid var(--card-border);
-          white-space: nowrap;
+          padding: 12px 16px; text-align: left;
+          font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+          color: var(--text-muted); border-bottom: 1px solid var(--card-border); white-space: nowrap;
         }
         .vorp-table td {
           padding: 11px 16px;
           border-bottom: 1px solid color-mix(in srgb, var(--card-border) 50%, transparent);
-          color: var(--text-main);
-          vertical-align: middle;
+          color: var(--text-main); vertical-align: middle;
         }
         .vorp-table tr:last-child td { border-bottom: none; }
         .vorp-table tbody tr:hover { background: color-mix(in srgb, var(--laranja-vorp) 4%, transparent); }
 
         .row-tratativa td { opacity: 0.55; }
         .row-tratativa:hover td { opacity: 0.75; }
-
-        .td-nome { font-weight: 600; max-width: 280px; }
+        .td-nome  { font-weight: 600; max-width: 280px; }
         .td-muted { color: var(--text-muted); }
 
         .badge-produto {
-          display: inline-block;
-          padding: 3px 10px;
-          border-radius: 12px;
+          display: inline-block; padding: 3px 10px; border-radius: 12px;
           background: color-mix(in srgb, var(--laranja-vorp) 12%, transparent);
-          color: var(--laranja-vorp);
-          font-size: 0.72rem;
-          font-weight: 700;
-          white-space: nowrap;
+          color: var(--laranja-vorp); font-size: 0.72rem; font-weight: 700; white-space: nowrap;
         }
 
-        .toggle-cs {
-          padding: 4px 12px;
-          border-radius: 12px;
-          font-size: 0.72rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s;
-          white-space: nowrap;
-        }
-        .toggle-off {
-          background: color-mix(in srgb, var(--verde) 10%, transparent);
-          border: 1px solid color-mix(in srgb, var(--verde) 40%, transparent);
-          color: var(--verde, #22c55e);
-        }
-        .toggle-off:hover {
-          background: color-mix(in srgb, #f59e0b 12%, transparent);
-          border-color: #f59e0b;
-          color: #f59e0b;
-        }
-        .toggle-on {
-          background: color-mix(in srgb, #f59e0b 12%, transparent);
-          border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
-          color: #f59e0b;
-        }
-        .toggle-on:hover {
-          background: color-mix(in srgb, var(--verde) 10%, transparent);
-          border-color: color-mix(in srgb, var(--verde) 40%, transparent);
-          color: var(--verde, #22c55e);
-        }
+        .toggle-cs { padding: 4px 12px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+        .toggle-off { background: color-mix(in srgb, var(--verde) 10%, transparent); border: 1px solid color-mix(in srgb, var(--verde) 40%, transparent); color: var(--verde, #22c55e); }
+        .toggle-off:hover { background: color-mix(in srgb, #f59e0b 12%, transparent); border-color: #f59e0b; color: #f59e0b; }
+        .toggle-on { background: color-mix(in srgb, #f59e0b 12%, transparent); border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent); color: #f59e0b; }
+        .toggle-on:hover { background: color-mix(in srgb, var(--verde) 10%, transparent); border-color: color-mix(in srgb, var(--verde) 40%, transparent); color: var(--verde, #22c55e); }
         .toggle-cs:disabled { opacity: 0.5; cursor: wait; }
 
-        .table-footer {
-          padding: 10px 16px;
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          text-align: right;
-          border-top: 1px solid var(--card-border);
-        }
+        .table-footer { padding: 10px 16px; font-size: 0.75rem; color: var(--text-muted); text-align: right; border-top: 1px solid var(--card-border); }
 
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>

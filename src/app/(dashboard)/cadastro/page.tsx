@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, Package, Building2, Mail, Phone, Briefcase, RefreshCw, ChevronDown } from 'lucide-react';
+import { Users, Package, Building2, Mail, Phone, Briefcase, RefreshCw } from 'lucide-react';
 import { getVorpColaboradores, getVorpProdutos, getVorpProjetosAtivos } from '@/lib/api';
 import type { VorpColaboradorRow, VorpProjetoRow } from '@/lib/supabase';
-import { COLORS } from '@/types/dashboard';
 import dynamic from 'next/dynamic';
+import FilterDropdown from '@/components/ui/FilterDropdown';
 
 const VorpSection = dynamic(() => import('@/components/dashboard/VorpSection'));
 
@@ -18,30 +18,38 @@ function CadastroInner() {
   const tabParam     = (searchParams.get('tab') ?? 'time-completo') as Tab;
 
   const [activeTab, setActiveTab] = useState<Tab>(tabParam);
+  const [colabs,    setColabs]    = useState<VorpColaboradorRow[]>([]);
+  const [produtos,  setProdutos]  = useState<string[]>([]);
+  const [projetos,  setProjetos]  = useState<VorpProjetoRow[]>([]);
+  const [loading,   setLoading]   = useState(false);
+  const [busca,     setBusca]     = useState('');
 
-  const [colabs,   setColabs]   = useState<VorpColaboradorRow[]>([]);
-  const [produtos, setProdutos] = useState<string[]>([]);
-  const [projetos, setProjetos] = useState<VorpProjetoRow[]>([]);
-  const [loading,  setLoading]  = useState(false);
-  const [busca,      setBusca]      = useState('');
-  const [filtroProj, setFiltroProj] = useState<'todos' | 'auditaveis' | 'tratativa'>('auditaveis');
-  const [dropProjOpen, setDropProjOpen] = useState(false);
-  const dropProjRef = useRef<HTMLDivElement>(null);
+  // ── Time Completo filters ──────────────────────────────
+  const [filtroTCStatus,   setFiltroTCStatus]   = useState('todos');
+  const [filtroTCCargo,    setFiltroTCCargo]    = useState('todos');
+  const [filtroTCVertical, setFiltroTCVertical] = useState('todos');
 
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (dropProjRef.current && !dropProjRef.current.contains(e.target as Node))
-        setDropProjOpen(false);
-    };
-    if (dropProjOpen) document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [dropProjOpen]);
+  // ── Produtos filter ────────────────────────────────────
+  const [filtroProdSort, setFiltroProdSort] = useState('az');
+
+  // ── Projetos Ativos filters ────────────────────────────
+  const [filtroProj,        setFiltroProj]        = useState('auditaveis');
+  const [filtroConsultor,   setFiltroConsultor]   = useState('todos');
+  const [filtroProdutoProj, setFiltroProdutoProj] = useState('todos');
+  const [filtroFeeSort,     setFiltroFeeSort]     = useState('none');
+
+  const resetFilters = () => {
+    setBusca('');
+    setFiltroTCStatus('todos'); setFiltroTCCargo('todos'); setFiltroTCVertical('todos');
+    setFiltroProdSort('az');
+    setFiltroProj('auditaveis'); setFiltroConsultor('todos');
+    setFiltroProdutoProj('todos'); setFiltroFeeSort('none');
+  };
 
   const changeTab = (tab: Tab) => {
     setActiveTab(tab);
     router.replace(`/cadastro?tab=${tab}`);
-    setBusca('');
-    setFiltroProj('auditaveis');
+    resetFilters();
   };
 
   const formatDate = (d?: string | null) =>
@@ -51,20 +59,15 @@ function CadastroInner() {
     setLoading(true);
     try {
       if (tab === 'time-completo' && colabs.length === 0) {
-        const data = await getVorpColaboradores();
-        setColabs(data as VorpColaboradorRow[]);
+        const d = await getVorpColaboradores(); setColabs(d as VorpColaboradorRow[]);
       }
       if (tab === 'produtos' && produtos.length === 0) {
-        const data = await getVorpProdutos();
-        setProdutos(data);
+        const d = await getVorpProdutos(); setProdutos(d);
       }
       if (tab === 'projetos' && projetos.length === 0) {
-        const data = await getVorpProjetosAtivos();
-        setProjetos(data as VorpProjetoRow[]);
+        const d = await getVorpProjetosAtivos(); setProjetos(d as VorpProjetoRow[]);
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { load(activeTab); }, [activeTab]);
@@ -73,41 +76,70 @@ function CadastroInner() {
     setLoading(true);
     try {
       if (activeTab === 'time-completo') { const d = await getVorpColaboradores(); setColabs(d as VorpColaboradorRow[]); }
-      if (activeTab === 'produtos')      { const d = await getVorpProdutos();      setProdutos(d); }
+      if (activeTab === 'produtos')      { const d = await getVorpProdutos();       setProdutos(d); }
       if (activeTab === 'projetos')      { const d = await getVorpProjetosAtivos(); setProjetos(d as VorpProjetoRow[]); }
     } finally { setLoading(false); }
   };
 
-  const colabsFiltrados = colabs.filter(c =>
-    !busca || c.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    (c.cargo ?? '').toLowerCase().includes(busca.toLowerCase())
-  );
+  // ── Computed unique values ─────────────────────────────
+  const cargosUnicos    = Array.from(new Set(colabs.map(c => c.cargo).filter((v): v is string => !!v))).sort();
+  const verticaisUnicas = Array.from(new Set(colabs.map(c => c.vertical).filter((v): v is string => !!v))).sort();
 
-  const produtosFiltrados = produtos.filter(p =>
-    !busca || p.toLowerCase().includes(busca.toLowerCase())
-  );
+  const getConsultorNome = (p: VorpProjetoRow): string => {
+    const raw = p.colaborador_nome ?? '';
+    if (raw.startsWith('[')) { try { return JSON.parse(raw)[0] ?? ''; } catch { return raw; } }
+    return raw;
+  };
+
+  const consultoresUnicos = Array.from(new Set(projetos.map(getConsultorNome).filter(Boolean))).sort();
+  const produtosUnicos    = Array.from(new Set(projetos.map(p => p.produto_nome).filter((v): v is string => !!v))).sort();
+
+  // ── Filtered lists ─────────────────────────────────────
+  const colabsFiltrados = colabs.filter(c => {
+    const q = busca.toLowerCase();
+    const matchBusca = !busca ||
+      c.nome.toLowerCase().includes(q) ||
+      (c.cargo     ?? '').toLowerCase().includes(q) ||
+      (c.email     ?? '').toLowerCase().includes(q) ||
+      (c.telefone  ?? '').toLowerCase().includes(q);
+    const matchStatus   = filtroTCStatus   === 'todos' ||
+      (filtroTCStatus === 'ativo'   && c.status?.toLowerCase() === 'ativo') ||
+      (filtroTCStatus === 'inativo' && c.status?.toLowerCase() !== 'ativo');
+    const matchVertical = filtroTCVertical === 'todos' || c.vertical === filtroTCVertical;
+    const matchCargo    = filtroTCCargo    === 'todos' || c.cargo    === filtroTCCargo;
+    return matchBusca && matchStatus && matchVertical && matchCargo;
+  });
+
+  const produtosFiltrados = [...produtos]
+    .filter(p => !busca || p.toLowerCase().includes(busca.toLowerCase()))
+    .sort((a, b) => filtroProdSort === 'za' ? b.localeCompare(a) : a.localeCompare(b));
 
   const totalProjAuditaveis = projetos.filter(p => !p.tratativa_cs).length;
   const totalProjTratativa  = projetos.filter(p =>  p.tratativa_cs).length;
 
-  const projetosFiltrados = projetos.filter(p => {
+  let projetosFiltrados = projetos.filter(p => {
+    const cn  = getConsultorNome(p);
+    const q   = busca.toLowerCase();
     const matchBusca =
       !busca ||
-      p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
-      (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase());
-    const matchFiltro =
-      filtroProj === 'todos' ||
+      p.nome.toLowerCase().includes(q) ||
+      cn.toLowerCase().includes(q) ||
+      (p.produto_nome ?? '').toLowerCase().includes(q);
+    const matchStatus    = filtroProj === 'todos' ||
       (filtroProj === 'tratativa'  &&  p.tratativa_cs) ||
       (filtroProj === 'auditaveis' && !p.tratativa_cs);
-    return matchBusca && matchFiltro;
+    const matchConsultor = filtroConsultor   === 'todos' || cn              === filtroConsultor;
+    const matchProduto   = filtroProdutoProj === 'todos' || p.produto_nome  === filtroProdutoProj;
+    return matchBusca && matchStatus && matchConsultor && matchProduto;
   });
+  if (filtroFeeSort === 'asc')  projetosFiltrados = [...projetosFiltrados].sort((a, b) => (a.fee ?? 0) - (b.fee ?? 0));
+  if (filtroFeeSort === 'desc') projetosFiltrados = [...projetosFiltrados].sort((a, b) => (b.fee ?? 0) - (a.fee ?? 0));
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count: number }[] = [
-    { id: 'time-completo', label: 'Time Completo',   icon: <Users size={15} />,     count: colabs.length },
-    { id: 'produtos',      label: 'Produtos',         icon: <Package size={15} />,   count: produtos.length },
-    { id: 'projetos',      label: 'Projetos Ativos',  icon: <Building2 size={15} />, count: projetos.length },
-    { id: 'vorp-system',   label: 'Vorp System',      icon: <Building2 size={15} />, count: 0 },
+    { id: 'time-completo', label: 'Time Completo',  icon: <Users size={15} />,     count: colabs.length },
+    { id: 'produtos',      label: 'Produtos',        icon: <Package size={15} />,   count: produtos.length },
+    { id: 'projetos',      label: 'Projetos Ativos', icon: <Building2 size={15} />, count: projetos.length },
+    { id: 'vorp-system',   label: 'Vorp System',     icon: <Building2 size={15} />, count: 0 },
   ];
 
   return (
@@ -138,51 +170,106 @@ function CadastroInner() {
         ))}
       </div>
 
-      {/* Search */}
+      {/* Search + Filters */}
       {activeTab !== 'vorp-system' && (
         <div className="search-row">
           <input
             className="search-input"
             placeholder={
-              activeTab === 'time-completo' ? 'Buscar por nome ou cargo...' :
+              activeTab === 'time-completo' ? 'Buscar por nome, cargo, e-mail ou telefone...' :
               activeTab === 'produtos'      ? 'Buscar produto...' :
               'Buscar projeto, consultor ou produto...'
             }
             value={busca}
             onChange={e => setBusca(e.target.value)}
           />
-          {activeTab === 'projetos' && (
-            <div ref={dropProjRef} className="filter-wrap">
-              <button
-                className={`filter-btn ${filtroProj !== 'auditaveis' ? 'filter-btn-alt' : ''}`}
-                onClick={() => setDropProjOpen(o => !o)}
-              >
-                <span className="filter-icon"><Building2 size={13} /></span>
-                <span className="filter-val">
-                  {filtroProj === 'auditaveis' ? `Ativos (${totalProjAuditaveis})` :
-                   filtroProj === 'tratativa'  ? `Tratativa CS (${totalProjTratativa})` : 'Todos'}
-                </span>
-                <ChevronDown size={13} className={`filter-chevron ${dropProjOpen ? 'open' : ''}`} />
-              </button>
-              {dropProjOpen && (
-                <div className="filter-dropdown">
-                  {([
-                    { key: 'auditaveis', label: `Ativos (${totalProjAuditaveis})` },
-                    { key: 'tratativa',  label: `Tratativa CS (${totalProjTratativa})` },
-                    { key: 'todos',      label: 'Todos' },
-                  ] as const).map(({ key, label }) => (
-                    <div
-                      key={key}
-                      className={`drop-item ${filtroProj === key ? 'drop-selected' : ''}`}
-                      onClick={() => { setFiltroProj(key); setDropProjOpen(false); }}
-                    >
-                      {label}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
+          {/* ── Time Completo filters ── */}
+          {activeTab === 'time-completo' && <>
+            <FilterDropdown
+              value={filtroTCStatus}
+              options={[
+                { value: 'todos',   label: 'Todos os status' },
+                { value: 'ativo',   label: 'Ativo' },
+                { value: 'inativo', label: 'Inativo' },
+              ]}
+              onChange={setFiltroTCStatus}
+            />
+            <FilterDropdown
+              icon={<Briefcase size={13} />}
+              value={filtroTCCargo}
+              options={[
+                { value: 'todos', label: 'Todos os cargos' },
+                ...cargosUnicos.map(c => ({ value: c, label: c })),
+              ]}
+              onChange={setFiltroTCCargo}
+            />
+            <FilterDropdown
+              icon={<Building2 size={13} />}
+              value={filtroTCVertical}
+              options={[
+                { value: 'todos', label: 'Todas as verticais' },
+                ...verticaisUnicas.map(v => ({ value: v, label: v })),
+              ]}
+              onChange={setFiltroTCVertical}
+            />
+          </>}
+
+          {/* ── Produtos filter ── */}
+          {activeTab === 'produtos' && (
+            <FilterDropdown
+              value={filtroProdSort}
+              options={[
+                { value: 'az', label: 'A → Z' },
+                { value: 'za', label: 'Z → A' },
+              ]}
+              onChange={setFiltroProdSort}
+              defaultValue="az"
+            />
           )}
+
+          {/* ── Projetos Ativos filters ── */}
+          {activeTab === 'projetos' && <>
+            <FilterDropdown
+              icon={<Users size={13} />}
+              value={filtroConsultor}
+              options={[
+                { value: 'todos', label: 'Todos os consultores' },
+                ...consultoresUnicos.map(c => ({ value: c, label: c })),
+              ]}
+              onChange={setFiltroConsultor}
+            />
+            <FilterDropdown
+              icon={<Package size={13} />}
+              value={filtroProdutoProj}
+              options={[
+                { value: 'todos', label: 'Todos os produtos' },
+                ...produtosUnicos.map(p => ({ value: p, label: p })),
+              ]}
+              onChange={setFiltroProdutoProj}
+            />
+            <FilterDropdown
+              value={filtroFeeSort}
+              options={[
+                { value: 'none', label: 'Fee (padrão)' },
+                { value: 'desc', label: 'Maior → Menor' },
+                { value: 'asc',  label: 'Menor → Maior' },
+              ]}
+              onChange={setFiltroFeeSort}
+              defaultValue="none"
+            />
+            <FilterDropdown
+              icon={<Building2 size={13} />}
+              value={filtroProj}
+              options={[
+                { value: 'auditaveis', label: `Ativos (${totalProjAuditaveis})` },
+                { value: 'tratativa',  label: `Tratativa CS (${totalProjTratativa})` },
+                { value: 'todos',      label: 'Todos' },
+              ]}
+              onChange={setFiltroProj}
+              defaultValue="auditaveis"
+            />
+          </>}
         </div>
       )}
 
@@ -225,7 +312,7 @@ function CadastroInner() {
                   ))}
                 </tbody>
               </table>
-              <p className="table-footer">{colabsFiltrados.length} colaboradores</p>
+              <p className="table-footer">{colabsFiltrados.length} de {colabs.length} colaboradores</p>
             </div>
           )}
 
@@ -248,7 +335,7 @@ function CadastroInner() {
                   ))}
                 </tbody>
               </table>
-              <p className="table-footer">{produtosFiltrados.length} produtos</p>
+              <p className="table-footer">{produtosFiltrados.length} de {produtos.length} produtos</p>
             </div>
           )}
 
@@ -276,14 +363,8 @@ function CadastroInner() {
                   ) : projetosFiltrados.map(p => (
                     <tr key={p.vorp_id} className={p.tratativa_cs ? 'row-dim' : ''}>
                       <td className="td-bold">{p.nome}</td>
-                      <td className="td-muted">
-                        {typeof p.colaborador_nome === 'string' && p.colaborador_nome.startsWith('[')
-                          ? (() => { try { return JSON.parse(p.colaborador_nome)[0] ?? '—'; } catch { return p.colaborador_nome; } })()
-                          : p.colaborador_nome ?? '—'}
-                      </td>
-                      <td>
-                        {p.produto_nome && <span className="badge badge-orange">{p.produto_nome}</span>}
-                      </td>
+                      <td className="td-muted">{getConsultorNome(p) || '—'}</td>
+                      <td>{p.produto_nome && <span className="badge badge-orange">{p.produto_nome}</span>}</td>
                       <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         {p.fee != null
                           ? p.fee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -314,85 +395,36 @@ function CadastroInner() {
         .btn-refresh {
           display: flex; align-items: center; gap: 6px;
           padding: 9px 16px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid var(--card-border);
-          border-radius: 8px;
-          color: var(--text-muted);
+          background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
+          border-radius: 8px; color: var(--text-muted);
           font-size: 0.8rem; font-weight: 600;
-          cursor: pointer; transition: all 0.2s;
-          white-space: nowrap;
+          cursor: pointer; transition: all 0.2s; white-space: nowrap;
         }
         .btn-refresh:hover:not(:disabled) { color: var(--text-main); border-color: rgba(255,255,255,0.2); }
         .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .tab-bar {
           display: flex; gap: 4px;
-          background: rgba(255,255,255,0.02);
-          border: 1px solid var(--card-border);
-          border-radius: 12px; padding: 6px;
-          width: fit-content;
+          background: rgba(255,255,255,0.02); border: 1px solid var(--card-border);
+          border-radius: 12px; padding: 6px; width: fit-content;
         }
         .tab-btn {
           display: flex; align-items: center; gap: 8px;
-          padding: 9px 18px;
-          background: transparent; border: none; border-radius: 8px;
+          padding: 9px 18px; background: transparent; border: none; border-radius: 8px;
           color: var(--text-muted); font-size: 0.85rem; font-weight: 600;
           cursor: pointer; transition: all 0.2s;
         }
         .tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.04); }
         .tab-btn.active { background: var(--laranja-vorp); color: white; }
-
-        .tab-count {
-          background: rgba(255,255,255,0.2);
-          border-radius: 20px; padding: 1px 7px;
-          font-size: 0.72rem; font-weight: 700;
-        }
+        .tab-count { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 7px; font-size: 0.72rem; font-weight: 700; }
         .tab-btn.active .tab-count { background: rgba(255,255,255,0.25); }
 
         .search-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-        .filter-wrap { position: relative; }
-        .filter-btn {
-          display: flex; align-items: center; gap: 7px;
-          padding: 7px 12px;
-          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
-          border-radius: 8px; cursor: pointer;
-          font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;
-          transition: all 0.15s;
-        }
-        .filter-btn:hover { border-color: rgba(252,84,0,0.4); color: var(--text-main); }
-        .filter-btn-alt { border-color: rgba(252,84,0,0.5); background: rgba(252,84,0,0.08); color: var(--laranja-vorp); }
-        .filter-icon { opacity: 0.5; display: flex; align-items: center; }
-        .filter-btn-alt .filter-icon { opacity: 1; }
-        .filter-val { font-weight: 600; }
-        .filter-chevron { opacity: 0.4; transition: transform 0.2s; }
-        .filter-chevron.open { transform: rotate(180deg); opacity: 0.8; }
-
-        .filter-dropdown {
-          position: absolute; top: calc(100% + 6px); left: 0;
-          min-width: 200px;
-          background: #111827; border: 1px solid #1f2d40;
-          border-radius: 10px;
-          box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-          z-index: 200; overflow: hidden;
-          animation: dropIn 0.15s ease-out;
-        }
-        @keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-        .drop-item {
-          padding: 9px 16px;
-          font-size: 0.82rem; color: var(--text-muted);
-          cursor: pointer; transition: background 0.12s, color 0.12s;
-        }
-        .drop-item:hover { background: rgba(252,84,0,0.08); color: var(--text-main); }
-        .drop-selected { color: var(--laranja-vorp); font-weight: 600; background: rgba(252,84,0,0.06); }
-
         .search-input {
-          width: 100%; max-width: 420px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid var(--card-border);
-          border-radius: 8px; padding: 10px 16px;
-          color: var(--text-main); font-size: 0.88rem;
-          transition: all 0.2s;
+          width: 100%; max-width: 360px;
+          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+          border-radius: 8px; padding: 7px 16px;
+          color: var(--text-main); font-size: 0.88rem; transition: all 0.2s;
         }
         .search-input:focus { border-color: var(--laranja-vorp); outline: none; background: rgba(255,255,255,0.05); }
         .search-input::placeholder { color: var(--text-muted); }
@@ -404,8 +436,7 @@ function CadastroInner() {
         .cad-table thead tr { background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); }
         .cad-table th {
           padding: 13px 16px; text-align: left;
-          font-size: 0.72rem; font-weight: 700;
-          text-transform: uppercase; letter-spacing: 0.05em;
+          font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
           color: var(--text-muted); white-space: nowrap;
         }
         .th-inner { display: flex; align-items: center; gap: 6px; }
@@ -428,8 +459,8 @@ function CadastroInner() {
         .table-footer { padding: 10px 16px; font-size: 0.75rem; color: var(--text-muted); text-align: right; border-top: 1px solid var(--card-border); }
 
         :global(.spinning) { animation: spin 1s linear infinite; }
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes fadeIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin   { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   );
