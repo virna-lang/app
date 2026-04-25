@@ -25,41 +25,25 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user,    setUser]    = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<UserRole>('Administrador');
+  const [role,    setRole]    = useState<UserRole>('Administrador');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Recupera a sessão atual ao montar
+    // 1. Restaura a sessão do localStorage imediatamente
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Escuta mudanças de estado de autenticação (login, logout, refresh de token)
+    // 2. Escuta mudanças de autenticação (login, logout, refresh de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-
-        // Se o usuário escolheu NÃO manter conectado, desloga ao fechar a aba
-        if (event === 'SIGNED_IN') {
-          const remember = localStorage.getItem('vorp-remember-me');
-          if (remember === 'false') {
-            const handleUnload = () => { supabase.auth.signOut(); };
-            window.addEventListener('beforeunload', handleUnload);
-            // Salva referência para limpar depois
-            (window as any).__vorpUnloadHandler = handleUnload;
-          } else {
-            // Remove handler anterior se existir
-            if ((window as any).__vorpUnloadHandler) {
-              window.removeEventListener('beforeunload', (window as any).__vorpUnloadHandler);
-            }
-          }
-        }
       }
     );
 
@@ -68,17 +52,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (rememberMe = true) => {
     // Salva preferência antes do redirect OAuth
-    localStorage.setItem('vorp-remember-me', rememberMe ? 'true' : 'false');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vorp-remember-me', rememberMe ? 'true' : 'false');
+    }
+
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        queryParams: {
+          // Força re-consent apenas quando necessário
+          prompt: rememberMe ? 'select_account' : 'select_account',
+        },
       },
     });
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('vorp-remember-me');
+    }
   };
 
   return (
@@ -95,4 +89,3 @@ export function useAuth() {
   }
   return context;
 }
-

@@ -562,6 +562,18 @@ export async function getVorpProjetosAtivos(vorpColaboradorId?: string | null) {
   return data ?? [];
 }
 
+/** Conta projetos ativos auditáveis de um consultor (exclui Tratativa CS) */
+export async function countProjetosAtivosPorConsultor(consultorId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('vorp_projetos')
+    .select('*', { count: 'exact', head: true })
+    .eq('consultor_id', consultorId)
+    .eq('status', 'Ativo')
+    .eq('tratativa_cs', false);
+  if (error) { console.error('countProjetosAtivosPorConsultor:', error); return 0; }
+  return count ?? 0;
+}
+
 /** Marca / desmarca um projeto como Tratativa CS */
 export async function setTrativaCS(
   vorpId: string,
@@ -662,4 +674,14 @@ export async function getVorpColaboradores() {
     .order('nome');
   if (error) throw error;
   return data ?? [];
+}
+
+/** Produtos Growth do Vorp — retorna apenas os nomes, ordenados */
+export async function getVorpProdutos(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('vorp_produtos')
+    .select('nome')
+    .order('nome');
+  if (error) throw error;
+  return (data ?? []).map((p: { nome: string }) => p.nome);
 }

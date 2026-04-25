@@ -5,11 +5,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publish
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Necessário para capturar o token no hash da URL após o redirect do Google
     detectSessionInUrl: true,
-    // Persiste a sessão no localStorage para recarregamentos da página
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession:     true,
+    autoRefreshToken:   true,
+    storageKey:         'vorp-auth-session',
   },
 });
 
@@ -147,17 +146,20 @@ export interface VorpColaboradorRow {
 }
 
 export interface VorpProjetoRow {
-  vorp_id:          string;
-  nome:             string;
-  empresa_nome?:    string | null;
-  status?:          string | null;
-  produto_nome?:    string | null;
-  colaborador_nome?: string | null;
-  fee?:             number | null;
-  canal?:           string | null;
-  tratativa_cs:     boolean;
-  tratativa_cs_obs?: string | null;
-  synced_at:        string;
+  vorp_id:              string;
+  nome:                 string;
+  empresa_nome?:        string | null;
+  status?:              string | null;
+  produto_nome?:        string | null;
+  colaborador_nome?:    string | null;
+  colaborador_vorp_id?: string | null;
+  produto_vorp_id?:     string | null;
+  consultor_id?:        string | null;
+  fee?:                 number | null;
+  canal?:               string | null;
+  tratativa_cs:         boolean;
+  tratativa_cs_obs?:    string | null;
+  synced_at:            string;
 }
 
 export interface VorpProdutoRow {

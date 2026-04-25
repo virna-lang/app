@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getConsultores, gerarMeses } from '@/lib/api';
+import { getConsultores, gerarMeses, getVorpProdutos } from '@/lib/api';
 import type { Consultor } from '@/lib/supabase';
 
 export const PRODUTOS_PADRAO = ['Aliança', 'Aliança Pro', 'GSA', 'Tração', 'Gestão de Tráfego'];
@@ -39,9 +39,38 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [activeTab,          setActiveTab]          = useState<DashboardTab>('Visão Geral');
   const [consultores,        setConsultores]        = useState<Consultor[]>([]);
   const [loadingConsultores, setLoadingConsultores] = useState(true);
+  const [availableProducts,  setAvailableProducts]  = useState<string[]>(PRODUTOS_PADRAO);
 
   const meses             = gerarMeses(6);
   const availableProducts = PRODUTOS_PADRAO;
+
+  const [filters, setFilters] = useState<DashboardFilters>({
+    month:        meses[meses.length - 1],
+    consultantId: 'all',
+    products:     PRODUTOS_PADRAO,
+  });
+
+  // Carrega filtros salvos após mount (evita problema SSR com localStorage)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vorp_dashboard_filters');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (meses.includes(parsed.month)) {
+          setFilters({
+            month:        parsed.month,
+            consultantId: parsed.consultantId ?? 'all',
+            products:     parsed.products     ?? PRODUTOS_PADRAO,
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Persiste filtros no localStorage sempre que mudam
+  useEffect(() => {
+    localStorage.setItem('vorp_dashboard_filters', JSON.stringify(filters));
+  }, [filters]);
 
   const [filters, setFilters] = useState<DashboardFilters>({
     month:        meses[meses.length - 1],
@@ -76,6 +105,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setConsultores(data);
       setLoadingConsultores(false);
     });
+    getVorpProdutos().then((nomes) => {
+      if (nomes.length > 0) {
+        setAvailableProducts(nomes);
+        setFilters(f => ({ ...f, products: nomes }));
+      }
+    }).catch(() => {});
   }, []);
 
   return (

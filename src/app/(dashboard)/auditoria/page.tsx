@@ -4,8 +4,8 @@ import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import {
-  ChevronDown, Save, CheckCircle, AlertCircle, Loader,
-  Trash2, Plus, X, Edit3, Zap, TrendingDown,
+  ChevronDown, ChevronUp, Save, CheckCircle, AlertCircle, Loader,
+  Trash2, Plus, X, Edit3, Zap, TrendingDown, FolderOpen, RefreshCw,
 } from 'lucide-react';
 import ChurnRapido from '@/components/auditoria/ChurnRapido';
 import AuditoriaRapida from '@/components/auditoria/AuditoriaRapida';
@@ -13,8 +13,9 @@ import {
   getConsultores, getAuditoriasMensais, getAuditoriaItens,
   updateAuditoriaItem, deleteAuditoriaItem, addAuditoriaItem,
   upsertAuditoriaMensal, gerarMeses, labelToMesAno,
+  countProjetosAtivosPorConsultor, getVorpProjetosAtivos, setTrativaCS,
 } from '@/lib/api';
-import type { Consultor, AuditoriaItem, AuditoriaMensal } from '@/lib/supabase';
+import type { Consultor, AuditoriaItem, AuditoriaMensal, VorpProjetoRow } from '@/lib/supabase';
 
 const C = {
   verde:    '#10b981',
@@ -68,9 +69,15 @@ function AuditoriaPageInner() {
   const [auditoria,    setAuditoria]    = useState<AuditoriaMensal | null>(null);
   const [itens,        setItens]        = useState<AuditoriaItem[]>([]);
   const [editState,    setEditState]    = useState<Record<string, ItemEditState>>({});
-  const [loading,      setLoading]      = useState(false);
-  const [notFound,     setNotFound]     = useState(false);
-  const [creating,     setCreating]     = useState(false);
+  const [loading,          setLoading]          = useState(false);
+  const [notFound,         setNotFound]         = useState(false);
+  const [projetosAtivos,   setProjetosAtivos]   = useState<number | null>(null);
+  const [projetosList,     setProjetosList]     = useState<VorpProjetoRow[]>([]);
+  const [loadingProjetos,  setLoadingProjetos]  = useState(false);
+  const [salvandoCS,       setSalvandoCS]       = useState<string | null>(null);
+  const [projetosExpanded, setProjetosExpanded] = useState(true);
+  const [preenchendo,      setPreenchendo]      = useState(false);
+  const [creating,         setCreating]         = useState(false);
   const [newCarteira,  setNewCarteira]  = useState(1);
   const [newDataAud,   setNewDataAud]   = useState('');
   const [savingNew,    setSavingNew]    = useState(false);
@@ -81,20 +88,79 @@ function AuditoriaPageInner() {
 
   useEffect(() => { getConsultores().then(setConsultores); }, []);
 
+  // Carrega projetos do consultor selecionado
+  useEffect(() => {
+    if (!selectedCons) { setProjetosList([]); setProjetosAtivos(null); return; }
+    setLoadingProjetos(true);
+    getVorpProjetosAtivos()
+      .then(data => {
+        const filtrado = (data as VorpProjetoRow[]).filter(p => p.consultor_id === selectedCons);
+        setProjetosList(filtrado);
+        setProjetosAtivos(filtrado.filter(p => !p.tratativa_cs).length);
+      })
+      .finally(() => setLoadingProjetos(false));
+  }, [selectedCons]);
+
+  const handleToggleCS = async (projeto: VorpProjetoRow) => {
+    setSalvandoCS(projeto.vorp_id);
+    try {
+      await setTrativaCS(projeto.vorp_id, !projeto.tratativa_cs);
+      setProjetosList(prev => {
+        const updated = prev.map(p =>
+          p.vorp_id === projeto.vorp_id ? { ...p, tratativa_cs: !p.tratativa_cs } : p
+        );
+        setProjetosAtivos(updated.filter(p => !p.tratativa_cs).length);
+        return updated;
+      });
+    } finally {
+      setSalvandoCS(null);
+    }
+  };
+
+  const handlePreencherAvaliados = async () => {
+    if (!selectedCons) return;
+    setPreenchendo(true);
+    const qtd = await countProjetosAtivosPorConsultor(selectedCons);
+    setProjetosAtivos(qtd);
+    if (qtd > 0 && Object.keys(editState).length > 0) {
+      setEditState(prev => {
+        const next = { ...prev };
+        itens.forEach(item => {
+          const tipo = next[item.id]?.tipo ?? item.tipo ?? '';
+          if (tipo === 'Resultado') {
+            next[item.id] = { ...next[item.id], qtd_avaliados: qtd, dirty: true, saved: false, error: false };
+          }
+        });
+        return next;
+      });
+    }
+    setPreenchendo(false);
+  };
+
   const handleCarregar = useCallback(async () => {
     if (!selectedCons) return;
-    setLoading(true); setNotFound(false); setAuditoria(null); setItens([]); setEditState({}); setCreating(false);
+    setLoading(true); setNotFound(false); setAuditoria(null); setItens([]); setEditState({}); setCreating(false); setProjetosAtivos(null);
     const mesAno = labelToMesAno(selectedMes);
-    const auds = await getAuditoriasMensais(mesAno, selectedCons);
+    const [auds, qtdProjetos] = await Promise.all([
+      getAuditoriasMensais(mesAno, selectedCons),
+      countProjetosAtivosPorConsultor(selectedCons),
+    ]);
+    setProjetosAtivos(qtdProjetos);
     if (!auds.length) { setNotFound(true); setLoading(false); return; }
     const aud = auds[0];
     const items = await getAuditoriaItens(aud.id);
     setAuditoria(aud); setItens(items);
-    setEditState(Object.fromEntries(items.map(i => [i.id, {
-      tipo: i.tipo ?? '', qtd_avaliados: i.qtd_avaliados, qtd_conformes: i.qtd_conformes,
-      observacao: i.observacao ?? '', evidencia_url: i.evidencia_url ?? '',
-      saving: false, saved: false, error: false, dirty: false,
-    }])));
+    setEditState(Object.fromEntries(items.map(i => {
+      const isResultado = (i.tipo ?? '') === 'Resultado';
+      // Auto-preenche qtd_avaliados com projetos ativos para itens do tipo Resultado
+      const qtdAvaliados = isResultado && qtdProjetos > 0 ? qtdProjetos : i.qtd_avaliados;
+      const isDirty = isResultado && qtdProjetos > 0 && qtdAvaliados !== i.qtd_avaliados;
+      return [i.id, {
+        tipo: i.tipo ?? '', qtd_avaliados: qtdAvaliados, qtd_conformes: i.qtd_conformes,
+        observacao: i.observacao ?? '', evidencia_url: i.evidencia_url ?? '',
+        saving: false, saved: false, error: false, dirty: isDirty,
+      }];
+    })));
     setLoading(false);
   }, [selectedCons, selectedMes]);
 
@@ -230,10 +296,96 @@ function AuditoriaPageInner() {
               <div className="audit-meta">
                 <span>📅 {auditoria.data_auditoria}</span>
                 <span>👥 Carteira: {auditoria.tamanho_carteira} clientes</span>
+                {projetosAtivos !== null && (
+                  <span className="meta-projetos">
+                    📊 Projetos ativos (Resultado): <strong>{projetosAtivos}</strong>
+                  </span>
+                )}
                 <span className="meta-id">🆔 {auditoria.id.slice(0,8)}…</span>
               </div>
             )}
           </div>
+
+          {/* Painel de Projetos do Consultor */}
+          {selectedCons && (
+            <div className="card projetos-panel">
+              <div className="projetos-header" onClick={() => setProjetosExpanded(v => !v)}>
+                <div className="projetos-title">
+                  <FolderOpen size={15} />
+                  <span>Projetos do Consultor</span>
+                  {loadingProjetos
+                    ? <Loader size={13} className="spin" style={{ color: '#64748b' }}/>
+                    : (
+                      <span className="proj-counts">
+                        <span className="count-audit">{projetosList.filter(p => !p.tratativa_cs).length} auditáveis</span>
+                        {projetosList.filter(p => p.tratativa_cs).length > 0 && (
+                          <span className="count-cs">{projetosList.filter(p => p.tratativa_cs).length} tratativa CS</span>
+                        )}
+                      </span>
+                    )
+                  }
+                </div>
+                <div className="projetos-actions" onClick={e => e.stopPropagation()}>
+                  {auditoria && (
+                    <button
+                      className="btn-preencher"
+                      onClick={handlePreencherAvaliados}
+                      disabled={preenchendo || projetosList.filter(p => !p.tratativa_cs).length === 0}
+                      title="Preenche qtd_avaliados dos itens de Resultado com o total de projetos auditáveis"
+                    >
+                      {preenchendo ? <Loader size={13} className="spin"/> : <RefreshCw size={13}/>}
+                      Preencher Avaliados
+                    </button>
+                  )}
+                  <button className="btn-toggle-expand" onClick={() => setProjetosExpanded(v => !v)}>
+                    {projetosExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                  </button>
+                </div>
+              </div>
+
+              {projetosExpanded && !loadingProjetos && (
+                projetosList.length === 0
+                  ? <p className="proj-empty">Nenhum projeto ativo encontrado para este consultor.</p>
+                  : (
+                    <div className="proj-table-wrap">
+                      <table className="proj-table">
+                        <thead>
+                          <tr>
+                            <th>Projeto</th>
+                            <th>Produto</th>
+                            <th style={{ textAlign: 'center', width: 130 }}>Tratativa CS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {projetosList.map(p => (
+                            <tr key={p.vorp_id} className={p.tratativa_cs ? 'proj-row-cs' : ''}>
+                              <td className="proj-nome">{p.nome}</td>
+                              <td>
+                                {p.produto_nome && (
+                                  <span className="proj-produto">{p.produto_nome}</span>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  className={`toggle-cs ${p.tratativa_cs ? 'toggle-on' : 'toggle-off'}`}
+                                  onClick={() => handleToggleCS(p)}
+                                  disabled={salvandoCS === p.vorp_id}
+                                >
+                                  {salvandoCS === p.vorp_id
+                                    ? <Loader size={12} className="spin"/>
+                                    : p.tratativa_cs ? 'Tratativa CS ✓' : 'Auditável'
+                                  }
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+              )}
+            </div>
+          )}
 
           {/* Não encontrado */}
           {notFound && !creating && (
@@ -378,7 +530,11 @@ function AuditoriaPageInner() {
                                 </td>
                                 <td><span className="pergunta-text">{item.pergunta}</span></td>
                                 <td>
-                                  <input type="number" min={0} className="num-input" value={s.qtd_avaliados}
+                                  <input
+                                    type="number" min={0}
+                                    className={`num-input${item.tipo === 'Resultado' && projetosAtivos !== null && projetosAtivos > 0 ? ' num-auto' : ''}`}
+                                    value={s.qtd_avaliados}
+                                    title={item.tipo === 'Resultado' && projetosAtivos !== null && projetosAtivos > 0 ? `Auto: ${projetosAtivos} projetos ativos` : undefined}
                                     onChange={e => handleChange(item.id,'qtd_avaliados',e.target.value)}/>
                                 </td>
                                 <td>
@@ -510,6 +666,91 @@ function AuditoriaPageInner() {
           font-size: 12px; color: #475569;
         }
         .meta-id { font-size: 11px; font-family: monospace; opacity: 0.6; }
+        .meta-projetos { color: #FC5400; font-weight: 600; }
+        .meta-projetos strong { font-weight: 800; }
+
+        /* ── Projetos panel ─────────────────────────────────────────────── */
+        .projetos-panel { padding: 0; overflow: hidden; }
+
+        .projetos-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 14px 20px; cursor: pointer; user-select: none;
+          transition: background 0.15s;
+        }
+        .projetos-header:hover { background: rgba(255,255,255,0.02); }
+
+        .projetos-title {
+          display: flex; align-items: center; gap: 9px;
+          font-size: 13px; font-weight: 700; color: #94a3b8;
+        }
+
+        .proj-counts { display: flex; gap: 8px; margin-left: 4px; }
+        .count-audit {
+          font-size: 11px; font-weight: 700; padding: 2px 9px;
+          border-radius: 99px; background: rgba(16,185,129,0.12); color: #10b981;
+        }
+        .count-cs {
+          font-size: 11px; font-weight: 700; padding: 2px 9px;
+          border-radius: 99px; background: rgba(245,158,11,0.12); color: #f59e0b;
+        }
+
+        .projetos-actions { display: flex; align-items: center; gap: 8px; }
+
+        .btn-preencher {
+          display: flex; align-items: center; gap: 6px;
+          background: rgba(252,84,0,0.1); border: 1px solid rgba(252,84,0,0.3);
+          color: #FC5400; border-radius: 7px; padding: 6px 14px;
+          font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700;
+          cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-preencher:hover:not(:disabled) { background: rgba(252,84,0,0.18); }
+        .btn-preencher:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-toggle-expand {
+          background: transparent; border: none; color: #475569;
+          cursor: pointer; padding: 4px; display: flex; align-items: center;
+          transition: color 0.15s;
+        }
+        .btn-toggle-expand:hover { color: #94a3b8; }
+
+        .proj-empty { padding: 24px 20px; color: #475569; font-size: 13px; text-align: center; }
+
+        .proj-table-wrap { border-top: 1px solid #1a2535; overflow-x: auto; }
+        .proj-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .proj-table th {
+          padding: 9px 16px; text-align: left; font-size: 10px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: 0.08em; color: #334155;
+          border-bottom: 1px solid #1a2535; background: rgba(255,255,255,0.01);
+        }
+        .proj-table td {
+          padding: 9px 16px; border-bottom: 1px solid rgba(255,255,255,0.03);
+          vertical-align: middle;
+        }
+        .proj-table tr:last-child td { border-bottom: none; }
+        .proj-row-cs td { opacity: 0.5; }
+        .proj-nome { font-weight: 600; color: #cbd5e1; }
+        .proj-produto {
+          font-size: 10px; font-weight: 700; text-transform: uppercase;
+          padding: 2px 8px; border-radius: 4px;
+          background: rgba(252,84,0,0.08); color: #FC5400;
+        }
+
+        .toggle-cs {
+          font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px;
+          cursor: pointer; border: 1px solid; transition: all 0.15s; white-space: nowrap;
+          font-family: 'Outfit', sans-serif;
+        }
+        .toggle-off {
+          background: rgba(16,185,129,0.08); color: #10b981;
+          border-color: rgba(16,185,129,0.25);
+        }
+        .toggle-off:hover { background: rgba(245,158,11,0.1); color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+        .toggle-on {
+          background: rgba(245,158,11,0.1); color: #f59e0b;
+          border-color: rgba(245,158,11,0.3);
+        }
+        .toggle-on:hover { background: rgba(16,185,129,0.1); color: #10b981; border-color: rgba(16,185,129,0.3); }
+        .toggle-cs:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* ── Empty / Create ──────────────────────────────────────────────── */
         .empty-card {
@@ -622,6 +863,7 @@ function AuditoriaPageInner() {
           text-align: center; transition: border-color 0.15s;
         }
         .num-input:focus { border-color: #FC5400; outline: none; }
+        .num-input.num-auto { border-color: rgba(252,84,0,0.4); background: rgba(252,84,0,0.06); }
 
         .nota-val {
           display: inline-block; padding: 3px 10px; border-radius: 99px;

@@ -9,26 +9,50 @@ import {
 import { DashboardData, COLORS } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
 
+const T = {
+  bg:      '#0f1117',
+  bgDeep:  '#0a0b0e',
+  border:  '#1a1d24',
+  orange:  '#ff5c1a',
+  green:   '#1d9e75',
+  red:     '#e05555',
+  text:    '#e2e4e9',
+  textSub: '#9aa0b0',
+  textDim: '#3f4455',
+  mono:    "'DM Mono', monospace",
+};
+
 const PALETTE = [
-  '#FC5400', '#00A3E0', '#1E9080', '#FFD700',
-  '#9ACD32', '#C084FC', '#F472B6', '#38BDF8',
+  '#ff5c1a', '#4fc3f7', '#1d9e75', '#fbbf24',
+  '#a78bfa', '#f472b6', '#34d399', '#60a5fa',
 ];
 
-function getSemaphor(v: number) {
-  if (v >= 80) return COLORS.verde;
-  if (v >= 60) return COLORS.primary;
-  return COLORS.vermelho;
+function semaphor(v: number) {
+  if (v >= 80) return T.green;
+  if (v >= 60) return T.orange;
+  return T.red;
 }
 
-function MiniChart({
-  chartData,
-  consultants,
-  scoreKey,
-  label,
-}: {
+const tooltipStyle = {
+  background: T.bgDeep,
+  borderRadius: 8,
+  border: `1px solid ${T.border}`,
+  fontSize: 12,
+};
+
+function EndLabel({ x, y, value, index, color, totalMonths }: any) {
+  if (value === undefined || index !== totalMonths - 1) return null;
+  return (
+    <text x={x + 10} y={y + 4} fill={color}
+      style={{ fontSize: '11px', fontWeight: 700, fontFamily: T.mono }}>
+      {(value || 0).toFixed(0)}%
+    </text>
+  );
+}
+
+function MiniChart({ chartData, consultants, label }: {
   chartData: any[];
   consultants: { id: string; nome: string; color: string }[];
-  scoreKey: string;
   label: string;
 }) {
   const avg = useMemo(() => {
@@ -39,140 +63,56 @@ function MiniChart({
   }, [chartData, consultants]);
 
   return (
-    <div className="mini-chart-card">
-      <div className="mcc-header">
+    <div style={{
+      background: T.bg,
+      border: `1px solid ${T.border}`,
+      borderRadius: 10,
+      padding: '20px 20px 16px',
+      flex: 1,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <span className="mcc-label">{label}</span>
-          <span className="mcc-avg" style={{ color: getSemaphor(avg) }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textDim, marginBottom: 4 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: semaphor(avg), fontFamily: T.mono, lineHeight: 1 }}>
             Média: {avg.toFixed(1)}%
-          </span>
+          </div>
         </div>
-        <div className="mcc-legend">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px', justifyContent: 'flex-end', maxWidth: 280 }}>
           {consultants.map(c => (
-            <span key={c.id} className="leg-dot">
-              <i style={{ background: c.color }} />
+            <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: T.textSub }}>
+              <i style={{ width: 6, height: 6, borderRadius: '50%', background: c.color, display: 'block', flexShrink: 0 }} />
               {c.nome.split(' ')[0]}
             </span>
           ))}
         </div>
       </div>
 
-      <div className="mcc-chart">
+      <div style={{ height: 240 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 16, right: 100, bottom: 8, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-            <XAxis
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: COLORS.textMuted, fontSize: 11, fontWeight: 700 }}
-            />
-            <YAxis
-              domain={[0, 100]}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-              tickFormatter={v => `${v}%`}
-              width={36}
-            />
-            <ReferenceLine y={80} stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-            <Tooltip
-              contentStyle={{
-                background: '#0F1020',
-                borderRadius: '10px',
-                border: '1px solid #1A1A38',
-                fontSize: '12px',
-              }}
-              itemStyle={{ fontWeight: 700 }}
-              formatter={(v: any) => [`${(v || 0).toFixed(1)}%`]}
-            />
-            {consultants.map((c, i) => (
-              <Line
-                key={c.id}
-                type="monotone"
-                dataKey={c.nome}
-                stroke={c.color}
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: c.color, strokeWidth: 0 }}
-                activeDot={{ r: 6, strokeWidth: 0 }}
+          <LineChart data={chartData} margin={{ top: 12, right: 80, bottom: 4, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+            <XAxis dataKey="name" axisLine={false} tickLine={false}
+              tick={{ fill: T.textDim, fontSize: 11, fontWeight: 600 }} />
+            <YAxis domain={[0, 100]} axisLine={false} tickLine={false}
+              tick={{ fill: T.textDim, fontSize: 10 }}
+              tickFormatter={v => `${v}%`} width={34} />
+            <ReferenceLine y={80} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+            <Tooltip contentStyle={tooltipStyle} itemStyle={{ fontWeight: 600 }}
+              formatter={(v: any) => [`${(v || 0).toFixed(1)}%`]} />
+            {consultants.map((c) => (
+              <Line key={c.id} type="monotone" dataKey={c.nome}
+                stroke={c.color} strokeWidth={2}
+                dot={{ r: 3, fill: c.color, strokeWidth: 0 }}
+                activeDot={{ r: 5, strokeWidth: 0 }}
                 label={<EndLabel color={c.color} totalMonths={chartData.length} />}
-                isAnimationActive
-                animationDuration={900}
-              />
+                isAnimationActive animationDuration={700} />
             ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      <style jsx>{`
-        .mini-chart-card {
-          background: var(--glass-bg);
-          backdrop-filter: blur(10px);
-          border: 1px solid var(--card-border);
-          border-radius: 16px;
-          padding: 28px 28px 20px;
-          flex: 1;
-        }
-        .mcc-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 20px;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-        .mcc-label {
-          display: block;
-          font-size: 0.65rem;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: var(--text-muted);
-          font-weight: 800;
-          margin-bottom: 4px;
-        }
-        .mcc-avg {
-          font-family: var(--font-bebas);
-          font-size: 1.6rem;
-          line-height: 1;
-        }
-        .mcc-legend {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          justify-content: flex-end;
-        }
-        .leg-dot {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: var(--text-secondary);
-        }
-        .leg-dot i {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          display: block;
-          flex-shrink: 0;
-        }
-        .mcc-chart { height: 280px; }
-      `}</style>
     </div>
-  );
-}
-
-function EndLabel({ x, y, value, index, color, totalMonths }: any) {
-  if (value === undefined || index !== totalMonths - 1) return null;
-  return (
-    <text
-      x={x + 10}
-      y={y + 4}
-      fill={color}
-      style={{ fontSize: '11px', fontWeight: 800, fontFamily: 'var(--font-body)' }}
-    >
-      {(value || 0).toFixed(0)}%
-    </text>
   );
 }
 
@@ -186,12 +126,11 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
   );
 
   const consultants = useMemo(
-    () =>
-      (data.currentAudits as any[]).map((a, i) => ({
-        id: a.consultor_id,
-        nome: getNome(a.consultor_id),
-        color: PALETTE[i % PALETTE.length],
-      })),
+    () => (data.currentAudits as any[]).map((a, i) => ({
+      id: a.consultor_id,
+      nome: getNome(a.consultor_id),
+      color: PALETTE[i % PALETTE.length],
+    })),
     [data.currentAudits, consultores],
   );
 
@@ -209,199 +148,137 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
   const chartResultado    = useMemo(() => buildChart('score_resultado'),    [months, data.currentAudits, data.prevAudits, consultants]);
   const chartConformidade = useMemo(() => buildChart('score_conformidade'), [months, data.currentAudits, data.prevAudits, consultants]);
 
-  // Maior evolução geral
-  const topEvolution = useMemo(() => {
-    return consultants.map(c => {
+  const topEvolution = useMemo(() =>
+    consultants.map(c => {
       const curr = (data.currentAudits as any[]).find(a => a.consultor_id === c.id)?.score_geral ?? 0;
       const prev = (data.prevAudits as any[]).find(a => a.consultor_id === c.id)?.score_geral ?? curr;
       return { ...c, diff: curr - prev, curr };
-    }).sort((a, b) => b.diff - a.diff);
-  }, [data, consultants]);
+    }).sort((a, b) => b.diff - a.diff),
+    [data, consultants],
+  );
 
-  const top = topEvolution[0] ?? { nome: '—', diff: 0, curr: 0, color: COLORS.primary };
+  const top = topEvolution[0] ?? { nome: '—', diff: 0, curr: 0, color: T.orange };
 
-  // Dados para o gráfico de Conformidade Geral (barras horizontais)
-  const geralRanking = useMemo(() => {
-    return [...consultants]
-      .map(c => {
-        const audit = (data.currentAudits as any[]).find(a => a.consultor_id === c.id);
-        return {
-          nome: c.nome.split(' ')[0],
-          nomeCompleto: c.nome,
-          score_geral:        audit?.score_geral        ?? 0,
-          score_resultado:    audit?.score_resultado    ?? 0,
-          score_conformidade: audit?.score_conformidade ?? 0,
-          color: c.color,
-        };
-      })
-      .sort((a, b) => b.score_conformidade - a.score_conformidade);
-  }, [consultants, data.currentAudits]);
+  const geralRanking = useMemo(() =>
+    [...consultants].map(c => {
+      const audit = (data.currentAudits as any[]).find(a => a.consultor_id === c.id);
+      return {
+        nome:               c.nome.split(' ')[0],
+        nomeCompleto:       c.nome,
+        score_conformidade: audit?.score_conformidade ?? 0,
+        score_resultado:    audit?.score_resultado    ?? 0,
+        color:              c.color,
+      };
+    }).sort((a, b) => b.score_conformidade - a.score_conformidade),
+    [consultants, data.currentAudits],
+  );
 
   return (
-    <div className="evo-container">
-      <div className="section-anchor">
-        <h2>Evolução Histórica da Conformidade</h2>
-      </div>
-
+    <div style={{ marginTop: 4 }}>
       <div className="evo-main-grid">
-        {/* Coluna esquerda: dois gráficos de linha empilhados */}
-        <div className="evo-lines-col">
-          <MiniChart
-            chartData={chartResultado}
-            consultants={consultants}
-            scoreKey="score_resultado"
-            label="Resultado"
-          />
-          <MiniChart
-            chartData={chartConformidade}
-            consultants={consultants}
-            scoreKey="score_conformidade"
-            label="Conformidade de Processo"
-          />
+        {/* Gráficos de linha */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <MiniChart chartData={chartResultado}    consultants={consultants} label="Resultado" />
+          <MiniChart chartData={chartConformidade} consultants={consultants} label="Conformidade de Processo" />
         </div>
 
-        {/* Coluna direita: Conformidade Geral */}
-        <div className="card geral-card">
-          <div className="geral-header">
-            <span className="geral-label">Conformidade de Processo</span>
-            <span className="geral-sub">Score de conformidade do mês</span>
+        {/* Ranking lateral */}
+        <div style={{
+          background: T.bg, border: `1px solid ${T.border}`,
+          borderRadius: 10, padding: '20px 18px',
+          display: 'flex', flexDirection: 'column', gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textDim, marginBottom: 2 }}>
+              Conformidade de Processo
+            </div>
+            <div style={{ fontSize: 11, color: T.textDim }}>Score de conformidade do mês</div>
           </div>
 
-          <div className="geral-chart">
+          {/* Barras horizontais */}
+          <div style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={geralRanking}
-                layout="vertical"
-                margin={{ top: 8, right: 56, bottom: 8, left: 8 }}
-              >
+              <BarChart data={geralRanking} layout="vertical" margin={{ top: 4, right: 48, bottom: 4, left: 4 }}>
                 <XAxis type="number" hide domain={[0, 100]} />
-                <YAxis
-                  dataKey="nome"
-                  type="category"
-                  axisLine={false}
-                  tickLine={false}
-                  width={60}
-                  tick={{ fill: COLORS.textSecondary, fontSize: 12, fontWeight: 700 }}
-                />
-                <ReferenceLine x={80} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 4" />
-                <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                  contentStyle={{ background: '#0F1020', borderRadius: '10px', border: '1px solid #1A1A38', fontSize: '12px' }}
-                  formatter={(v: any, name: any) => [`${(v || 0).toFixed(1)}%`, String(name ?? '')]}
-                  labelFormatter={(label) => geralRanking.find(r => r.nome === label)?.nomeCompleto ?? label}
-                />
-                <Bar dataKey="score_conformidade" radius={[0, 6, 6, 0]} barSize={28}>
-                  {geralRanking.map((entry, i) => (
-                    <Cell key={i} fill={getSemaphor(entry.score_conformidade)} fillOpacity={0.85} />
+                <YAxis dataKey="nome" type="category" axisLine={false} tickLine={false}
+                  width={56} tick={{ fill: T.textSub, fontSize: 11, fontWeight: 600 }} />
+                <ReferenceLine x={80} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
+                  formatter={(v: any, _: any, props: any) => [
+                    `${(v || 0).toFixed(1)}%`,
+                    props.payload?.nomeCompleto ?? '',
+                  ]} />
+                <Bar dataKey="score_conformidade" radius={[0, 4, 4, 0]} barSize={14}>
+                  {geralRanking.map((e, i) => (
+                    <Cell key={i} fill={semaphor(e.score_conformidade)} fillOpacity={0.9} />
                   ))}
-                  <LabelList
-                    dataKey="score_conformidade"
-                    position="right"
+                  <LabelList dataKey="score_conformidade" position="right"
                     formatter={(v: any) => `${(v || 0).toFixed(1)}%`}
-                    style={{ fill: '#fff', fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-bebas)' }}
-                  />
+                    style={{ fill: T.textSub, fontSize: 11, fontWeight: 700, fontFamily: T.mono }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Mini detalhamento R vs C por consultor */}
-          <div className="geral-breakdown">
+          {/* Breakdown R vs C */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
             {geralRanking.map((r, i) => (
-              <div key={i} className="gb-row">
-                <span className="gb-name" style={{ color: r.color }}>{r.nome}</span>
-                <div className="gb-pills">
-                  <span className="gb-pill resultado">R {r.score_resultado.toFixed(0)}%</span>
-                  <span className="gb-pill conformidade">C {r.score_conformidade.toFixed(0)}%</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: r.color, minWidth: 52 }}>
+                  {r.nome}
+                </span>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: 'rgba(255,92,26,0.1)', color: T.orange, fontFamily: T.mono,
+                  }}>
+                    R {r.score_resultado.toFixed(0)}%
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: 'rgba(79,195,247,0.1)', color: '#4fc3f7', fontFamily: T.mono,
+                  }}>
+                    C {r.score_conformidade.toFixed(0)}%
+                  </span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Maior evolução compacto */}
-          <div className="geral-top">
-            <span className="te-trophy">🏆</span>
-            <div className="te-info">
-              <span className="te-label">Maior Evolução</span>
-              <span className="te-name" style={{ color: top.color }}>{top.nome.split(' ')[0]}</span>
+          {/* Maior Evolução */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 14px',
+            background: 'rgba(255,92,26,0.06)',
+            border: `1px solid rgba(255,92,26,0.15)`,
+            borderRadius: 8,
+          }}>
+            <span style={{ fontSize: 18 }}>🏆</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.textDim }}>
+                Maior Evolução
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: top.color, lineHeight: 1.2 }}>
+                {top.nome.split(' ')[0]}
+              </div>
             </div>
-            <span className="te-val" style={{ color: top.diff >= 0 ? COLORS.verde : COLORS.vermelho }}>
-              {top.diff >= 0 ? '+' : ''}{(top.diff || 0).toFixed(1)}<span className="te-unit">pp</span>
+            <span style={{
+              fontSize: 20, fontWeight: 700, fontFamily: T.mono,
+              color: top.diff >= 0 ? T.green : T.red,
+            }}>
+              {top.diff >= 0 ? '+' : ''}{(top.diff || 0).toFixed(1)}<span style={{ fontSize: 11 }}>pp</span>
             </span>
           </div>
         </div>
       </div>
 
       <style jsx>{`
-        .evo-container { margin-top: 20px; }
-
         .evo-main-grid {
           display: grid;
-          grid-template-columns: 1fr 380px;
-          gap: 16px;
+          grid-template-columns: 1fr 320px;
+          gap: 12px;
           align-items: start;
         }
-        .evo-lines-col { display: flex; flex-direction: column; gap: 16px; }
-
-        /* Card Conformidade Geral */
-        .geral-card {
-          background: var(--glass-bg);
-          backdrop-filter: blur(10px);
-          padding: 28px 24px 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-        .geral-header { display: flex; flex-direction: column; gap: 2px; }
-        .geral-label {
-          font-size: 0.65rem;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: var(--text-muted);
-          font-weight: 800;
-        }
-        .geral-sub { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
-        .geral-chart { height: 220px; }
-
-        /* Breakdown R vs C */
-        .geral-breakdown { display: flex; flex-direction: column; gap: 8px; }
-        .gb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .gb-name { font-size: 0.75rem; font-weight: 800; min-width: 60px; }
-        .gb-pills { display: flex; gap: 6px; }
-        .gb-pill {
-          font-size: 0.65rem;
-          font-weight: 800;
-          padding: 3px 8px;
-          border-radius: 4px;
-          font-family: var(--font-bebas);
-          font-size: 0.85rem;
-        }
-        .gb-pill.resultado   { background: rgba(252,84,0,0.12);  color: var(--laranja-vorp); }
-        .gb-pill.conformidade { background: rgba(0,163,224,0.12); color: #00A3E0; }
-
-        /* Maior evolução compacto */
-        .geral-top {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 16px;
-          background: rgba(252, 84, 0, 0.06);
-          border: 1px solid rgba(252, 84, 0, 0.15);
-          border-radius: 10px;
-        }
-        .te-trophy { font-size: 1.5rem; }
-        .te-info { flex: 1; display: flex; flex-direction: column; }
-        .te-label {
-          font-size: 0.55rem;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          font-weight: 800;
-          letter-spacing: 0.08em;
-        }
-        .te-name { font-family: var(--font-bebas); font-size: 1.3rem; line-height: 1.1; }
-        .te-val { font-family: var(--font-bebas); font-size: 1.8rem; line-height: 1; }
-        .te-unit { font-size: 0.7rem; font-weight: 800; margin-left: 2px; }
-
         @media (max-width: 1200px) { .evo-main-grid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
