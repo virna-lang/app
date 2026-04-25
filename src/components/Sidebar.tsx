@@ -6,14 +6,25 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard, ClipboardCheck, Users, ShieldCheck,
   BarChart2, Target, MessageSquare, AlertTriangle, Users2, LineChart,
-  Edit3, TrendingDown, Zap, GitBranch, ChevronRight, ChevronDown,
+  Zap, GitBranch, ChevronRight,
   Flame, Building2, LogOut, BookOpen, Package,
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
 
+const T = {
+  bg:       '#0d0f14',
+  bgCard:   '#0f1117',
+  border:   '#1a1d24',
+  orange:   '#ff5c1a',
+  orangeDim:'rgba(255,92,26,0.1)',
+  text:     '#e2e4e9',
+  textSub:  '#9aa0b0',
+  textDim:  '#3f4455',
+};
+
 function SidebarInner() {
-  const pathname = usePathname();
+  const pathname     = usePathname();
   const searchParams = useSearchParams();
   const { role, user, signOut } = useAuth();
   const { setActiveTab } = useDashboard();
@@ -27,15 +38,15 @@ function SidebarInner() {
   const [openCadastro,  setOpenCadastro]  = useState(isCadastro);
 
   const dashboardTabs = [
-    { name: 'Visão Geral',   id: 'visao-geral',   icon: <BarChart2 size={13} /> },
-    { name: 'Evolução',      id: 'evolucao',      icon: <LineChart size={13} /> },
-    { name: 'Conformidade',  id: 'conformidade',  icon: <ClipboardCheck size={13} /> },
-    { name: 'Processos',     id: 'processos',     icon: <ShieldCheck size={13} /> },
-    { name: 'Reuniões',      id: 'reunioes',      icon: <Users size={13} /> },
-    { name: 'Metas',         id: 'metas',         icon: <Target size={13} /> },
-    { name: 'NPS / CSAT',    id: 'nps',           icon: <MessageSquare size={13} /> },
-    { name: 'Churn',         id: 'churn',         icon: <AlertTriangle size={13} /> },
-    { name: 'Correlação',    id: 'correlacao',    icon: <GitBranch size={13} /> },
+    { name: 'Visão Geral',  id: 'visao-geral',  icon: <BarChart2 size={13} /> },
+    { name: 'Evolução',     id: 'evolucao',     icon: <LineChart size={13} /> },
+    { name: 'Conformidade', id: 'conformidade', icon: <ClipboardCheck size={13} /> },
+    { name: 'Processos',    id: 'processos',    icon: <ShieldCheck size={13} /> },
+    { name: 'Reuniões',     id: 'reunioes',     icon: <Users size={13} /> },
+    { name: 'Metas',        id: 'metas',        icon: <Target size={13} /> },
+    { name: 'NPS / CSAT',   id: 'nps',          icon: <MessageSquare size={13} /> },
+    { name: 'Churn',        id: 'churn',        icon: <AlertTriangle size={13} /> },
+    { name: 'Correlação',   id: 'correlacao',   icon: <GitBranch size={13} /> },
   ];
 
   const auditoriaSubItems = [
@@ -53,17 +64,20 @@ function SidebarInner() {
   };
 
   const currentAudTab = searchParams.get('tab') ?? '';
-  const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
-  const avatarUrl   = user?.user_metadata?.avatar_url as string | undefined;
+  const displayName   = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
+  const avatarUrl     = user?.user_metadata?.avatar_url as string | undefined;
 
   return (
     <aside className="sidebar">
+
       {/* ── LOGO ── */}
       <div className="logo-area">
         <div className="logo-icon-wrap">
           <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-            <rect x="14" y="8" width="11" height="11" rx="2" transform="rotate(45 19.5 13.5)" stroke="#FC5400" strokeWidth="2.2"/>
-            <rect x="7" y="13" width="11" height="11" rx="2" transform="rotate(45 12.5 18.5)" stroke="#FC5400" strokeWidth="2.2"/>
+            <rect x="14" y="8" width="11" height="11" rx="2"
+              transform="rotate(45 19.5 13.5)" stroke={T.orange} strokeWidth="2.2"/>
+            <rect x="7" y="13" width="11" height="11" rx="2"
+              transform="rotate(45 12.5 18.5)" stroke={T.orange} strokeWidth="2.2"/>
           </svg>
         </div>
         <div className="logo-text">
@@ -90,20 +104,17 @@ function SidebarInner() {
           </button>
 
           <div className={`submenu ${openDashboard ? 'open' : ''}`}>
-            {dashboardTabs.map((tab) => {
-              if (tab.adminOnly && role !== 'Administrador') return null;
-              return (
-                <Link
-                  key={tab.id}
-                  href="/"
-                  onClick={() => scrollToSection(tab.id)}
-                  className="sub-item"
-                >
-                  <span className="sub-icon">{tab.icon}</span>
-                  <span>{tab.name}</span>
-                </Link>
-              );
-            })}
+            {dashboardTabs.map(tab => (
+              <Link
+                key={tab.id}
+                href="/"
+                onClick={() => scrollToSection(tab.id)}
+                className="sub-item"
+              >
+                <span className="sub-icon">{tab.icon}</span>
+                <span>{tab.name}</span>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -121,22 +132,21 @@ function SidebarInner() {
             </span>
           </button>
           <div className={`submenu ${openCadastro ? 'open' : ''}`}>
-            <Link href="/cadastro?tab=time-completo" className={`sub-item ${isCadastro && searchParams.get('tab') === 'time-completo' ? 'sub-active' : ''}`}>
-              <span className="sub-icon"><Users2 size={13} /></span>
-              <span>Time Completo</span>
-            </Link>
-            <Link href="/cadastro?tab=produtos" className={`sub-item ${isCadastro && searchParams.get('tab') === 'produtos' ? 'sub-active' : ''}`}>
-              <span className="sub-icon"><Package size={13} /></span>
-              <span>Produtos</span>
-            </Link>
-            <Link href="/cadastro?tab=projetos" className={`sub-item ${isCadastro && searchParams.get('tab') === 'projetos' ? 'sub-active' : ''}`}>
-              <span className="sub-icon"><Building2 size={13} /></span>
-              <span>Projetos Ativos</span>
-            </Link>
-            <Link href="/cadastro?tab=vorp-system" className={`sub-item ${isCadastro && searchParams.get('tab') === 'vorp-system' ? 'sub-active' : ''}`}>
-              <span className="sub-icon"><Building2 size={13} /></span>
-              <span>Vorp System</span>
-            </Link>
+            {[
+              { href: '/cadastro?tab=time-completo', tab: 'time-completo', label: 'Time Completo',  icon: <Users2 size={13}/> },
+              { href: '/cadastro?tab=produtos',      tab: 'produtos',      label: 'Produtos',        icon: <Package size={13}/> },
+              { href: '/cadastro?tab=projetos',      tab: 'projetos',      label: 'Projetos Ativos', icon: <Building2 size={13}/> },
+              { href: '/cadastro?tab=vorp-system',   tab: 'vorp-system',   label: 'Vorp System',     icon: <Building2 size={13}/> },
+            ].map(item => (
+              <Link
+                key={item.tab}
+                href={item.href}
+                className={`sub-item ${isCadastro && searchParams.get('tab') === item.tab ? 'sub-active' : ''}`}
+              >
+                <span className="sub-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -155,7 +165,7 @@ function SidebarInner() {
           </button>
 
           <div className={`submenu ${openAuditoria ? 'open' : ''}`}>
-            {auditoriaSubItems.map((sub) => {
+            {auditoriaSubItems.map(sub => {
               if (sub.adminOnly && role !== 'Administrador') return null;
               const isSubActive = isAuditoria && currentAudTab === sub.tab;
               return (
@@ -194,47 +204,47 @@ function SidebarInner() {
       </div>
 
       <style jsx>{`
-        /* ── Shell ─────────────────────────────────────────────────────── */
         .sidebar {
           width: 260px;
           height: 100vh;
-          background: #0b0e19;
-          border-right: 1px solid #141a2e;
+          background: ${T.bg};
+          border-right: 1px solid ${T.border};
           display: flex;
           flex-direction: column;
           position: fixed;
           left: 0; top: 0;
           z-index: 100;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
         }
 
-        /* ── Logo ──────────────────────────────────────────────────────── */
+        /* Logo */
         .logo-area {
           padding: 20px 18px 18px;
           display: flex;
           align-items: center;
           gap: 10px;
-          border-bottom: 1px solid #141a2e;
+          border-bottom: 1px solid ${T.border};
+          flex-shrink: 0;
         }
         .logo-icon-wrap {
           width: 36px; height: 36px;
           border-radius: 9px;
-          background: transparent;
+          background: rgba(255,92,26,0.08);
+          border: 1px solid rgba(255,92,26,0.2);
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
-          box-shadow: 0 4px 12px rgba(252,84,0,0.2);
         }
         .logo-text { display: flex; flex-direction: column; gap: 1px; }
         .logo-title {
           font-size: 13px; font-weight: 800;
-          color: #f1f5f9; letter-spacing: 0.07em; line-height: 1.2;
+          color: ${T.text}; letter-spacing: 0.07em; line-height: 1.2;
         }
         .logo-sub {
           font-size: 9px; font-weight: 500;
-          color: #334155; letter-spacing: 0.1em;
+          color: ${T.textDim}; letter-spacing: 0.1em;
         }
 
-        /* ── Nav ───────────────────────────────────────────────────────── */
+        /* Nav */
         .sidebar-nav {
           flex: 1;
           padding: 16px 10px;
@@ -245,27 +255,28 @@ function SidebarInner() {
 
         .nav-section-label {
           font-size: 9px; font-weight: 700;
-          letter-spacing: 0.12em; color: #1e2a3a;
+          letter-spacing: 0.12em; color: ${T.textDim};
           padding: 0 10px; margin-bottom: 4px;
         }
 
-        /* Parent button */
         .nav-parent {
           display: flex; align-items: center; gap: 10px;
           width: 100%; padding: 9px 12px;
-          background: none; border: none; border-radius: 9px;
-          cursor: pointer; text-align: left;
-          color: #475569; transition: all 0.15s;
+          background: none; border: none;
           border-left: 2px solid transparent;
+          border-radius: 9px;
+          cursor: pointer; text-align: left;
+          color: ${T.textDim}; transition: all 0.15s;
         }
         .nav-parent:hover {
-          background: rgba(255,255,255,0.04);
-          color: #94a3b8;
+          background: rgba(255,255,255,0.03);
+          color: ${T.textSub};
+          border-left-color: rgba(255,92,26,0.3);
         }
         .nav-parent.active {
-          background: rgba(252,84,0,0.1);
-          border-left-color: #FC5400;
-          color: #FC5400;
+          background: ${T.orangeDim};
+          border-left-color: ${T.orange};
+          color: ${T.orange};
         }
         .nav-icon { flex-shrink: 0; color: inherit; }
         .nav-label {
@@ -284,50 +295,53 @@ function SidebarInner() {
           transition: max-height 0.28s ease;
           margin-left: 14px;
           padding-left: 14px;
-          border-left: 1.5px solid #141a2e;
+          border-left: 1.5px solid ${T.border};
         }
         .submenu.open { max-height: 500px; }
 
-        /* Sub items */
         .sub-item {
           display: flex; align-items: center; gap: 9px;
           padding: 7px 10px; border-radius: 7px;
           text-decoration: none !important;
-          color: #475569 !important;
+          color: ${T.textDim} !important;
           font-size: 12.5px; font-weight: 400;
           transition: all 0.15s;
           margin: 1px 0;
         }
         .sub-item:hover {
-          background: rgba(252,84,0,0.08);
-          color: #e2e8f0 !important;
+          background: rgba(255,92,26,0.07);
+          color: ${T.textSub} !important;
           font-weight: 500;
         }
         .sub-active {
-          background: rgba(252,84,0,0.12) !important;
-          color: #FC5400 !important;
+          background: rgba(255,92,26,0.12) !important;
+          color: ${T.orange} !important;
           font-weight: 600 !important;
         }
         .sub-icon {
-          flex-shrink: 0; color: inherit; opacity: 0.7;
+          flex-shrink: 0; color: inherit; opacity: 0.65;
           display: flex; align-items: center;
         }
         .sub-item:hover .sub-icon,
         .sub-active .sub-icon { opacity: 1; }
 
-        /* ── Footer ────────────────────────────────────────────────────── */
+        /* Footer */
         .sidebar-footer {
           padding: 14px;
-          border-top: 1px solid #141a2e;
+          border-top: 1px solid ${T.border};
+          flex-shrink: 0;
         }
         .user-card {
           display: flex; align-items: center; gap: 10px;
-          background: #111827; border: 1px solid #1f2d40;
+          background: ${T.bgCard};
+          border: 1px solid ${T.border};
           border-radius: 10px; padding: 10px 12px;
+          transition: border-color 0.15s;
         }
+        .user-card:hover { border-color: rgba(255,92,26,0.2); }
         .user-avatar {
           width: 30px; height: 30px; border-radius: 50%;
-          background: linear-gradient(135deg, #FC5400, #9333ea);
+          background: linear-gradient(135deg, ${T.orange}, #7864dc);
           display: flex; align-items: center; justify-content: center;
           font-size: 13px; font-weight: 700; color: #fff;
           flex-shrink: 0; overflow: hidden;
@@ -338,19 +352,19 @@ function SidebarInner() {
         }
         .user-role {
           font-size: 12px; font-weight: 700;
-          color: #e2e8f0;
+          color: ${T.text};
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .user-handle { font-size: 10px; color: #334155; }
+        .user-handle { font-size: 10px; color: ${T.textDim}; }
         .logout-btn {
           background: none; border: none; cursor: pointer;
-          color: #334155; display: flex; align-items: center;
+          color: ${T.textDim}; display: flex; align-items: center;
           padding: 4px; border-radius: 5px;
           transition: color 0.15s, background 0.15s;
         }
         .logout-btn:hover {
-          color: #ef4444;
-          background: rgba(239,68,68,0.1);
+          color: #e05555;
+          background: rgba(224,85,85,0.1);
         }
       `}</style>
     </aside>
