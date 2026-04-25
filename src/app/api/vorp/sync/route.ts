@@ -19,7 +19,7 @@ import {
   syncMetas,
 } from '@/lib/vorp-sync';
 
-const SYNC_SECRET = process.env.SYNC_SECRET ?? 'vorp-sync-secret';
+const SYNC_SECRET = (process.env.SYNC_SECRET ?? 'vorp-sync-secret').trim();
 
 export async function POST(req: NextRequest) {
   // Autenticação simples por token
