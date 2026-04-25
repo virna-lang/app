@@ -522,16 +522,39 @@ export function getMesAnterior(label: string): string | undefined {
 // Vorp System — tabelas espelho
 // ─────────────────────────────────────────────────────────
 
+async function getVorpColaboradorNome(vorpColaboradorId?: string | null) {
+  if (!vorpColaboradorId || vorpColaboradorId === 'all') return null;
+
+  const { data, error } = await supabase
+    .from('vorp_colaboradores')
+    .select('nome')
+    .eq('vorp_id', vorpColaboradorId)
+    .single();
+
+  if (error) {
+    console.error('getVorpColaboradorNome:', error);
+    return null;
+  }
+
+  return data?.nome ?? null;
+}
+
 /** Projetos ativos da vertical Growth, com flag de Tratativa CS */
-export async function getVorpProjetosAtivos(consultorNome?: string) {
+export async function getVorpProjetosAtivos(vorpColaboradorId?: string | null) {
   let q = supabase
     .from('vorp_projetos')
     .select('*')
     .eq('status', 'Ativo')
     .order('nome');
 
-  if (consultorNome && consultorNome !== 'all') {
-    q = q.eq('colaborador_nome', consultorNome);
+  const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
+  if (deveFiltrarColaborador && !vorpColaboradorId) return [];
+
+  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
+  if (deveFiltrarColaborador && !colaboradorNome) return [];
+
+  if (colaboradorNome) {
+    q = q.ilike('colaborador_nome', `%${colaboradorNome}%`);
   }
 
   const { data, error } = await q;
@@ -553,7 +576,7 @@ export async function setTrativaCS(
 }
 
 /** HealthScores por projeto e mês (ano/mes no formato numérico) */
-export async function getVorpHealthScores(ano: number, mes: number, consultorNome?: string) {
+export async function getVorpHealthScores(ano: number, mes: number, vorpColaboradorId?: string | null) {
   let q = supabase
     .from('vorp_healthscores')
     .select(`
@@ -563,8 +586,14 @@ export async function getVorpHealthScores(ano: number, mes: number, consultorNom
     .eq('ano', ano)
     .eq('mes', mes);
 
-  if (consultorNome && consultorNome !== 'all') {
-    q = q.eq('vorp_projetos.colaborador_nome', consultorNome);
+  const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
+  if (deveFiltrarColaborador && !vorpColaboradorId) return [];
+
+  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
+  if (deveFiltrarColaborador && !colaboradorNome) return [];
+
+  if (colaboradorNome) {
+    q = q.ilike('vorp_projetos.colaborador_nome', `%${colaboradorNome}%`);
   }
 
   const { data, error } = await q;
@@ -582,7 +611,7 @@ export async function getVorpHealthScores(ano: number, mes: number, consultorNom
 }
 
 /** Metas do Vorp por mês */
-export async function getVorpMetas(ano: number, mes: number, consultorNome?: string) {
+export async function getVorpMetas(ano: number, mes: number, vorpColaboradorId?: string | null) {
   let q = supabase
     .from('vorp_metas')
     .select(`
@@ -592,8 +621,14 @@ export async function getVorpMetas(ano: number, mes: number, consultorNome?: str
     .eq('ano', ano)
     .eq('mes', mes);
 
-  if (consultorNome && consultorNome !== 'all') {
-    q = q.eq('vorp_projetos.colaborador_nome', consultorNome);
+  const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
+  if (deveFiltrarColaborador && !vorpColaboradorId) return [];
+
+  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
+  if (deveFiltrarColaborador && !colaboradorNome) return [];
+
+  if (colaboradorNome) {
+    q = q.ilike('vorp_projetos.colaborador_nome', `%${colaboradorNome}%`);
   }
 
   const { data, error } = await q;

@@ -30,6 +30,7 @@ export interface Consultor {
   id: string;
   nome: string;
   status: StatusConsultor;
+  vorp_colaborador_id?: string | null;
   data_entrada?: string;
   created_at?: string;
 }
@@ -38,6 +39,7 @@ export interface Cliente {
   id: string;
   nome: string;
   consultor_id: string;
+  vorp_projeto_id?: string | null;
   produto: string;
   status: StatusCliente;
   data_entrada?: string;
@@ -169,6 +171,7 @@ export interface VorpProdutoRow {
 export interface VorpChurnRow {
   vorp_id:           string;
   projeto_nome?:     string | null;
+  projeto_vorp_id?:  string | null;
   status?:           string | null;
   tipo?:             string | null;
   vertical?:         string | null;
@@ -179,6 +182,7 @@ export interface VorpChurnRow {
 export interface VorpHealthScoreRow {
   vorp_id:                    string;
   projeto_nome?:              string | null;
+  projeto_vorp_id?:           string | null;
   ano?:                       number | null;
   mes?:                       number | null;
   pontuacao?:                 number | null;
@@ -196,6 +200,7 @@ export interface VorpHealthScoreRow {
 export interface VorpMetaRow {
   vorp_id:          string;
   projeto_nome?:    string | null;
+  projeto_vorp_id?: string | null;
   ano?:             number | null;
   mes?:             number | null;
   meta_projetada?:  number | null;

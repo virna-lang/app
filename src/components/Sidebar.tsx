@@ -25,17 +25,17 @@ function SidebarInner() {
   const [openAuditoria, setOpenAuditoria] = useState(isAuditoria);
 
   const dashboardTabs = [
-    { name: 'Visão Geral',   id: 'visao-geral',   icon: <BarChart2 size={15} /> },
-    { name: 'Evolução',      id: 'evolucao',      icon: <LineChart size={15} /> },
-    { name: 'Conformidade',  id: 'conformidade',  icon: <ClipboardCheck size={15} /> },
-    { name: 'Processos',     id: 'processos',     icon: <ShieldCheck size={15} /> },
-    { name: 'Reuniões',      id: 'reunioes',      icon: <Users size={15} /> },
-    { name: 'Metas',         id: 'metas',         icon: <Target size={15} /> },
-    { name: 'NPS / CSAT',    id: 'nps',           icon: <MessageSquare size={15} /> },
-    { name: 'Churn',         id: 'churn',         icon: <AlertTriangle size={15} /> },
-    { name: 'Correlação',    id: 'correlacao',    icon: <GitBranch size={15} /> },
-    { name: 'Time Completo', id: 'time-completo', icon: <Users2 size={15} />, adminOnly: true },
-    { name: 'Vorp System',   id: 'vorp-system',   icon: <Building2 size={15} /> },
+    { name: 'Visão Geral',   id: 'visao-geral',   icon: <BarChart2 size={13} /> },
+    { name: 'Evolução',      id: 'evolucao',      icon: <LineChart size={13} /> },
+    { name: 'Conformidade',  id: 'conformidade',  icon: <ClipboardCheck size={13} /> },
+    { name: 'Processos',     id: 'processos',     icon: <ShieldCheck size={13} /> },
+    { name: 'Reuniões',      id: 'reunioes',      icon: <Users size={13} /> },
+    { name: 'Metas',         id: 'metas',         icon: <Target size={13} /> },
+    { name: 'NPS / CSAT',    id: 'nps',           icon: <MessageSquare size={13} /> },
+    { name: 'Churn',         id: 'churn',         icon: <AlertTriangle size={13} /> },
+    { name: 'Correlação',    id: 'correlacao',    icon: <GitBranch size={13} /> },
+    { name: 'Time Completo', id: 'time-completo', icon: <Users2 size={13} />, adminOnly: true },
+    { name: 'Vorp System',   id: 'vorp-system',   icon: <Building2 size={13} /> },
   ];
 
   const auditoriaSubItems = [
@@ -249,21 +249,21 @@ function SidebarInner() {
         .submenu {
           overflow: hidden; max-height: 0;
           transition: max-height 0.28s ease;
-          margin-left: 16px;
-          padding-left: 12px;
+          margin-left: 14px;
+          padding-left: 14px;
           border-left: 1.5px solid #141a2e;
         }
-        .submenu.open { max-height: 600px; }
+        .submenu.open { max-height: 500px; }
 
         /* Sub items */
         .sub-item {
-          display: flex; align-items: center; gap: 11px;
-          padding: 8px 12px; border-radius: 7px;
+          display: flex; align-items: center; gap: 9px;
+          padding: 7px 10px; border-radius: 7px;
           text-decoration: none !important;
           color: #475569 !important;
-          font-size: 13px; font-weight: 400;
+          font-size: 12.5px; font-weight: 400;
           transition: all 0.15s;
-          margin: 2px 0;
+          margin: 1px 0;
         }
         .sub-item:hover {
           background: rgba(252,84,0,0.08);

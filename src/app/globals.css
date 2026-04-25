@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-
 :root {
   /* ── Paleta base ── */
   --preto-vorp:      #090c15;
@@ -35,7 +33,7 @@
   --radius-sm:      8px;
 
   /* ── Fontes ── */
-  --font-body: 'Outfit', sans-serif;
+  --font-body: var(--font-outfit, 'Outfit', sans-serif);
 
   /* ── Sombras ── */
   --shadow-card: 0 4px 24px rgba(0,0,0,0.35);

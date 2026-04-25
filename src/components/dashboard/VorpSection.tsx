@@ -7,10 +7,10 @@ import { COLORS } from '@/types/dashboard';
 import type { VorpProjetoRow } from '@/lib/supabase';
 
 interface Props {
-  consultorNome?: string; // 'all' ou nome exato do colaborador
+  vorpColaboradorId?: string | null;
 }
 
-export default function VorpSection({ consultorNome }: Props) {
+export default function VorpSection({ vorpColaboradorId }: Props) {
   const [projetos, setProjetos]   = useState<VorpProjetoRow[]>([]);
   const [loading, setLoading]     = useState(true);
   const [busca, setBusca]         = useState('');
@@ -20,13 +20,12 @@ export default function VorpSection({ consultorNome }: Props) {
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const nome = consultorNome === 'all' ? undefined : consultorNome;
-      const data = await getVorpProjetosAtivos(nome);
+      const data = await getVorpProjetosAtivos(vorpColaboradorId);
       setProjetos(data as VorpProjetoRow[]);
     } finally {
       setLoading(false);
     }
-  }, [consultorNome]);
+  }, [vorpColaboradorId]);
 
   useEffect(() => { carregar(); }, [carregar]);
 

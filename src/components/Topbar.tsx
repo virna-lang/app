@@ -3,7 +3,8 @@
 import { useAuth } from './AuthContext';
 import { LogOut, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
-import { useDashboard } from '@/context/DashboardContext';
+import DashboardFilters from './DashboardFilters';
+
 export default function Topbar() {
   const { role, setRole, user, signOut } = useAuth();
 
@@ -23,8 +24,9 @@ export default function Topbar() {
         <span className="bc-current">Recursos de Auditoria</span>
       </div>
 
-      {/* Actions */}
+      {/* Filters + actions */}
       <div className="topbar-right">
+        <DashboardFilters />
 
         <div className="topbar-actions">
           {/* Role badge */}
@@ -85,8 +87,8 @@ export default function Topbar() {
           display: flex; align-items: center; gap: 6px;
           font-size: 13px; flex-shrink: 0;
         }
-        .bc-root  { color: #334155; font-weight: 500; }
-        .bc-sep   { color: #1e2a3a; }
+        .bc-root    { color: #334155; font-weight: 500; }
+        .bc-sep     { color: #1e2a3a; }
         .bc-current { color: #64748b; font-weight: 500; }
 
         /* Right side */
@@ -103,15 +105,11 @@ export default function Topbar() {
         /* Role badge */
         .role-badge {
           display: flex; align-items: center; gap: 6px;
-          padding: 6px 14px;
-          border-radius: 99px;
-          border: 1px solid #1f2d40;
-          background: #111827;
-          color: #64748b;
-          font-family: 'Outfit', sans-serif;
-          font-size: 12px; font-weight: 600;
-          cursor: pointer; transition: all 0.2s;
-          letter-spacing: 0.04em;
+          padding: 6px 14px; border-radius: 99px;
+          border: 1px solid #1f2d40; background: #111827;
+          color: #64748b; font-family: 'Outfit', sans-serif;
+          font-size: 12px; font-weight: 600; cursor: pointer;
+          transition: all 0.2s; letter-spacing: 0.04em;
         }
         .role-badge:hover { border-color: #FC5400; color: #94a3b8; }
         .role-badge.is-admin {
@@ -139,9 +137,7 @@ export default function Topbar() {
           padding: 6px; border-radius: 7px;
           transition: color 0.15s, background 0.15s;
         }
-        .logout-btn:hover {
-          color: #ef4444; background: rgba(239,68,68,0.08);
-        }
+        .logout-btn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
       `}</style>
     </header>
   );

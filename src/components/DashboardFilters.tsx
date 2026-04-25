@@ -3,20 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
-import type { Consultor } from '@/lib/supabase';
 import { ChevronDown, X, Calendar, User, Package } from 'lucide-react';
-
-interface Filters {
-  month: string;
-  consultantId: string;
-  products: string[];
-}
-
-interface Props {
-  onFilterChange: (filters: Filters) => void;
-  availableConsultants: Consultor[];
-  availableProducts: string[];
-}
 
 function FilterSelect({
   label, icon, value, open, onToggle, children,
@@ -69,9 +56,7 @@ function FilterSelect({
         .filter-icon { opacity: 0.5; display: flex; align-items: center; }
         .filter-btn.active .filter-icon { opacity: 1; }
         .filter-val { font-weight: 500; }
-        .filter-chevron {
-          opacity: 0.4; transition: transform 0.2s;
-        }
+        .filter-chevron { opacity: 0.4; transition: transform 0.2s; }
         .filter-chevron.open { transform: rotate(180deg); opacity: 0.8; }
 
         .filter-dropdown {
@@ -92,48 +77,21 @@ function FilterSelect({
   );
 }
 
-export default function DashboardFilters({ onFilterChange, availableConsultants, availableProducts }: Props) {
+export default function DashboardFilters() {
   const { role } = useAuth();
-  const { meses } = useDashboard();
+  const { meses, consultores, filters, setFilters, availableProducts } = useDashboard();
   const isAdmin = role === 'Administrador';
 
-  const [filters, setFilters] = useState<Filters>({
-    month: meses[meses.length - 1],
-    consultantId: 'all',
-    products: availableProducts,
-  });
   const [open, setOpen] = useState<Record<string, boolean>>({});
-
   const toggle = (key: string) =>
     setOpen(prev => ({ month: false, consultant: false, product: false, [key]: !prev[key] }));
-
-  useEffect(() => {
-    const saved = localStorage.getItem('vorp_dashboard_filters');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (meses.includes(parsed.month)) {
-          const safe = { ...parsed, products: parsed.products ?? availableProducts };
-          setFilters(safe);
-          onFilterChange(safe);
-          return;
-        }
-      } catch {}
-    }
-    onFilterChange(filters);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('vorp_dashboard_filters', JSON.stringify(filters));
-    onFilterChange(filters);
-  }, [filters]);
 
   const clearFilters = () =>
     setFilters({ month: meses[meses.length - 1], consultantId: 'all', products: availableProducts });
 
   const consultantLabel = filters.consultantId === 'all'
     ? 'Todos os consultores'
-    : availableConsultants.find(c => String(c.id) === filters.consultantId)?.nome ?? 'Consultor';
+    : consultores.find(c => String(c.id) === filters.consultantId)?.nome ?? 'Consultor';
 
   const productLabel = (filters.products?.length ?? availableProducts.length) === availableProducts.length
     ? 'Todos os produtos'
@@ -144,97 +102,83 @@ export default function DashboardFilters({ onFilterChange, availableConsultants,
     (filters.products?.length ?? availableProducts.length) !== availableProducts.length;
 
   return (
-    <div className="filters-bar">
-      <div className="filters-inner">
+    <div className="filters-row">
 
-        {/* Mês */}
+      {/* Mês */}
+      <FilterSelect
+        label="Mês/Ano" icon={<Calendar size={13}/>}
+        value={filters.month} open={!!open.month}
+        onToggle={() => toggle('month')}
+      >
+        {meses.map(m => (
+          <div
+            key={m}
+            className={`drop-item ${m === filters.month ? 'selected' : ''}`}
+            onClick={() => { setFilters(f => ({ ...f, month: m })); setOpen({}); }}
+          >
+            {m}
+          </div>
+        ))}
+      </FilterSelect>
+
+      {/* Consultor (admin only) */}
+      {isAdmin && (
         <FilterSelect
-          label="Mês/Ano" icon={<Calendar size={13}/>}
-          value={filters.month} open={!!open.month}
-          onToggle={() => toggle('month')}
+          label="Consultor" icon={<User size={13}/>}
+          value={consultantLabel} open={!!open.consultant}
+          onToggle={() => toggle('consultant')}
         >
-          {meses.map(m => (
+          {[{ id: 'all', nome: 'Todos os consultores' }, ...consultores.filter(c => c.status === 'Ativo')].map(c => (
             <div
-              key={m}
-              className={`drop-item ${m === filters.month ? 'selected' : ''}`}
-              onClick={() => { setFilters(f => ({ ...f, month: m })); setOpen({}); }}
+              key={c.id}
+              className={`drop-item ${String(c.id) === filters.consultantId ? 'selected' : ''}`}
+              onClick={() => { setFilters(f => ({ ...f, consultantId: String(c.id) })); setOpen({}); }}
             >
-              {m}
+              {c.nome}
             </div>
           ))}
         </FilterSelect>
+      )}
 
-        {/* Consultor (admin only) */}
-        {isAdmin && (
-          <FilterSelect
-            label="Consultor" icon={<User size={13}/>}
-            value={consultantLabel} open={!!open.consultant}
-            onToggle={() => toggle('consultant')}
-          >
-            {[{ id: 'all', nome: 'Todos os consultores' }, ...availableConsultants.filter(c => c.status === 'Ativo')].map(c => (
-              <div
-                key={c.id}
-                className={`drop-item ${String(c.id) === filters.consultantId ? 'selected' : ''}`}
-                onClick={() => { setFilters(f => ({ ...f, consultantId: String(c.id) })); setOpen({}); }}
-              >
-                {c.nome}
-              </div>
-            ))}
-          </FilterSelect>
-        )}
+      {/* Produtos */}
+      <FilterSelect
+        label="Produtos" icon={<Package size={13}/>}
+        value={productLabel} open={!!open.product}
+        onToggle={() => toggle('product')}
+      >
+        <div className="drop-multi">
+          {availableProducts.map(p => {
+            const checked = (filters.products ?? availableProducts).includes(p);
+            return (
+              <label key={p} className="check-item">
+                <div className={`check-box ${checked ? 'checked' : ''}`}>
+                  {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <span>{p}</span>
+                <input type="checkbox" checked={checked} onChange={() =>
+                  setFilters(f => ({
+                    ...f,
+                    products: checked
+                      ? f.products.filter(x => x !== p)
+                      : [...f.products, p],
+                  }))
+                } style={{ display: 'none' }}/>
+              </label>
+            );
+          })}
+        </div>
+      </FilterSelect>
 
-        {/* Produtos */}
-        <FilterSelect
-          label="Produtos" icon={<Package size={13}/>}
-          value={productLabel} open={!!open.product}
-          onToggle={() => toggle('product')}
-        >
-          <div className="drop-multi">
-            {availableProducts.map(p => {
-              const checked = filters.products.includes(p);
-              return (
-                <label key={p} className="check-item">
-                  <div className={`check-box ${checked ? 'checked' : ''}`}>
-                    {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <span>{p}</span>
-                  <input type="checkbox" checked={checked} onChange={() =>
-                    setFilters(f => ({
-                      ...f,
-                      products: checked
-                        ? f.products.filter(x => x !== p)
-                        : [...f.products, p],
-                    }))
-                  } style={{ display: 'none' }}/>
-                </label>
-              );
-            })}
-          </div>
-        </FilterSelect>
-
-        {/* Clear */}
-        {hasActiveFilters && (
-          <button className="clear-btn" onClick={clearFilters}>
-            <X size={12}/> Limpar
-          </button>
-        )}
-      </div>
+      {/* Limpar */}
+      {hasActiveFilters && (
+        <button className="clear-btn" onClick={clearFilters}>
+          <X size={12}/> Limpar
+        </button>
+      )}
 
       <style jsx>{`
-        .filters-bar {
-          position: sticky;
-          top: 64px; /* topbar height */
-          z-index: 80;
-          background: rgba(9,12,21,0.85);
-          backdrop-filter: blur(16px);
-          border-bottom: 1px solid #141a2e;
-          padding: 10px 32px;
-          margin: -32px -40px 32px -32px;
-        }
-        .filters-inner {
-          display: flex; align-items: center; gap: 8px;
-          max-width: 1600px; margin: 0 auto;
-          flex-wrap: wrap;
+        .filters-row {
+          display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
         }
 
         /* Dropdown items */
@@ -244,42 +188,33 @@ export default function DashboardFilters({ onFilterChange, availableConsultants,
           color: #94a3b8; cursor: pointer;
           transition: background 0.12s, color 0.12s;
         }
-        :global(.drop-item:hover) {
-          background: rgba(252,84,0,0.08); color: #f1f5f9;
-        }
-        :global(.drop-item.selected) {
-          color: #FC5400; font-weight: 600;
-          background: rgba(252,84,0,0.06);
-        }
+        :global(.drop-item:hover)    { background: rgba(252,84,0,0.08); color: #f1f5f9; }
+        :global(.drop-item.selected) { color: #FC5400; font-weight: 600; background: rgba(252,84,0,0.06); }
 
         /* Multi-select */
         :global(.drop-multi) { padding: 6px; }
         :global(.check-item) {
           display: flex; align-items: center; gap: 10px;
-          padding: 8px 10px; border-radius: 7px;
-          cursor: pointer; font-family: 'Outfit', sans-serif;
-          font-size: 13px; color: #94a3b8;
+          padding: 8px 10px; border-radius: 7px; cursor: pointer;
+          font-family: 'Outfit', sans-serif; font-size: 13px; color: #94a3b8;
           transition: background 0.12s;
         }
-        :global(.check-item:hover) { background: rgba(255,255,255,0.04); color: #f1f5f9; }
+        :global(.check-item:hover)   { background: rgba(255,255,255,0.04); color: #f1f5f9; }
         :global(.check-box) {
           width: 16px; height: 16px; border-radius: 4px;
           border: 1.5px solid #1f2d40; background: #0f1620;
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0; transition: all 0.15s;
         }
-        :global(.check-box.checked) {
-          background: #FC5400; border-color: #FC5400;
-        }
+        :global(.check-box.checked)  { background: #FC5400; border-color: #FC5400; }
 
-        /* Clear */
+        /* Limpar */
         .clear-btn {
           display: flex; align-items: center; gap: 5px;
           padding: 7px 11px; border-radius: 8px;
           background: none; border: 1px solid #1f2d40;
           font-family: 'Outfit', sans-serif; font-size: 12px;
-          color: #475569; cursor: pointer;
-          transition: all 0.15s; margin-left: 4px;
+          color: #475569; cursor: pointer; transition: all 0.15s; margin-left: 2px;
         }
         .clear-btn:hover {
           border-color: rgba(239,68,68,0.4);
