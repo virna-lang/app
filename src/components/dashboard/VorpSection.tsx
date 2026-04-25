@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw, X } from 'lucide-react';
 import { getVorpProjetosAtivos, setTrativaCS } from '@/lib/api';
 import { COLORS } from '@/types/dashboard';
 import type { VorpProjetoRow } from '@/lib/supabase';
@@ -10,12 +10,38 @@ interface Props {
   consultorNome?: string; // 'all' ou nome exato do colaborador
 }
 
+/** Remove o padrão ["Nome Sobrenome"] que vem do banco, retornando apenas a string limpa. */
+function limparNome(val: string | null | undefined): string {
+  if (!val) return '';
+  const match = val.match(/^\[["']?(.+?)["']?\]$/);
+  return match ? match[1] : val;
+}
+
+interface ColFilters {
+  projeto: string;
+  consultor: string;
+  produto: string;
+  feeMin: string;
+  feeMax: string;
+  status: 'todos' | 'auditaveis' | 'tratativa';
+}
+
+const EMPTY_FILTERS: ColFilters = {
+  projeto: '',
+  consultor: '',
+  produto: '',
+  feeMin: '',
+  feeMax: '',
+  status: 'todos',
+};
+
 export default function VorpSection({ consultorNome }: Props) {
-  const [projetos, setProjetos]   = useState<VorpProjetoRow[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [busca, setBusca]         = useState('');
-  const [salvando, setSalvando]   = useState<string | null>(null);
-  const [filtroCS, setFiltroCS]   = useState<'todos' | 'auditaveis' | 'tratativa'>('todos');
+  const [projetos, setProjetos]     = useState<VorpProjetoRow[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [busca, setBusca]           = useState('');
+  const [salvando, setSalvando]     = useState<string | null>(null);
+  const [filtroCS, setFiltroCS]     = useState<'todos' | 'auditaveis' | 'tratativa'>('todos');
+  const [colFilters, setColFilters] = useState<ColFilters>(EMPTY_FILTERS);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -46,11 +72,33 @@ export default function VorpSection({ consultorNome }: Props) {
     }
   };
 
+  // Listas únicas para os dropdowns de coluna
+  const consultoresUnicos = useMemo(() => {
+    const nomes = projetos.map(p => limparNome(p.colaborador_nome)).filter(Boolean);
+    return Array.from(new Set(nomes)).sort();
+  }, [projetos]);
+
+  const produtosUnicos = useMemo(() => {
+    const prods = projetos.map(p => p.produto_nome ?? '').filter(Boolean);
+    return Array.from(new Set(prods)).sort();
+  }, [projetos]);
+
+  const anyColFilterActive = useMemo(() =>
+    colFilters.projeto !== '' ||
+    colFilters.consultor !== '' ||
+    colFilters.produto !== '' ||
+    colFilters.feeMin !== '' ||
+    colFilters.feeMax !== '' ||
+    colFilters.status !== 'todos',
+  [colFilters]);
+
   const filtrados = projetos.filter(p => {
+    const nomeConsultor = limparNome(p.colaborador_nome);
+
     const matchBusca =
       !busca ||
       p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
+      nomeConsultor.toLowerCase().includes(busca.toLowerCase()) ||
       (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase());
 
     const matchFiltro =
@@ -58,28 +106,59 @@ export default function VorpSection({ consultorNome }: Props) {
       (filtroCS === 'tratativa' && p.tratativa_cs) ||
       (filtroCS === 'auditaveis' && !p.tratativa_cs);
 
-    return matchBusca && matchFiltro;
+    const matchProjeto = !colFilters.projeto ||
+      p.nome.toLowerCase().includes(colFilters.projeto.toLowerCase());
+
+    const matchConsultor = !colFilters.consultor ||
+      nomeConsultor === colFilters.consultor;
+
+    const matchProduto = !colFilters.produto ||
+      (p.produto_nome ?? '') === colFilters.produto;
+
+    const feeMin = colFilters.feeMin !== '' ? Number(colFilters.feeMin) : null;
+    const feeMax = colFilters.feeMax !== '' ? Number(colFilters.feeMax) : null;
+    const matchFee =
+      (feeMin === null || (p.fee ?? 0) >= feeMin) &&
+      (feeMax === null || (p.fee ?? 0) <= feeMax);
+
+    const matchStatus =
+      colFilters.status === 'todos' ||
+      (colFilters.status === 'tratativa' && p.tratativa_cs) ||
+      (colFilters.status === 'auditaveis' && !p.tratativa_cs);
+
+    return matchBusca && matchFiltro && matchProjeto && matchConsultor && matchProduto && matchFee && matchStatus;
   });
 
   const totalAtivos     = projetos.length;
   const totalTratativa  = projetos.filter(p => p.tratativa_cs).length;
   const totalAuditaveis = totalAtivos - totalTratativa;
 
+  const setCol = <K extends keyof ColFilters>(key: K, val: ColFilters[K]) =>
+    setColFilters(prev => ({ ...prev, [key]: val }));
+
   return (
     <div className="vorp-section section-block">
       {/* ── Cabeçalho ───────────────────────────────────── */}
       <div className="section-anchor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <h2>Projetos Ativos — Vorp System</h2>
-        <button
-          onClick={carregar}
-          className="btn-icon"
-          title="Recarregar"
-          style={{ opacity: loading ? 0.5 : 1 }}
-          disabled={loading}
-        >
-          <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          <span>Atualizar</span>
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {anyColFilterActive && (
+            <button onClick={() => setColFilters(EMPTY_FILTERS)} className="btn-icon btn-clear">
+              <X size={14} />
+              <span>Limpar filtros</span>
+            </button>
+          )}
+          <button
+            onClick={carregar}
+            className="btn-icon"
+            title="Recarregar"
+            style={{ opacity: loading ? 0.5 : 1 }}
+            disabled={loading}
+          >
+            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            <span>Atualizar</span>
+          </button>
+        </div>
       </div>
 
       {/* ── KPI cards ───────────────────────────────────── */}
@@ -159,6 +238,7 @@ export default function VorpSection({ consultorNome }: Props) {
         <div className="table-wrap card">
           <table className="vorp-table">
             <thead>
+              {/* Linha 1 — rótulos de coluna */}
               <tr>
                 <th>Projeto</th>
                 <th>Consultor</th>
@@ -166,12 +246,78 @@ export default function VorpSection({ consultorNome }: Props) {
                 <th style={{ textAlign: 'right' }}>FEE</th>
                 <th style={{ textAlign: 'center' }}>Tratativa CS</th>
               </tr>
+              {/* Linha 2 — filtros embutidos */}
+              <tr className="tr-filters">
+                <th>
+                  <input
+                    className="col-filter-input"
+                    type="text"
+                    placeholder="Filtrar..."
+                    value={colFilters.projeto}
+                    onChange={e => setCol('projeto', e.target.value)}
+                  />
+                </th>
+                <th>
+                  <select
+                    className="col-filter-select"
+                    value={colFilters.consultor}
+                    onChange={e => setCol('consultor', e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    {consultoresUnicos.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </th>
+                <th>
+                  <select
+                    className="col-filter-select"
+                    value={colFilters.produto}
+                    onChange={e => setCol('produto', e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    {produtosUnicos.map(pr => (
+                      <option key={pr} value={pr}>{pr}</option>
+                    ))}
+                  </select>
+                </th>
+                <th style={{ textAlign: 'right' }}>
+                  <div className="fee-range">
+                    <input
+                      className="col-filter-input fee-input"
+                      type="number"
+                      placeholder="Min"
+                      value={colFilters.feeMin}
+                      onChange={e => setCol('feeMin', e.target.value)}
+                    />
+                    <span className="fee-sep">–</span>
+                    <input
+                      className="col-filter-input fee-input"
+                      type="number"
+                      placeholder="Max"
+                      value={colFilters.feeMax}
+                      onChange={e => setCol('feeMax', e.target.value)}
+                    />
+                  </div>
+                </th>
+                <th style={{ textAlign: 'center' }}>
+                  <select
+                    className="col-filter-select"
+                    value={colFilters.status}
+                    onChange={e => setCol('status', e.target.value as ColFilters['status'])}
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="auditaveis">Auditável</option>
+                    <option value="tratativa">Tratativa CS</option>
+                  </select>
+                </th>
+              </tr>
             </thead>
             <tbody>
               {filtrados.map(p => (
                 <tr key={p.vorp_id} className={p.tratativa_cs ? 'row-tratativa' : ''}>
                   <td className="td-nome">{p.nome}</td>
-                  <td className="td-muted">{p.colaborador_nome ?? '—'}</td>
+                  <td className="td-muted">{limparNome(p.colaborador_nome) || '—'}</td>
                   <td>
                     {p.produto_nome && (
                       <span className="badge-produto">{p.produto_nome}</span>
@@ -289,6 +435,39 @@ export default function VorpSection({ consultorNome }: Props) {
           transition: all 0.15s;
         }
         .btn-icon:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
+        .btn-clear { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
+
+        /* ── Linha de filtros de coluna ── */
+        .tr-filters th {
+          padding: 6px 16px;
+          background: color-mix(in srgb, var(--laranja-vorp) 4%, transparent);
+          border-bottom: 2px solid var(--card-border);
+        }
+
+        .col-filter-input,
+        .col-filter-select {
+          width: 100%;
+          background: var(--glass-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 6px;
+          padding: 5px 8px;
+          color: var(--text-main);
+          font-size: 0.78rem;
+          outline: none;
+          transition: border-color 0.15s;
+        }
+        .col-filter-input:focus,
+        .col-filter-select:focus { border-color: var(--laranja-vorp); }
+        .col-filter-select option { background: var(--bg-main, #1a1a1a); }
+
+        .fee-range {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          justify-content: flex-end;
+        }
+        .fee-input { width: 72px; text-align: right; }
+        .fee-sep { color: var(--text-muted); font-size: 0.75rem; }
 
         .table-wrap { padding: 0; overflow: hidden; }
         .vorp-table {
