@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw, ChevronDown } from 'lucide-react';
 import { getVorpProjetosAtivos, setTrativaCS } from '@/lib/api';
 import { COLORS } from '@/types/dashboard';
 import type { VorpProjetoRow } from '@/lib/supabase';
@@ -16,6 +16,16 @@ export default function VorpSection({ consultorNome }: Props) {
   const [busca, setBusca]         = useState('');
   const [salvando, setSalvando]   = useState<string | null>(null);
   const [filtroCS, setFiltroCS]   = useState<'todos' | 'auditaveis' | 'tratativa'>('auditaveis');
+  const [dropOpen, setDropOpen]   = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false);
+    };
+    if (dropOpen) document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [dropOpen]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -131,18 +141,35 @@ export default function VorpSection({ consultorNome }: Props) {
           />
         </div>
 
-        <div className="filtro-chips">
-          {(['todos', 'auditaveis', 'tratativa'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFiltroCS(f)}
-              className={`chip ${filtroCS === f ? 'chip-active' : ''}`}
-            >
-              {f === 'todos'      && 'Todos'}
-              {f === 'auditaveis' && `Auditáveis (${totalAuditaveis})`}
-              {f === 'tratativa'  && `Tratativa CS (${totalTratativa})`}
-            </button>
-          ))}
+        <div ref={dropRef} className="filter-wrap">
+          <button
+            className={`filter-btn ${filtroCS !== 'auditaveis' ? 'filter-btn-alt' : ''}`}
+            onClick={() => setDropOpen(o => !o)}
+          >
+            <span className="filter-icon"><CheckCircle2 size={13} /></span>
+            <span className="filter-val">
+              {filtroCS === 'auditaveis' ? `Auditáveis (${totalAuditaveis})` :
+               filtroCS === 'tratativa'  ? `Tratativa CS (${totalTratativa})` : 'Todos'}
+            </span>
+            <ChevronDown size={13} className={`filter-chevron ${dropOpen ? 'open' : ''}`} />
+          </button>
+          {dropOpen && (
+            <div className="filter-dropdown">
+              {([
+                { key: 'auditaveis', label: `Auditáveis (${totalAuditaveis})` },
+                { key: 'tratativa',  label: `Tratativa CS (${totalTratativa})` },
+                { key: 'todos',      label: 'Todos' },
+              ] as const).map(({ key, label }) => (
+                <div
+                  key={key}
+                  className={`drop-item ${filtroCS === key ? 'drop-selected' : ''}`}
+                  onClick={() => { setFiltroCS(key); setDropOpen(false); }}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -260,20 +287,40 @@ export default function VorpSection({ consultorNome }: Props) {
         }
         .search-box input::placeholder { color: var(--text-muted); }
 
-        .filtro-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-        .chip {
-          padding: 6px 14px;
-          border-radius: 20px;
-          border: 1px solid var(--card-border);
-          background: transparent;
-          color: var(--text-muted);
-          font-size: 0.78rem;
-          font-weight: 600;
-          cursor: pointer;
+        .filter-wrap { position: relative; }
+        .filter-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 8px 12px;
+          background: var(--glass-bg); border: 1px solid var(--card-border);
+          border-radius: 8px; cursor: pointer;
+          font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;
           transition: all 0.15s;
         }
-        .chip:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
-        .chip-active { background: var(--laranja-vorp); border-color: var(--laranja-vorp); color: #fff; }
+        .filter-btn:hover { border-color: rgba(252,84,0,0.4); color: var(--text-main); }
+        .filter-btn-alt { border-color: rgba(252,84,0,0.5); background: rgba(252,84,0,0.08); color: var(--laranja-vorp); }
+        .filter-icon { opacity: 0.5; display: flex; align-items: center; }
+        .filter-btn-alt .filter-icon { opacity: 1; }
+        .filter-val { font-weight: 600; }
+        .filter-chevron { opacity: 0.4; transition: transform 0.2s; }
+        .filter-chevron.open { transform: rotate(180deg); opacity: 0.8; }
+
+        .filter-dropdown {
+          position: absolute; top: calc(100% + 6px); left: 0;
+          min-width: 210px;
+          background: #111827; border: 1px solid #1f2d40;
+          border-radius: 10px;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+          z-index: 200; overflow: hidden;
+          animation: dropIn 0.15s ease-out;
+        }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        .drop-item {
+          padding: 9px 16px;
+          font-size: 0.82rem; color: var(--text-muted);
+          cursor: pointer; transition: background 0.12s, color 0.12s;
+        }
+        .drop-item:hover { background: rgba(252,84,0,0.08); color: var(--text-main); }
+        .drop-selected { color: var(--laranja-vorp); font-weight: 600; background: rgba(252,84,0,0.06); }
 
         .btn-icon {
           display: flex;

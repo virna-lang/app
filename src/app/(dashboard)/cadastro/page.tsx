@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, Package, Building2, Mail, Phone, Briefcase, RefreshCw } from 'lucide-react';
+import { Users, Package, Building2, Mail, Phone, Briefcase, RefreshCw, ChevronDown } from 'lucide-react';
 import { getVorpColaboradores, getVorpProdutos, getVorpProjetosAtivos } from '@/lib/api';
 import type { VorpColaboradorRow, VorpProjetoRow } from '@/lib/supabase';
 import { COLORS } from '@/types/dashboard';
@@ -25,6 +25,17 @@ function CadastroInner() {
   const [loading,  setLoading]  = useState(false);
   const [busca,      setBusca]      = useState('');
   const [filtroProj, setFiltroProj] = useState<'todos' | 'auditaveis' | 'tratativa'>('auditaveis');
+  const [dropProjOpen, setDropProjOpen] = useState(false);
+  const dropProjRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (dropProjRef.current && !dropProjRef.current.contains(e.target as Node))
+        setDropProjOpen(false);
+    };
+    if (dropProjOpen) document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [dropProjOpen]);
 
   const changeTab = (tab: Tab) => {
     setActiveTab(tab);
@@ -141,18 +152,35 @@ function CadastroInner() {
             onChange={e => setBusca(e.target.value)}
           />
           {activeTab === 'projetos' && (
-            <div className="filtro-chips">
-              {(['auditaveis', 'tratativa', 'todos'] as const).map(f => (
-                <button
-                  key={f}
-                  className={`chip ${filtroProj === f ? 'chip-active' : ''}`}
-                  onClick={() => setFiltroProj(f)}
-                >
-                  {f === 'auditaveis' && `Ativos (${totalProjAuditaveis})`}
-                  {f === 'tratativa'  && `Tratativa CS (${totalProjTratativa})`}
-                  {f === 'todos'      && 'Todos'}
-                </button>
-              ))}
+            <div ref={dropProjRef} className="filter-wrap">
+              <button
+                className={`filter-btn ${filtroProj !== 'auditaveis' ? 'filter-btn-alt' : ''}`}
+                onClick={() => setDropProjOpen(o => !o)}
+              >
+                <span className="filter-icon"><Building2 size={13} /></span>
+                <span className="filter-val">
+                  {filtroProj === 'auditaveis' ? `Ativos (${totalProjAuditaveis})` :
+                   filtroProj === 'tratativa'  ? `Tratativa CS (${totalProjTratativa})` : 'Todos'}
+                </span>
+                <ChevronDown size={13} className={`filter-chevron ${dropProjOpen ? 'open' : ''}`} />
+              </button>
+              {dropProjOpen && (
+                <div className="filter-dropdown">
+                  {([
+                    { key: 'auditaveis', label: `Ativos (${totalProjAuditaveis})` },
+                    { key: 'tratativa',  label: `Tratativa CS (${totalProjTratativa})` },
+                    { key: 'todos',      label: 'Todos' },
+                  ] as const).map(({ key, label }) => (
+                    <div
+                      key={key}
+                      className={`drop-item ${filtroProj === key ? 'drop-selected' : ''}`}
+                      onClick={() => { setFiltroProj(key); setDropProjOpen(false); }}
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -321,19 +349,43 @@ function CadastroInner() {
         }
         .tab-btn.active .tab-count { background: rgba(255,255,255,0.25); }
 
-        .search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .filtro-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-        .chip {
-          padding: 7px 14px;
-          border-radius: 20px;
-          border: 1px solid var(--card-border);
-          background: transparent;
-          color: var(--text-muted);
-          font-size: 0.78rem; font-weight: 600;
-          cursor: pointer; transition: all 0.15s;
+        .search-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .filter-wrap { position: relative; }
+        .filter-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 7px 12px;
+          background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+          border-radius: 8px; cursor: pointer;
+          font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;
+          transition: all 0.15s;
         }
-        .chip:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
-        .chip-active { background: var(--laranja-vorp); border-color: var(--laranja-vorp); color: #fff; }
+        .filter-btn:hover { border-color: rgba(252,84,0,0.4); color: var(--text-main); }
+        .filter-btn-alt { border-color: rgba(252,84,0,0.5); background: rgba(252,84,0,0.08); color: var(--laranja-vorp); }
+        .filter-icon { opacity: 0.5; display: flex; align-items: center; }
+        .filter-btn-alt .filter-icon { opacity: 1; }
+        .filter-val { font-weight: 600; }
+        .filter-chevron { opacity: 0.4; transition: transform 0.2s; }
+        .filter-chevron.open { transform: rotate(180deg); opacity: 0.8; }
+
+        .filter-dropdown {
+          position: absolute; top: calc(100% + 6px); left: 0;
+          min-width: 200px;
+          background: #111827; border: 1px solid #1f2d40;
+          border-radius: 10px;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+          z-index: 200; overflow: hidden;
+          animation: dropIn 0.15s ease-out;
+        }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        .drop-item {
+          padding: 9px 16px;
+          font-size: 0.82rem; color: var(--text-muted);
+          cursor: pointer; transition: background 0.12s, color 0.12s;
+        }
+        .drop-item:hover { background: rgba(252,84,0,0.08); color: var(--text-main); }
+        .drop-selected { color: var(--laranja-vorp); font-weight: 600; background: rgba(252,84,0,0.06); }
+
         .search-input {
           width: 100%; max-width: 420px;
           background: rgba(255,255,255,0.03);
