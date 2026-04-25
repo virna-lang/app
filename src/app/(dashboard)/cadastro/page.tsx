@@ -23,12 +23,14 @@ function CadastroInner() {
   const [produtos, setProdutos] = useState<string[]>([]);
   const [projetos, setProjetos] = useState<VorpProjetoRow[]>([]);
   const [loading,  setLoading]  = useState(false);
-  const [busca,    setBusca]    = useState('');
+  const [busca,      setBusca]      = useState('');
+  const [filtroProj, setFiltroProj] = useState<'todos' | 'auditaveis' | 'tratativa'>('auditaveis');
 
   const changeTab = (tab: Tab) => {
     setActiveTab(tab);
     router.replace(`/cadastro?tab=${tab}`);
     setBusca('');
+    setFiltroProj('auditaveis');
   };
 
   const formatDate = (d?: string | null) =>
@@ -74,12 +76,21 @@ function CadastroInner() {
     !busca || p.toLowerCase().includes(busca.toLowerCase())
   );
 
-  const projetosFiltrados = projetos.filter(p =>
-    !busca ||
-    p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
-    (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase())
-  );
+  const totalProjAuditaveis = projetos.filter(p => !p.tratativa_cs).length;
+  const totalProjTratativa  = projetos.filter(p =>  p.tratativa_cs).length;
+
+  const projetosFiltrados = projetos.filter(p => {
+    const matchBusca =
+      !busca ||
+      p.nome.toLowerCase().includes(busca.toLowerCase()) ||
+      (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
+      (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase());
+    const matchFiltro =
+      filtroProj === 'todos' ||
+      (filtroProj === 'tratativa'  &&  p.tratativa_cs) ||
+      (filtroProj === 'auditaveis' && !p.tratativa_cs);
+    return matchBusca && matchFiltro;
+  });
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count: number }[] = [
     { id: 'time-completo', label: 'Time Completo',   icon: <Users size={15} />,     count: colabs.length },
@@ -117,18 +128,35 @@ function CadastroInner() {
       </div>
 
       {/* Search */}
-      <div className="search-row">
-        <input
-          className="search-input"
-          placeholder={
-            activeTab === 'time-completo' ? 'Buscar por nome ou cargo...' :
-            activeTab === 'produtos'      ? 'Buscar produto...' :
-            'Buscar projeto, consultor ou produto...'
-          }
-          value={busca}
-          onChange={e => setBusca(e.target.value)}
-        />
-      </div>
+      {activeTab !== 'vorp-system' && (
+        <div className="search-row">
+          <input
+            className="search-input"
+            placeholder={
+              activeTab === 'time-completo' ? 'Buscar por nome ou cargo...' :
+              activeTab === 'produtos'      ? 'Buscar produto...' :
+              'Buscar projeto, consultor ou produto...'
+            }
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+          />
+          {activeTab === 'projetos' && (
+            <div className="filtro-chips">
+              {(['auditaveis', 'tratativa', 'todos'] as const).map(f => (
+                <button
+                  key={f}
+                  className={`chip ${filtroProj === f ? 'chip-active' : ''}`}
+                  onClick={() => setFiltroProj(f)}
+                >
+                  {f === 'auditaveis' && `Ativos (${totalProjAuditaveis})`}
+                  {f === 'tratativa'  && `Tratativa CS (${totalProjTratativa})`}
+                  {f === 'todos'      && 'Todos'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -293,7 +321,19 @@ function CadastroInner() {
         }
         .tab-btn.active .tab-count { background: rgba(255,255,255,0.25); }
 
-        .search-row { display: flex; }
+        .search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .filtro-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .chip {
+          padding: 7px 14px;
+          border-radius: 20px;
+          border: 1px solid var(--card-border);
+          background: transparent;
+          color: var(--text-muted);
+          font-size: 0.78rem; font-weight: 600;
+          cursor: pointer; transition: all 0.15s;
+        }
+        .chip:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
+        .chip-active { background: var(--laranja-vorp); border-color: var(--laranja-vorp); color: #fff; }
         .search-input {
           width: 100%; max-width: 420px;
           background: rgba(255,255,255,0.03);

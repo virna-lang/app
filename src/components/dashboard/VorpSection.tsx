@@ -15,7 +15,7 @@ export default function VorpSection({ consultorNome }: Props) {
   const [loading, setLoading]     = useState(true);
   const [busca, setBusca]         = useState('');
   const [salvando, setSalvando]   = useState<string | null>(null);
-  const [filtroCS, setFiltroCS]   = useState<'todos' | 'auditaveis' | 'tratativa'>('todos');
+  const [filtroCS, setFiltroCS]   = useState<'todos' | 'auditaveis' | 'tratativa'>('auditaveis');
 
   const carregar = useCallback(async () => {
     setLoading(true);
