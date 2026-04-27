@@ -204,6 +204,102 @@ export async function syncChurn() {
   }
 }
 
+async function syncProjetoColaboradores(projetos: VorpProjeto[]) {
+  // Carrega espelho de colaboradores: vorp_id, nome e ID interno do consultor.
+  const { data: colabsData } = await supabase
+    .from('vorp_colaboradores')
+    .select('vorp_id, nome');
+
+  // Map: nome normalizado → vorp_id (para lookup por nome do campo lookup NocoDB)
+  const nomeToVorpId = new Map<string, string>(
+    (colabsData ?? []).map((c: { vorp_id: string; nome: string }) => [
+      normalizeKey(c.nome),
+      c.vorp_id,
+    ]),
+  );
+
+  // Map: vorp_colaborador_id → consultores.id (para preenchimento automático)
+  const { data: consultoresData } = await supabase
+    .from('consultores')
+    .select('id, vorp_colaborador_id');
+  const consultorMap = new Map<string, string>(
+    (consultoresData ?? [])
+      .filter((c): c is { id: string; vorp_colaborador_id: string } =>
+        Boolean(c.vorp_colaborador_id))
+      .map((c) => [c.vorp_colaborador_id, c.id]),
+  );
+
+  const now = new Date().toISOString();
+  const links: Array<{
+    projeto_vorp_id: string;
+    vorp_colaborador_id: string;
+    consultor_id: string | null;
+    colaborador_nome_snapshot: string | null;
+    origem: string;
+    confianca_match: number;
+    synced_at: string;
+  }> = [];
+  const projetoIds: string[] = [];
+
+  for (const r of projetos) {
+    const projetoVorpId = String(r.Id);
+    projetoIds.push(projetoVorpId);
+
+    // NocoDB v3 retorna o campo linked "Colaboradores" apenas como contagem.
+    // O campo lookup "Nome colaborador" (ou "Nome do colaborador") traz os nomes
+    // derivados diretamente dos registros vinculados — alta confiança de match.
+    const colabNomes = resolveNomes(
+      r['Nome colaborador'] ?? r['Nome do colaborador'] ?? r.Colaboradores,
+    );
+
+    for (const nome of colabNomes) {
+      const vorpId = nomeToVorpId.get(normalizeKey(nome));
+      if (!vorpId) continue; // sem match → não insere (cai no pendências via SQL)
+      links.push({
+        projeto_vorp_id:           projetoVorpId,
+        vorp_colaborador_id:       vorpId,
+        consultor_id:              consultorMap.get(vorpId) ?? null,
+        colaborador_nome_snapshot: nome,
+        origem:                    'sync_nome_lookup',
+        confianca_match:           1.00,
+        synced_at:                 now,
+      });
+    }
+  }
+
+  if (links.length > 0) {
+    const { error } = await supabase
+      .from('vorp_projeto_colaboradores')
+      .upsert(links, { onConflict: 'projeto_vorp_id,vorp_colaborador_id' });
+    if (error) throw error;
+  }
+
+  // Remove vínculos obsoletos: colaboradores que não estão mais no projeto.
+  if (projetoIds.length > 0) {
+    const { data: existing } = await supabase
+      .from('vorp_projeto_colaboradores')
+      .select('projeto_vorp_id, vorp_colaborador_id')
+      .in('projeto_vorp_id', projetoIds);
+
+    const currentPairs = new Set(
+      links.map((l) => `${l.projeto_vorp_id}:${l.vorp_colaborador_id}`),
+    );
+
+    const stale = (existing ?? []).filter(
+      (r: { projeto_vorp_id: string; vorp_colaborador_id: string }) =>
+        !currentPairs.has(`${r.projeto_vorp_id}:${r.vorp_colaborador_id}`),
+    );
+
+    for (const row of stale) {
+      await supabase
+        .from('vorp_projeto_colaboradores')
+        .delete()
+        .eq('projeto_vorp_id', row.projeto_vorp_id)
+        .eq('vorp_colaborador_id', row.vorp_colaborador_id);
+    }
+  }
+}
+
 export async function syncProjetos() {
   try {
     const todos = await getVorpProjetos();
@@ -219,7 +315,10 @@ export async function syncProjetos() {
       empresa_nome:     resolveNome(r.Empresas),
       status:           r.Status ?? null,
       produto_nome:     resolveNome(r.Produtos),
-      colaborador_nome: resolveNomesTexto(r.Colaboradores),
+      // NocoDB v3 retorna Colaboradores como contagem; usa o campo lookup de nome.
+      colaborador_nome: resolveNomesTexto(
+        r['Nome colaborador'] ?? r['Nome do colaborador'] ?? r.Colaboradores,
+      ),
       fee:              toNumberOrNull(r.FEE),
       canal:            r.Canal  ?? null,
       synced_at:        new Date().toISOString(),
@@ -231,6 +330,9 @@ export async function syncProjetos() {
         .upsert(upsert, { onConflict: 'vorp_id' });
       if (error) throw error;
     }
+
+    // Sincroniza vínculos por ID canônico do NocoDB (confianca_match = 1.00).
+    await syncProjetoColaboradores(growthProjetos);
 
     await logSync('vorp_projetos', upsert.length, 'ok');
     return { ok: true, count: upsert.length };

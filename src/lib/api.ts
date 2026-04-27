@@ -522,50 +522,88 @@ export function getMesAnterior(label: string): string | undefined {
 // Vorp System — tabelas espelho
 // ─────────────────────────────────────────────────────────
 
-async function getVorpColaboradorNome(vorpColaboradorId?: string | null) {
-  if (!vorpColaboradorId || vorpColaboradorId === 'all') return null;
-
-  const { data, error } = await supabase
-    .from('vorp_colaboradores')
-    .select('nome')
-    .eq('vorp_id', vorpColaboradorId)
-    .single();
-
-  if (error) {
-    console.error('getVorpColaboradorNome:', error);
-    return null;
-  }
-
-  return data?.nome ?? null;
-}
-
-/** Projetos ativos da vertical Growth, com flag de Tratativa CS */
-export async function getVorpProjetosAtivos(vorpColaboradorId?: string | null) {
-  let q = supabase
-    .from('vorp_projetos')
-    .select('*')
-    .eq('status', 'Ativo')
-    .order('nome');
-
+/**
+ * Projetos da vertical Growth com flag de Tratativa CS.
+ *
+ * @param vorpColaboradorId  ID canônico do colaborador no Vorp System.
+ *                           undefined/"all" → sem filtro de colaborador.
+ * @param status             'Ativo' | 'Churn' | 'Concluído' | null (todos).
+ *                           Padrão: 'Ativo'.
+ */
+export async function getVorpProjetosAtivos(
+  vorpColaboradorId?: string | null,
+  status: string | null = 'Ativo',
+) {
   const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
   if (deveFiltrarColaborador && !vorpColaboradorId) return [];
 
-  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
-  if (deveFiltrarColaborador && !colaboradorNome) return [];
+  if (deveFiltrarColaborador) {
+    let q = supabase
+      .from('view_vorp_projetos_por_consultor')
+      .select('*')
+      .eq('vorp_colaborador_id', vorpColaboradorId)
+      .order('projeto_nome');
+    if (status) q = q.eq('status', status);
+    const { data, error } = await q;
+    if (error) throw error;
 
-  if (colaboradorNome) {
-    q = q.ilike('colaborador_nome', `%${colaboradorNome}%`);
+    return (data ?? []).map((row: any) => ({
+      vorp_id:             row.projeto_vorp_id,
+      nome:                row.projeto_nome,
+      empresa_nome:        row.empresa_nome,
+      status:              row.status,
+      produto_nome:        row.produto_nome,
+      colaborador_nome:    row.colaborador_nome,
+      colaborador_vorp_id: row.vorp_colaborador_id,
+      produto_vorp_id:     row.produto_vorp_id,
+      consultor_id:        row.consultor_id,
+      fee:                 row.fee,
+      canal:               row.canal,
+      tratativa_cs:        row.tratativa_cs,
+      tratativa_cs_obs:    row.tratativa_cs_obs,
+      synced_at:           row.projeto_synced_at,
+    }));
   }
 
+  let q = supabase
+    .from('vorp_projetos')
+    .select('*')
+    .order('nome');
+  if (status) q = q.eq('status', status);
   const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }
 
+/**
+ * Opções de consultor para o filtro na tabela de projetos.
+ * Retorna colaboradores distintos que têm projetos ativos, ordenados por nome.
+ */
+export async function getConsultoresParaFiltro(): Promise<
+  { vorp_colaborador_id: string; nome: string }[]
+> {
+  const { data, error } = await supabase
+    .from('view_vorp_projetos_por_consultor')
+    .select('vorp_colaborador_id, vorp_colaborador_nome')
+    .eq('status', 'Ativo')
+    .not('vorp_colaborador_id', 'is', null);
+  if (error) throw error;
+
+  const seen = new Map<string, string>();
+  for (const r of data ?? []) {
+    if (r.vorp_colaborador_id && !seen.has(r.vorp_colaborador_id)) {
+      seen.set(r.vorp_colaborador_id, r.vorp_colaborador_nome ?? r.vorp_colaborador_id);
+    }
+  }
+  return Array.from(seen.entries())
+    .map(([vorp_colaborador_id, nome]) => ({ vorp_colaborador_id, nome }))
+    .sort((a, b) => a.nome.localeCompare('pt-BR') ? a.nome.localeCompare(b.nome, 'pt-BR') : 0);
+}
+
 /** Conta projetos ativos auditáveis de um consultor (exclui Tratativa CS) */
 export async function countProjetosAtivosPorConsultor(consultorId: string): Promise<number> {
   const { count, error } = await supabase
-    .from('vorp_projetos')
+    .from('view_vorp_projetos_por_consultor')
     .select('*', { count: 'exact', head: true })
     .eq('consultor_id', consultorId)
     .eq('status', 'Ativo')
@@ -589,81 +627,68 @@ export async function setTrativaCS(
 
 /** HealthScores por projeto e mês (ano/mes no formato numérico) */
 export async function getVorpHealthScores(ano: number, mes: number, vorpColaboradorId?: string | null) {
-  let q = supabase
-    .from('vorp_healthscores')
-    .select(`
-      *,
-      vorp_projetos!inner(colaborador_nome, tratativa_cs)
-    `)
-    .eq('ano', ano)
-    .eq('mes', mes);
-
   const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
   if (deveFiltrarColaborador && !vorpColaboradorId) return [];
 
-  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
-  if (deveFiltrarColaborador && !colaboradorNome) return [];
-
-  if (colaboradorNome) {
-    q = q.ilike('vorp_projetos.colaborador_nome', `%${colaboradorNome}%`);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    // fallback sem join se a foreign key não estiver configurada
-    const { data: d2, error: e2 } = await supabase
-      .from('vorp_healthscores')
+  if (deveFiltrarColaborador) {
+    const { data, error } = await supabase
+      .from('view_vorp_healthscores_por_consultor')
       .select('*')
       .eq('ano', ano)
-      .eq('mes', mes);
-    if (e2) throw e2;
-    return d2 ?? [];
+      .eq('mes', mes)
+      .eq('vorp_colaborador_id', vorpColaboradorId);
+    if (error) throw error;
+    return data ?? [];
   }
+
+  const { data, error } = await supabase
+    .from('vorp_healthscores')
+    .select('*')
+    .eq('ano', ano)
+    .eq('mes', mes);
+  if (error) throw error;
   return data ?? [];
 }
 
 /** Metas do Vorp por mês */
 export async function getVorpMetas(ano: number, mes: number, vorpColaboradorId?: string | null) {
-  let q = supabase
-    .from('vorp_metas')
-    .select(`
-      *,
-      vorp_projetos!inner(colaborador_nome, tratativa_cs)
-    `)
-    .eq('ano', ano)
-    .eq('mes', mes);
-
   const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
   if (deveFiltrarColaborador && !vorpColaboradorId) return [];
 
-  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
-  if (deveFiltrarColaborador && !colaboradorNome) return [];
-
-  if (colaboradorNome) {
-    q = q.ilike('vorp_projetos.colaborador_nome', `%${colaboradorNome}%`);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    const { data: d2, error: e2 } = await supabase
-      .from('vorp_metas')
+  if (deveFiltrarColaborador) {
+    const { data, error } = await supabase
+      .from('view_vorp_metas_por_consultor')
       .select('*')
       .eq('ano', ano)
-      .eq('mes', mes);
-    if (e2) throw e2;
-    return d2 ?? [];
+      .eq('mes', mes)
+      .eq('vorp_colaborador_id', vorpColaboradorId);
+    if (error) throw error;
+    return data ?? [];
   }
+
+  const { data, error } = await supabase
+    .from('vorp_metas')
+    .select('*')
+    .eq('ano', ano)
+    .eq('mes', mes);
+  if (error) throw error;
   return data ?? [];
 }
 
 /** Churn do Vorp */
-export async function getVorpChurn() {
+export async function getVorpChurn(vorpColaboradorId?: string | null) {
+  const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
+  if (deveFiltrarColaborador && !vorpColaboradorId) return [];
+
   const { data, error } = await supabase
-    .from('vorp_churn')
+    .from(deveFiltrarColaborador ? 'view_vorp_churn_por_consultor' : 'vorp_churn')
     .select('*')
     .order('vorp_created_at', { ascending: false });
   if (error) throw error;
-  return data ?? [];
+
+  return deveFiltrarColaborador
+    ? (data ?? []).filter((row: any) => row.vorp_colaborador_id === vorpColaboradorId)
+    : data ?? [];
 }
 
 /** Colaboradores Growth do Vorp */
