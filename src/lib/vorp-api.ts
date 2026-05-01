@@ -49,6 +49,9 @@ export interface VorpProjeto {
   'Vertical (from Produtos)'?: LinkedField;
   /** Colaboradores vinculados */
   Colaboradores?: LinkedField;
+  /** Nome exibivel dos colaboradores vinculados */
+  'Nome colaborador'?: LinkedField;
+  'Nome do colaborador'?: LinkedField;
   created_at?:  string;
   updated_at?:  string;
 }
