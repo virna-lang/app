@@ -8,11 +8,25 @@ import type {
   MetaMensal,
   FlagHealthScore,
   Churn,
+  UsuarioApp,
   ViewReunioesConsultor,
   ViewMetasConsultor,
   ViewFlagsConsultor,
   ViewConformidadeConsultor,
 } from './supabase';
+import type { AppPermission, UserRole } from './permissions';
+
+function toNonNegativeInt(value: number | null | undefined): number {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.trunc(n);
+}
+
+function normalizeAuditoriaQuantidades(qtdAvaliados: number, qtdConformes: number) {
+  const avaliados = toNonNegativeInt(qtdAvaliados);
+  const conformes = Math.min(toNonNegativeInt(qtdConformes), avaliados);
+  return { avaliados, conformes };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSULTORES
@@ -43,6 +57,59 @@ export async function toggleConsultor(id: string, status: 'Ativo' | 'Inativo'): 
     .update({ status })
     .eq('id', id);
   if (error) console.error('toggleConsultor:', error);
+}
+
+export async function getUsuariosApp(): Promise<UsuarioApp[]> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return [];
+
+  const response = await fetch('/api/admin/users', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    console.error('getUsuariosApp:', payload ?? response.statusText);
+    return [];
+  }
+
+  const payload = await response.json();
+  return payload.users ?? [];
+}
+
+export async function updateUsuarioApp(
+  id: string,
+  payload: {
+    role?: UserRole;
+    consultor_id?: string | null;
+    permissoes?: AppPermission[];
+    status?: 'Ativo' | 'Inativo';
+  },
+): Promise<UsuarioApp | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return null;
+
+  const response = await fetch('/api/admin/users', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ id, ...payload }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    console.error('updateUsuarioApp:', body ?? response.statusText);
+    return null;
+  }
+
+  const body = await response.json();
+  return body.user ?? null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,9 +177,14 @@ export async function updateAuditoriaItem(
     tipo?: string | null;
   },
 ): Promise<boolean> {
+  const { avaliados, conformes } = normalizeAuditoriaQuantidades(payload.qtd_avaliados, payload.qtd_conformes);
   const { error } = await supabase
     .from('auditoria_itens')
-    .update(payload)
+    .update({
+      ...payload,
+      qtd_avaliados: avaliados,
+      qtd_conformes: conformes,
+    })
     .eq('id', id);
   if (error) { console.error('updateAuditoriaItem:', error); return false; }
   return true;
@@ -130,9 +202,14 @@ export async function deleteAuditoriaItem(id: string): Promise<boolean> {
 export async function upsertAuditoriaItem(
   payload: Omit<AuditoriaItem, 'nota_pct' | 'conforme' | 'created_at'>,
 ): Promise<AuditoriaItem | null> {
+  const { avaliados, conformes } = normalizeAuditoriaQuantidades(payload.qtd_avaliados, payload.qtd_conformes);
   const { data, error } = await supabase
     .from('auditoria_itens')
-    .upsert(payload) // Supabase uses 'id' by default if present
+    .upsert({
+      ...payload,
+      qtd_avaliados: avaliados,
+      qtd_conformes: conformes,
+    }) // Supabase uses 'id' by default if present
     .select()
     .single();
   if (error) { console.error('upsertAuditoriaItem:', error); return null; }
@@ -142,9 +219,14 @@ export async function upsertAuditoriaItem(
 export async function addAuditoriaItem(
   payload: Omit<AuditoriaItem, 'id' | 'nota_pct' | 'conforme' | 'created_at'>,
 ): Promise<AuditoriaItem | null> {
+  const { avaliados, conformes } = normalizeAuditoriaQuantidades(payload.qtd_avaliados, payload.qtd_conformes);
   const { data, error } = await supabase
     .from('auditoria_itens')
-    .insert(payload)
+    .insert({
+      ...payload,
+      qtd_avaliados: avaliados,
+      qtd_conformes: conformes,
+    })
     .select()
     .single();
   if (error) { console.error('addAuditoriaItem:', error); return null; }
@@ -175,11 +257,15 @@ export async function getReunioes(
 // METAS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getMetas(mesAno: string): Promise<MetaMensal[]> {
-  const { data, error } = await supabase
+export async function getMetas(mesAno: string, consultorId?: string): Promise<MetaMensal[]> {
+  let query = supabase
     .from('metas_mensais')
-    .select('id, cliente_id, mes_ano, meta_projetada, meta_realizada, bateu_meta, preenchido_ate_dia5, clientes(nome, produto, consultor_id)')
+    .select('id, cliente_id, mes_ano, meta_projetada, meta_realizada, bateu_meta, preenchido_ate_dia5, clientes!inner(nome, produto, consultor_id)')
     .eq('mes_ano', mesAno);
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('clientes.consultor_id', consultorId);
+  }
+  const { data, error } = await query;
   if (error) { console.error('getMetas:', error); return []; }
   return data ?? [];
 }
@@ -201,9 +287,12 @@ export async function getFlags(mesAno: string): Promise<FlagHealthScore[]> {
 // CHURN
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getChurn(mesAno?: string): Promise<Churn[]> {
+export async function getChurn(mesAno?: string, consultorId?: string): Promise<Churn[]> {
   let query = supabase.from('churn').select('id, cliente_id, consultor_id, mes_churn, motivo, detalhes, receita_perdida').order('created_at', { ascending: false });
   if (mesAno) query = query.eq('mes_churn', mesAno);
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('consultor_id', consultorId);
+  }
   const { data, error } = await query;
   if (error) { console.error('getChurn:', error); return []; }
   return data ?? [];
@@ -308,6 +397,49 @@ export async function getCorrelacaoConsultor(consultorId: string): Promise<
 // ─────────────────────────────────────────────────────────────────────────────
 // VIEWS
 // ─────────────────────────────────────────────────────────────────────────────
+
+export interface AuditoriaPontoDetalhado {
+  consultor_id: string;
+  mes_ano: string;
+  categoria: string;
+  pergunta: string;
+  tipo: string | null;
+  nota_pct: number;
+  qtd_avaliados: number;
+  qtd_conformes: number;
+}
+
+export async function getAuditoriaPontosDetalhados(
+  mesAno: string,
+  consultorId?: string,
+): Promise<AuditoriaPontoDetalhado[]> {
+  let query = supabase
+    .from('auditoria_itens')
+    .select('categoria, pergunta, tipo, nota_pct, qtd_avaliados, qtd_conformes, auditoria_mensal!inner(mes_ano, consultor_id)')
+    .eq('auditoria_mensal.mes_ano', mesAno)
+    .gt('qtd_avaliados', 0);
+
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('auditoria_mensal.consultor_id', consultorId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('getAuditoriaPontosDetalhados:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row: any) => ({
+    consultor_id: row.auditoria_mensal?.consultor_id ?? '',
+    mes_ano: row.auditoria_mensal?.mes_ano ?? mesAno,
+    categoria: row.categoria ?? 'Sem categoria',
+    pergunta: row.pergunta ?? 'Sem pergunta',
+    tipo: row.tipo ?? null,
+    nota_pct: row.nota_pct ?? 0,
+    qtd_avaliados: row.qtd_avaliados ?? 0,
+    qtd_conformes: row.qtd_conformes ?? 0,
+  }));
+}
 
 export async function getViewReunioes(
   mesAno: string,
@@ -522,50 +654,88 @@ export function getMesAnterior(label: string): string | undefined {
 // Vorp System — tabelas espelho
 // ─────────────────────────────────────────────────────────
 
-async function getVorpColaboradorNome(vorpColaboradorId?: string | null) {
-  if (!vorpColaboradorId || vorpColaboradorId === 'all') return null;
-
-  const { data, error } = await supabase
-    .from('vorp_colaboradores')
-    .select('nome')
-    .eq('vorp_id', vorpColaboradorId)
-    .single();
-
-  if (error) {
-    console.error('getVorpColaboradorNome:', error);
-    return null;
-  }
-
-  return data?.nome ?? null;
-}
-
-/** Projetos ativos da vertical Growth, com flag de Tratativa CS */
-export async function getVorpProjetosAtivos(vorpColaboradorId?: string | null) {
-  let q = supabase
-    .from('vorp_projetos')
-    .select('*')
-    .eq('status', 'Ativo')
-    .order('nome');
-
+/**
+ * Projetos da vertical Growth com flag de Tratativa CS.
+ *
+ * @param vorpColaboradorId  ID canônico do colaborador no Vorp System.
+ *                           undefined/"all" → sem filtro de colaborador.
+ * @param status             'Ativo' | 'Churn' | 'Concluído' | null (todos).
+ *                           Padrão: 'Ativo'.
+ */
+export async function getVorpProjetosAtivos(
+  vorpColaboradorId?: string | null,
+  status: string | null = 'Ativo',
+) {
   const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
   if (deveFiltrarColaborador && !vorpColaboradorId) return [];
 
-  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
-  if (deveFiltrarColaborador && !colaboradorNome) return [];
+  if (deveFiltrarColaborador) {
+    let q = supabase
+      .from('view_vorp_projetos_por_consultor')
+      .select('*')
+      .eq('vorp_colaborador_id', vorpColaboradorId)
+      .order('projeto_nome');
+    if (status) q = q.eq('status', status);
+    const { data, error } = await q;
+    if (error) throw error;
 
-  if (colaboradorNome) {
-    q = q.ilike('colaborador_nome', `%${colaboradorNome}%`);
+    return (data ?? []).map((row: any) => ({
+      vorp_id:             row.projeto_vorp_id,
+      nome:                row.projeto_nome,
+      empresa_nome:        row.empresa_nome,
+      status:              row.status,
+      produto_nome:        row.produto_nome,
+      colaborador_nome:    row.colaborador_nome,
+      colaborador_vorp_id: row.vorp_colaborador_id,
+      produto_vorp_id:     row.produto_vorp_id,
+      consultor_id:        row.consultor_id,
+      fee:                 row.fee,
+      canal:               row.canal,
+      tratativa_cs:        row.tratativa_cs,
+      tratativa_cs_obs:    row.tratativa_cs_obs,
+      synced_at:           row.projeto_synced_at,
+    }));
   }
 
+  let q = supabase
+    .from('vorp_projetos')
+    .select('*')
+    .order('nome');
+  if (status) q = q.eq('status', status);
   const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }
 
+/**
+ * Opções de consultor para o filtro na tabela de projetos.
+ * Retorna colaboradores distintos que têm projetos ativos, ordenados por nome.
+ */
+export async function getConsultoresParaFiltro(): Promise<
+  { vorp_colaborador_id: string; nome: string }[]
+> {
+  const { data, error } = await supabase
+    .from('view_vorp_projetos_por_consultor')
+    .select('vorp_colaborador_id, vorp_colaborador_nome')
+    .eq('status', 'Ativo')
+    .not('vorp_colaborador_id', 'is', null);
+  if (error) throw error;
+
+  const seen = new Map<string, string>();
+  for (const r of data ?? []) {
+    if (r.vorp_colaborador_id && !seen.has(r.vorp_colaborador_id)) {
+      seen.set(r.vorp_colaborador_id, r.vorp_colaborador_nome ?? r.vorp_colaborador_id);
+    }
+  }
+  return Array.from(seen.entries())
+    .map(([vorp_colaborador_id, nome]) => ({ vorp_colaborador_id, nome }))
+    .sort((a, b) => a.nome.localeCompare('pt-BR') ? a.nome.localeCompare(b.nome, 'pt-BR') : 0);
+}
+
 /** Conta projetos ativos auditáveis de um consultor (exclui Tratativa CS) */
 export async function countProjetosAtivosPorConsultor(consultorId: string): Promise<number> {
   const { count, error } = await supabase
-    .from('vorp_projetos')
+    .from('view_vorp_projetos_por_consultor')
     .select('*', { count: 'exact', head: true })
     .eq('consultor_id', consultorId)
     .eq('status', 'Ativo')
@@ -589,81 +759,68 @@ export async function setTrativaCS(
 
 /** HealthScores por projeto e mês (ano/mes no formato numérico) */
 export async function getVorpHealthScores(ano: number, mes: number, vorpColaboradorId?: string | null) {
-  let q = supabase
-    .from('vorp_healthscores')
-    .select(`
-      *,
-      vorp_projetos!inner(colaborador_nome, tratativa_cs)
-    `)
-    .eq('ano', ano)
-    .eq('mes', mes);
-
   const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
   if (deveFiltrarColaborador && !vorpColaboradorId) return [];
 
-  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
-  if (deveFiltrarColaborador && !colaboradorNome) return [];
-
-  if (colaboradorNome) {
-    q = q.ilike('vorp_projetos.colaborador_nome', `%${colaboradorNome}%`);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    // fallback sem join se a foreign key não estiver configurada
-    const { data: d2, error: e2 } = await supabase
-      .from('vorp_healthscores')
+  if (deveFiltrarColaborador) {
+    const { data, error } = await supabase
+      .from('view_vorp_healthscores_por_consultor')
       .select('*')
       .eq('ano', ano)
-      .eq('mes', mes);
-    if (e2) throw e2;
-    return d2 ?? [];
+      .eq('mes', mes)
+      .eq('vorp_colaborador_id', vorpColaboradorId);
+    if (error) throw error;
+    return data ?? [];
   }
+
+  const { data, error } = await supabase
+    .from('vorp_healthscores')
+    .select('*')
+    .eq('ano', ano)
+    .eq('mes', mes);
+  if (error) throw error;
   return data ?? [];
 }
 
 /** Metas do Vorp por mês */
 export async function getVorpMetas(ano: number, mes: number, vorpColaboradorId?: string | null) {
-  let q = supabase
-    .from('vorp_metas')
-    .select(`
-      *,
-      vorp_projetos!inner(colaborador_nome, tratativa_cs)
-    `)
-    .eq('ano', ano)
-    .eq('mes', mes);
-
   const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
   if (deveFiltrarColaborador && !vorpColaboradorId) return [];
 
-  const colaboradorNome = await getVorpColaboradorNome(vorpColaboradorId);
-  if (deveFiltrarColaborador && !colaboradorNome) return [];
-
-  if (colaboradorNome) {
-    q = q.ilike('vorp_projetos.colaborador_nome', `%${colaboradorNome}%`);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    const { data: d2, error: e2 } = await supabase
-      .from('vorp_metas')
+  if (deveFiltrarColaborador) {
+    const { data, error } = await supabase
+      .from('view_vorp_metas_por_consultor')
       .select('*')
       .eq('ano', ano)
-      .eq('mes', mes);
-    if (e2) throw e2;
-    return d2 ?? [];
+      .eq('mes', mes)
+      .eq('vorp_colaborador_id', vorpColaboradorId);
+    if (error) throw error;
+    return data ?? [];
   }
+
+  const { data, error } = await supabase
+    .from('vorp_metas')
+    .select('*')
+    .eq('ano', ano)
+    .eq('mes', mes);
+  if (error) throw error;
   return data ?? [];
 }
 
 /** Churn do Vorp */
-export async function getVorpChurn() {
+export async function getVorpChurn(vorpColaboradorId?: string | null) {
+  const deveFiltrarColaborador = vorpColaboradorId !== undefined && vorpColaboradorId !== 'all';
+  if (deveFiltrarColaborador && !vorpColaboradorId) return [];
+
   const { data, error } = await supabase
-    .from('vorp_churn')
+    .from(deveFiltrarColaborador ? 'view_vorp_churn_por_consultor' : 'vorp_churn')
     .select('*')
     .order('vorp_created_at', { ascending: false });
   if (error) throw error;
-  return data ?? [];
+
+  return deveFiltrarColaborador
+    ? (data ?? []).filter((row: any) => row.vorp_colaborador_id === vorpColaboradorId)
+    : data ?? [];
 }
 
 /** Colaboradores Growth do Vorp */

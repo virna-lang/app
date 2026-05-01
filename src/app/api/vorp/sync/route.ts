@@ -1,31 +1,29 @@
-/**
- * POST /api/vorp/sync
- *
- * Aciona a sincronização dos dados do Vorp System (NocoDB) para o Supabase.
- * Protegida por Bearer token simples via SYNC_SECRET no .env.
- *
- * Body (opcional): { "tabela": "colaboradores" }
- * Sem body → sincroniza tudo.
- */
-
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { authenticateRequest } from '@/lib/server-auth';
 import {
   syncAll,
-  syncColaboradores,
-  syncProdutos,
-  syncProjetos,
   syncChurn,
+  syncColaboradores,
   syncHealthScores,
   syncMetas,
+  syncProdutos,
+  syncProjetos,
 } from '@/lib/vorp-sync';
 
-const SYNC_SECRET = (process.env.SYNC_SECRET ?? 'vorp-sync-secret').trim();
-
 export async function POST(req: NextRequest) {
-  // Autenticação simples por token
-  const auth = req.headers.get('authorization') ?? '';
-  if (auth.replace('Bearer ', '') !== SYNC_SECRET) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  const auth = await authenticateRequest(req, { requiredRole: 'Administrador' });
+  if (!auth.ok) return auth.response;
+
+  const rateLimit = checkRateLimit(`sync:post:${auth.context.user.id}`, {
+    limit: 3,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: 'Muitas tentativas de sincronizacao. Aguarde um pouco.' },
+      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+    );
   }
 
   let tabela: string | undefined;
@@ -41,12 +39,12 @@ export async function POST(req: NextRequest) {
 
     switch (tabela) {
       case 'colaboradores': result = await syncColaboradores(); break;
-      case 'produtos':      result = await syncProdutos();      break;
-      case 'projetos':      result = await syncProjetos();      break;
-      case 'churn':         result = await syncChurn();         break;
-      case 'healthscores':  result = await syncHealthScores();  break;
-      case 'metas':         result = await syncMetas();         break;
-      default:              result = await syncAll();           break;
+      case 'produtos': result = await syncProdutos(); break;
+      case 'projetos': result = await syncProjetos(); break;
+      case 'churn': result = await syncChurn(); break;
+      case 'healthscores': result = await syncHealthScores(); break;
+      case 'metas': result = await syncMetas(); break;
+      default: result = await syncAll(); break;
     }
 
     return NextResponse.json({ ok: true, result });
@@ -56,20 +54,22 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** GET /api/vorp/sync → retorna o último log de sincronização */
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization') ?? '';
-  if (auth.replace('Bearer ', '') !== SYNC_SECRET) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  const auth = await authenticateRequest(req, { requiredRole: 'Administrador' });
+  if (!auth.ok) return auth.response;
+
+  const rateLimit = checkRateLimit(`sync:get:${auth.context.user.id}`, {
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: 'Muitas consultas ao log de sincronizacao. Aguarde um pouco.' },
+      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+    );
   }
 
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-
-  const { data, error } = await supabase
+  const { data, error } = await auth.context.supabaseAdmin
     .from('vorp_sync_log')
     .select('*')
     .order('executado_em', { ascending: false })
