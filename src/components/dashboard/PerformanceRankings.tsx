@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { DashboardData, getSemaphorColor } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
 import { AlertTriangle, TrendingUp, Zap } from 'lucide-react';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 const T = {
   bg: '#0f1117', border: '#1a1d24', orange: '#ff5c1a',
@@ -13,11 +14,10 @@ const T = {
 
 export default function PerformanceRankings({ data }: { data: DashboardData }) {
   const { consultores } = useDashboard();
-  const getNome = (id: string) => consultores.find(c => c.id === id)?.nome ?? 'Consultor';
 
   const ranking = useMemo(() =>
     (data.currentAudits as any[]).map(a => ({
-      name:  getNome(a.consultor_id),
+      name:  getConsultorLabel(consultores, a.consultor_id, 'full'),
       score: a.score_drive ?? 0,
     })).sort((a, b) => b.score - a.score),
     [data.currentAudits, consultores],

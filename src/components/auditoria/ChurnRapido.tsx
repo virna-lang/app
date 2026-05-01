@@ -12,6 +12,7 @@ import {
   labelToMesAno,
 } from '@/lib/api';
 import type { Consultor, Cliente, Churn } from '@/lib/supabase';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 const MOTIVOS: Churn['motivo'][] = ['Preço', 'Resultado', 'Sumiu', 'Concorrente', 'Outro'];
 
@@ -99,7 +100,7 @@ export default function ChurnRapido() {
             <div className="sel-wrap">
               <select value={selectedCons} onChange={e => setSelectedCons(e.target.value)} className="cr-select">
                 <option value="">Selecionar consultor...</option>
-                {consultores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {consultores.map(c => <option key={c.id} value={c.id}>{getConsultorLabel(consultores, c.id, 'full')}</option>)}
               </select>
               <ChevronDown size={14} className="sel-icon" />
             </div>
@@ -129,7 +130,7 @@ export default function ChurnRapido() {
             </div>
             {consultorSelecionado && (
               <div className="cr-kpi">
-                <span className="cr-kpi-val">{consultorSelecionado.nome.split(' ')[0]}</span>
+                <span className="cr-kpi-val">{getConsultorLabel(consultores, consultorSelecionado.id, 'first')}</span>
                 <span className="cr-kpi-label">Consultor</span>
               </div>
             )}
@@ -186,7 +187,7 @@ export default function ChurnRapido() {
           {registros.length === 0 ? (
             <div className="cr-empty">
               <span style={{ fontSize: '2rem' }}>🎉</span>
-              <p>Nenhum churn registrado em {selectedMes} para {consultorSelecionado?.nome?.split(' ')[0]}.</p>
+              <p>Nenhum churn registrado em {selectedMes} para {consultorSelecionado ? getConsultorLabel(consultores, consultorSelecionado.id, 'first') : 'este consultor'}.</p>
             </div>
           ) : (
             <div className="card cr-table-card">

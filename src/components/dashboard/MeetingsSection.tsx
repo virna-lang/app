@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { DashboardData, getSemaphorColor } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 const T = {
   bg: '#0f1117', bgDeep: '#0a0b0e', border: '#1a1d24',
@@ -18,14 +19,24 @@ const T = {
 const tooltipStyle = { background: T.bgDeep, borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 12 };
 
 export default function MeetingsSection({ data }: { data: DashboardData }) {
-  const { consultores } = useDashboard();
+  const { consultores, filters } = useDashboard();
 
   const ranking = useMemo(() => {
     const source = data.rankingAtendidos.length > 0 ? data.rankingAtendidos : data.currentMeetings;
     const useAudit = data.rankingAtendidos.length > 0;
     const map: Record<string, { consultor_id: string; atendidos: number; carteira: number }> = {};
+
+    const consultoresBase = filters.consultantId === 'all'
+      ? consultores.filter(c => c.status === 'Ativo')
+      : consultores.filter(c => c.id === filters.consultantId);
+
+    consultoresBase.forEach(c => {
+      map[c.id] = { consultor_id: c.id, atendidos: 0, carteira: 0 };
+    });
+
     source.forEach((r: any) => {
       const cid = r.consultor_id;
+      if (!cid) return;
       if (!map[cid]) map[cid] = { consultor_id: cid, atendidos: 0, carteira: 0 };
       map[cid].atendidos += useAudit ? (r.atendidos ?? 0) : (r.reunioes_realizadas ?? 0);
       map[cid].carteira  += useAudit ? (r.carteira  ?? 0) : (r.clientes_ativos    ?? 0);
@@ -35,9 +46,10 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
       reunioes_realizadas: r.atendidos,
       clientes_ativos:     r.carteira,
       pct_reunioes:        r.carteira > 0 ? Math.round((r.atendidos / r.carteira) * 100) : 0,
-      consulName:          consultores.find(c => c.id === r.consultor_id)?.nome ?? 'Consultor',
+      consulName:          getConsultorLabel(consultores, r.consultor_id, 'first'),
+      consulNameFull:      getConsultorLabel(consultores, r.consultor_id, 'full'),
     })).sort((a, b) => b.pct_reunioes - a.pct_reunioes);
-  }, [data.rankingAtendidos, data.currentMeetings, consultores]);
+  }, [data.rankingAtendidos, data.currentMeetings, consultores, filters.consultantId]);
 
   const getStatusLabel = (pct: number) =>
     pct >= 90 ? 'Excelente' : pct >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta';
@@ -51,16 +63,17 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
         </div>
         <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={ranking} margin={{ top: 22, right: 16, left: 0, bottom: 16 }}>
+            <BarChart data={ranking} margin={{ top: 22, right: 16, left: 0, bottom: 28 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
               <XAxis dataKey="consulName" axisLine={false} tickLine={false}
+                interval={0} minTickGap={0}
                 tick={{ fill: T.textSub, fontSize: 10, fontWeight: 600 }} dy={8} />
               <YAxis domain={[0, 100]} axisLine={false} tickLine={false}
                 tick={{ fill: T.textDim, fontSize: 10 }} tickFormatter={v => `${v}%`} width={34} />
               <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
                 formatter={(v: any, _: any, props: any) => [
                   `${v}% (${props.payload.reunioes_realizadas}/${props.payload.clientes_ativos})`,
-                  '% Carteira',
+                  props.payload.consulNameFull,
                 ]} />
               <Bar dataKey="pct_reunioes" radius={[5, 5, 0, 0]} barSize={32}>
                 {ranking.map((e, i) => (
@@ -103,7 +116,7 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.015)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}>
                   <td style={{ padding: '11px 8px', fontSize: 10, color: T.textDim, fontWeight: 700 }}>#{i + 1}</td>
-                  <td style={{ padding: '11px 8px', fontSize: 12, fontWeight: 600, color: T.textSub }}>{r.consulName}</td>
+                  <td style={{ padding: '11px 8px', fontSize: 12, fontWeight: 600, color: T.textSub }}>{r.consulNameFull}</td>
                   <td style={{ padding: '11px 8px' }}>
                     <span style={{
                       display: 'inline-block', padding: '3px 8px', borderRadius: 5,

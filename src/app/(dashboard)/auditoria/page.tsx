@@ -16,6 +16,7 @@ import {
   countProjetosAtivosPorConsultor, getVorpProjetosAtivos, setTrativaCS,
 } from '@/lib/api';
 import type { Consultor, AuditoriaItem, AuditoriaMensal, VorpProjetoRow } from '@/lib/supabase';
+import { AUDITORIA_TAB_PERMISSIONS } from '@/lib/permissions';
 
 const C = {
   verde:    '#10b981',
@@ -28,6 +29,16 @@ function getSemaphor(nota: number) {
   if (nota >= 80) return C.verde;
   if (nota >= 60) return C.amarelo;
   return C.vermelho;
+}
+
+function toNonNegativeInt(value: string | number | null | undefined): number {
+  const raw = typeof value === 'number' ? value : Number(value ?? 0);
+  if (!Number.isFinite(raw) || raw < 0) return 0;
+  return Math.trunc(raw);
+}
+
+function clampConformes(qtdConformes: number, qtdAvaliados: number): number {
+  return Math.min(toNonNegativeInt(qtdConformes), toNonNegativeInt(qtdAvaliados));
 }
 
 type ItemEditState = {
@@ -53,14 +64,20 @@ export default function AuditoriaPage() {
 }
 
 function AuditoriaPageInner() {
-  const { role } = useAuth();
+  const { hasPermission } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<AuditTab>(
     (searchParams.get('tab') as AuditTab) ?? 'edicao',
   );
 
-  useEffect(() => { if (role && role !== 'Administrador') router.replace('/'); }, [role]);
+  useEffect(() => {
+    if (hasPermission(AUDITORIA_TAB_PERMISSIONS[activeTab])) return;
+    const fallback = (Object.keys(AUDITORIA_TAB_PERMISSIONS) as AuditTab[])
+      .find(tab => hasPermission(AUDITORIA_TAB_PERMISSIONS[tab]));
+    if (fallback) setActiveTab(fallback);
+    else router.replace('/');
+  }, [activeTab, hasPermission, router]);
 
   const meses = gerarMeses(24);
   const [consultores,  setConsultores]  = useState<Consultor[]>([]);
@@ -91,15 +108,17 @@ function AuditoriaPageInner() {
   // Carrega projetos do consultor selecionado
   useEffect(() => {
     if (!selectedCons) { setProjetosList([]); setProjetosAtivos(null); return; }
+    const vorpColaboradorId = consultores.find(c => c.id === selectedCons)?.vorp_colaborador_id ?? null;
+    if (!vorpColaboradorId) { setProjetosList([]); setProjetosAtivos(0); return; }
     setLoadingProjetos(true);
-    getVorpProjetosAtivos()
+    getVorpProjetosAtivos(vorpColaboradorId)
       .then(data => {
-        const filtrado = (data as VorpProjetoRow[]).filter(p => p.consultor_id === selectedCons);
+        const filtrado = data as VorpProjetoRow[];
         setProjetosList(filtrado);
         setProjetosAtivos(filtrado.filter(p => !p.tratativa_cs).length);
       })
       .finally(() => setLoadingProjetos(false));
-  }, [selectedCons]);
+  }, [selectedCons, consultores]);
 
   const handleToggleCS = async (projeto: VorpProjetoRow) => {
     setSalvandoCS(projeto.vorp_id);
@@ -128,7 +147,15 @@ function AuditoriaPageInner() {
         itens.forEach(item => {
           const tipo = next[item.id]?.tipo ?? item.tipo ?? '';
           if (tipo === 'Resultado') {
-            next[item.id] = { ...next[item.id], qtd_avaliados: qtd, dirty: true, saved: false, error: false };
+            const qtdConformesAtual = toNonNegativeInt(next[item.id]?.qtd_conformes);
+            next[item.id] = {
+              ...next[item.id],
+              qtd_avaliados: qtd,
+              qtd_conformes: clampConformes(qtdConformesAtual, qtd),
+              dirty: true,
+              saved: false,
+              error: false,
+            };
           }
         });
         return next;
@@ -153,10 +180,13 @@ function AuditoriaPageInner() {
     setEditState(Object.fromEntries(items.map(i => {
       const isResultado = (i.tipo ?? '') === 'Resultado';
       // Auto-preenche qtd_avaliados com projetos ativos para itens do tipo Resultado
-      const qtdAvaliados = isResultado && qtdProjetos > 0 ? qtdProjetos : i.qtd_avaliados;
+      const qtdAvaliados = isResultado && qtdProjetos > 0
+        ? qtdProjetos
+        : toNonNegativeInt(i.qtd_avaliados);
+      const qtdConformes = clampConformes(i.qtd_conformes, qtdAvaliados);
       const isDirty = isResultado && qtdProjetos > 0 && qtdAvaliados !== i.qtd_avaliados;
       return [i.id, {
-        tipo: i.tipo ?? '', qtd_avaliados: qtdAvaliados, qtd_conformes: i.qtd_conformes,
+        tipo: i.tipo ?? '', qtd_avaliados: qtdAvaliados, qtd_conformes: qtdConformes,
         observacao: i.observacao ?? '', evidencia_url: i.evidencia_url ?? '',
         saving: false, saved: false, error: false, dirty: isDirty,
       }];
@@ -177,15 +207,50 @@ function AuditoriaPageInner() {
   };
 
   const handleChange = (id: string, field: keyof Pick<ItemEditState,'tipo'|'qtd_avaliados'|'qtd_conformes'|'observacao'|'evidencia_url'>, value: string|number) => {
-    setEditState(prev => ({ ...prev, [id]: { ...prev[id], [field]: value, dirty: true, saved: false, error: false } }));
+    setEditState(prev => {
+      const current = prev[id];
+      if (!current) return prev;
+
+      const nextItem: ItemEditState = {
+        ...current,
+        dirty: true,
+        saved: false,
+        error: false,
+      };
+
+      if (field === 'qtd_avaliados') {
+        const qtdAvaliados = toNonNegativeInt(value);
+        nextItem.qtd_avaliados = qtdAvaliados;
+        nextItem.qtd_conformes = clampConformes(current.qtd_conformes, qtdAvaliados);
+      } else if (field === 'qtd_conformes') {
+        nextItem.qtd_conformes = clampConformes(value as number, current.qtd_avaliados);
+      } else {
+        nextItem[field] = value as never;
+      }
+
+      return { ...prev, [id]: nextItem };
+    });
   };
 
   const handleSave = async (id: string) => {
     const s = editState[id]; if (!s) return;
-    setEditState(prev => ({ ...prev, [id]: { ...prev[id], saving: true } }));
+    const qtdAvaliados = toNonNegativeInt(s.qtd_avaliados);
+    const qtdConformes = clampConformes(s.qtd_conformes, qtdAvaliados);
+    setEditState(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        qtd_avaliados: qtdAvaliados,
+        qtd_conformes: qtdConformes,
+        saving: true,
+      },
+    }));
     const ok = await updateAuditoriaItem(id, {
-      tipo: s.tipo || null, qtd_avaliados: Number(s.qtd_avaliados),
-      qtd_conformes: Number(s.qtd_conformes), observacao: s.observacao || null, evidencia_url: s.evidencia_url || null,
+      tipo: s.tipo || null,
+      qtd_avaliados: qtdAvaliados,
+      qtd_conformes: qtdConformes,
+      observacao: s.observacao || null,
+      evidencia_url: s.evidencia_url || null,
     });
     setEditState(prev => ({ ...prev, [id]: { ...prev[id], saving: false, saved: ok, error: !ok, dirty: false } }));
   };
@@ -197,7 +262,8 @@ function AuditoriaPageInner() {
   const calcNota = (id: string) => {
     const s = editState[id];
     if (!s || s.qtd_avaliados === 0) return 0;
-    return Math.round((s.qtd_conformes / s.qtd_avaliados) * 1000) / 10;
+    const qtdConformes = clampConformes(s.qtd_conformes, s.qtd_avaliados);
+    return Math.round((qtdConformes / s.qtd_avaliados) * 1000) / 10;
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -232,13 +298,13 @@ function AuditoriaPageInner() {
   const semTipo      = itens.filter(i => !((editState[i.id]?.tipo ?? i.tipo)));
   const dirtyCount   = Object.values(editState).filter(s => s.dirty).length;
 
-  if (role && role !== 'Administrador') return null;
+  if (!hasPermission(AUDITORIA_TAB_PERMISSIONS[activeTab])) return null;
 
   return (
     <div className="page">
       {/* Tab bar */}
       <div className="tab-bar">
-        {TABS.map(tab => (
+        {TABS.filter(tab => hasPermission(AUDITORIA_TAB_PERMISSIONS[tab.id])).map(tab => (
           <button key={tab.id} className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
             onClick={() => setActiveTab(tab.id)}>
             {tab.icon}{tab.label}

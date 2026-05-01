@@ -8,6 +8,7 @@ import {
 import { DashboardData, getSemaphorColor } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
 import { ChevronDown } from 'lucide-react';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 const T = {
   bg: '#0f1117', bgDeep: '#0a0b0e', border: '#1a1d24',
@@ -34,17 +35,28 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
     const filtered = (data.metasPorProduto as any[]).filter(v =>
       selectedProduct === 'all' || v.produto === selectedProduct,
     );
-    const map: Record<string, { name: string; soma: number; count: number; qtd_conformes: number; qtd_avaliados: number }> = {};
+    const map: Record<string, { consultor_id: string; name: string; nameFull: string; soma: number; count: number; qtd_conformes: number; qtd_avaliados: number }> = {};
     filtered.forEach(v => {
-      const nome = consultores.find(c => c.id === v.consultor_id)?.nome ?? 'Consultor';
-      if (!map[v.consultor_id]) map[v.consultor_id] = { name: nome, soma: 0, count: 0, qtd_conformes: 0, qtd_avaliados: 0 };
+      if (!map[v.consultor_id]) {
+        map[v.consultor_id] = {
+          consultor_id: v.consultor_id,
+          name: getConsultorLabel(consultores, v.consultor_id, 'first'),
+          nameFull: getConsultorLabel(consultores, v.consultor_id, 'full'),
+          soma: 0,
+          count: 0,
+          qtd_conformes: 0,
+          qtd_avaliados: 0,
+        };
+      }
       map[v.consultor_id].soma          += v.nota_pct      ?? 0;
       map[v.consultor_id].count         += 1;
       map[v.consultor_id].qtd_conformes += v.qtd_conformes ?? 0;
       map[v.consultor_id].qtd_avaliados += v.qtd_avaliados ?? 0;
     });
     return Object.values(map).map(r => ({
+      consultor_id: r.consultor_id,
       name:    r.name,
+      nameFull: r.nameFull,
       batidas: r.qtd_conformes,
       total:   r.qtd_avaliados,
       pct:     r.qtd_avaliados > 0
@@ -126,7 +138,7 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
                     tick={{ fill: T.textDim, fontSize: 10 }} tickFormatter={v => `${v}%`} width={34} />
                   <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
                     formatter={(v: any, _: any, props: any) => [
-                      `${v}% (${props.payload.batidas}/${props.payload.total})`, 'Meta batida',
+                      `${v}% (${props.payload.batidas}/${props.payload.total})`, props.payload.nameFull,
                     ]} />
                   <Bar dataKey="pct" radius={[5, 5, 0, 0]} barSize={36}>
                     {consultantRanking.map((e, i) => (
@@ -192,7 +204,7 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
               {consultantRanking.map((r, i) => (
                 <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                   <td style={{ padding: '10px 10px', fontSize: 10, color: T.textDim, fontWeight: 700 }}>#{i + 1}</td>
-                  <td style={{ padding: '10px 10px', fontSize: 12, fontWeight: 600, color: T.text }}>{r.name}</td>
+                  <td style={{ padding: '10px 10px', fontSize: 12, fontWeight: 600, color: T.text }}>{r.nameFull}</td>
                   <td style={{ padding: '10px 10px', fontSize: 13, fontWeight: 700, color: getSemaphorColor(r.pct), fontFamily: T.mono }}>{r.batidas}</td>
                   <td style={{ padding: '10px 10px', fontSize: 12, color: T.textDim }}>{r.total}</td>
                   <td style={{ padding: '10px 10px', textAlign: 'right' }}>
@@ -243,7 +255,11 @@ export default function GoalsSection({ data, filterProducts }: { data: Dashboard
                         {g.produto ?? '—'}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 10px', fontSize: 11, color: T.textDim }}>{g.consultor_nome ?? '—'}</td>
+                    <td style={{ padding: '10px 10px', fontSize: 11, color: T.textDim }}>
+                      {(g.consultor_id || g.clientes?.consultor_id)
+                        ? getConsultorLabel(consultores, g.consultor_id ?? g.clientes?.consultor_id, 'full')
+                        : (g.consultor_nome ?? '—')}
+                    </td>
                     <td style={{ padding: '10px 10px', fontSize: 12, fontWeight: 500, color: T.textSub }}>R$ {(g.meta_projetada ?? 0).toLocaleString()}</td>
                     <td style={{ padding: '10px 10px', fontSize: 12, fontWeight: 700, color: g.bateu_meta ? T.green : T.red }}>
                       R$ {(g.meta_realizada ?? 0).toLocaleString()}

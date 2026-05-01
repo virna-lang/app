@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { DashboardData, COLORS } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 const T = {
   bg:      '#0f1117',
@@ -52,13 +53,13 @@ function EndLabel({ x, y, value, index, color, totalMonths }: any) {
 
 function MiniChart({ chartData, consultants, label }: {
   chartData: any[];
-  consultants: { id: string; nome: string; color: string }[];
+  consultants: { id: string; nome: string; nomeCompleto: string; color: string }[];
   label: string;
 }) {
   const avg = useMemo(() => {
     if (!chartData.length) return 0;
     const last = chartData[chartData.length - 1];
-    const vals = consultants.map(c => last[c.nome] ?? 0).filter(v => v > 0);
+    const vals = consultants.map(c => last[c.id] ?? 0).filter(v => v > 0);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   }, [chartData, consultants]);
 
@@ -83,7 +84,7 @@ function MiniChart({ chartData, consultants, label }: {
           {consultants.map(c => (
             <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: T.textSub }}>
               <i style={{ width: 6, height: 6, borderRadius: '50%', background: c.color, display: 'block', flexShrink: 0 }} />
-              {c.nome.split(' ')[0]}
+              {c.nome}
             </span>
           ))}
         </div>
@@ -102,7 +103,7 @@ function MiniChart({ chartData, consultants, label }: {
             <Tooltip contentStyle={tooltipStyle} itemStyle={{ fontWeight: 600 }}
               formatter={(v: any) => [`${(v || 0).toFixed(1)}%`]} />
             {consultants.map((c) => (
-              <Line key={c.id} type="monotone" dataKey={c.nome}
+              <Line key={c.id} type="monotone" dataKey={c.id} name={c.nomeCompleto}
                 stroke={c.color} strokeWidth={2}
                 dot={{ r: 3, fill: c.color, strokeWidth: 0 }}
                 activeDot={{ r: 5, strokeWidth: 0 }}
@@ -118,7 +119,6 @@ function MiniChart({ chartData, consultants, label }: {
 
 export default function EvolutionSection({ data }: { data: DashboardData }) {
   const { consultores } = useDashboard();
-  const getNome = (id: string) => consultores.find(c => c.id === id)?.nome ?? 'Consultor';
 
   const months = useMemo(
     () => [data.prevMonth, data.month].filter(Boolean) as string[],
@@ -128,7 +128,8 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
   const consultants = useMemo(
     () => (data.currentAudits as any[]).map((a, i) => ({
       id: a.consultor_id,
-      nome: getNome(a.consultor_id),
+      nome: getConsultorLabel(consultores, a.consultor_id, 'first'),
+      nomeCompleto: getConsultorLabel(consultores, a.consultor_id, 'full'),
       color: PALETTE[i % PALETTE.length],
     })),
     [data.currentAudits, consultores],
@@ -140,7 +141,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
       const audits = m === data.month ? data.currentAudits : data.prevAudits;
       consultants.forEach(c => {
         const audit = (audits as any[]).find(a => a.consultor_id === c.id);
-        if (audit) entry[c.nome] = audit[scoreField] ?? 0;
+        if (audit) entry[c.id] = audit[scoreField] ?? 0;
       });
       return entry;
     });
@@ -163,8 +164,8 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
     [...consultants].map(c => {
       const audit = (data.currentAudits as any[]).find(a => a.consultor_id === c.id);
       return {
-        nome:               c.nome.split(' ')[0],
-        nomeCompleto:       c.nome,
+        nome:               c.nome,
+        nomeCompleto:       c.nomeCompleto,
         score_conformidade: audit?.score_conformidade ?? 0,
         score_resultado:    audit?.score_resultado    ?? 0,
         color:              c.color,
@@ -259,7 +260,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
                 Maior Evolução
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: top.color, lineHeight: 1.2 }}>
-                {top.nome.split(' ')[0]}
+                {top.nome}
               </div>
             </div>
             <span style={{

@@ -18,6 +18,16 @@ const CAT_COLORS: Record<string, string> = {
   'Vorp System': '#f59e0b', Dados: '#ec4899', Flags: '#14b8a6',
 };
 
+function toNonNegativeInt(value: number | null | undefined): number {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.trunc(n);
+}
+
+function clampConformes(conformes: number, avaliados: number): number {
+  return Math.min(toNonNegativeInt(conformes), toNonNegativeInt(avaliados));
+}
+
 export default function AuditoriaRapida() {
   const meses = gerarMeses(24);
   const [consultores,    setConsultores]    = useState<Consultor[]>([]);
@@ -71,10 +81,12 @@ export default function AuditoriaRapida() {
     const selected = template.map((q, i) => ({ q, s: qState[i] })).filter(({ s }) => s.checked);
     let ok = true;
     for (const { q, s } of selected) {
+      const qtdAvaliados = toNonNegativeInt(s.avaliados);
+      const qtdConformes = clampConformes(s.conformes, qtdAvaliados);
       const result = await addAuditoriaItem({
         auditoria_id: auditoria.id, categoria: q.categoria as any,
         pergunta: q.pergunta, tipo: q.tipo, tipo_amostragem: q.tipo_amostragem as any,
-        qtd_avaliados: s.avaliados, qtd_conformes: s.conformes, observacao: '', evidencia_url: '',
+        qtd_avaliados: qtdAvaliados, qtd_conformes: qtdConformes, observacao: '', evidencia_url: '',
       });
       if (!result) ok = false;
     }
@@ -85,7 +97,20 @@ export default function AuditoriaRapida() {
   const toggleCheck = (i: number) =>
     setQState(prev => ({ ...prev, [i]: { ...prev[i], checked: !prev[i].checked } }));
   const setVal = (i: number, field: 'avaliados' | 'conformes', val: number) =>
-    setQState(prev => ({ ...prev, [i]: { ...prev[i], [field]: val } }));
+    setQState(prev => {
+      const curr = prev[i];
+      if (!curr) return prev;
+      const nextAvaliados = field === 'avaliados' ? toNonNegativeInt(val) : toNonNegativeInt(curr.avaliados);
+      const nextConformesRaw = field === 'conformes' ? toNonNegativeInt(val) : toNonNegativeInt(curr.conformes);
+      return {
+        ...prev,
+        [i]: {
+          ...curr,
+          avaliados: nextAvaliados,
+          conformes: clampConformes(nextConformesRaw, nextAvaliados),
+        },
+      };
+    });
   const selectAll = () => setQState(prev =>
     Object.fromEntries(Object.keys(prev).map(k => [k, { ...prev[Number(k)], checked: true }])));
   const clearAll = () => setQState(prev =>
@@ -201,7 +226,9 @@ export default function AuditoriaRapida() {
                   <div className="q-list">
                     {items.map(({ q, i }) => {
                       const s = qState[i]; if (!s) return null;
-                      const nota = s.avaliados > 0 ? Math.round((s.conformes / s.avaliados) * 1000) / 10 : 0;
+                      const avaliados = toNonNegativeInt(s.avaliados);
+                      const conformes = clampConformes(s.conformes, avaliados);
+                      const nota = avaliados > 0 ? Math.round((conformes / avaliados) * 1000) / 10 : 0;
                       const notaCor = nota >= 80 ? C.verde : nota >= 60 ? C.amarelo : C.vermelho;
                       return (
                         <div key={i} className={`q-row ${s.checked ? 'q-checked' : ''}`}>

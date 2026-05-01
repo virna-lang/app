@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { DashboardData, getSemaphorColor } from '@/types/dashboard';
 import { useDashboard } from '@/context/DashboardContext';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 const T = {
   bg:      '#0f1117',
@@ -45,12 +46,10 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
   const { consultores } = useDashboard();
   const [selectedCat, setSelectedCat] = useState<string>('all');
 
-  const getNome = (id: string) =>
-    consultores.find(c => c.id === id)?.nome ?? 'Consultor';
-
   const chartData = useMemo(() =>
     data.currentAudits.map((a: any) => ({
-      name:          getNome(a.consultor_id).split(' ')[0],
+      name:          getConsultorLabel(consultores, a.consultor_id, 'first'),
+      consultor_id:  a.consultor_id,
       ClickUp:       a.score_clickup  ?? 0,
       Drive:         a.score_drive    ?? 0,
       WhatsApp:      a.score_whatsapp ?? 0,
@@ -66,7 +65,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
   const preenchimentoRanking = useMemo(() => {
     const key = selectedCat === 'all' ? 'score_vorp' : selectedCat;
     return data.currentAudits.map((a: any) => ({
-      name:  getNome(a.consultor_id),
+      name:  getConsultorLabel(consultores, a.consultor_id, 'full'),
       score: a[key] ?? 0,
     })).sort((a, b) => b.score - a.score);
   }, [data.currentAudits, consultores, selectedCat]);
@@ -123,7 +122,10 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                 tick={{ fill: T.textDim, fontSize: 10 }}
                 tickFormatter={v => `${v}%`} width={36} />
               <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
-                formatter={(v: any, name: any) => [`${(v || 0).toFixed(1)}%`, String(name ?? '')]} />
+                formatter={(v: any, name: any, p: any) => [
+                  `${(v || 0).toFixed(1)}%`,
+                  `${String(name ?? '')} • ${getConsultorLabel(consultores, p?.payload?.consultor_id ?? '', 'full')}`,
+                ]} />
               {selectedCat === 'all' && (
                 <Legend verticalAlign="top" align="right" iconType="circle"
                   wrapperStyle={{ paddingBottom: 8, fontSize: 10, color: T.textDim }} />
@@ -178,7 +180,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {ALL_CATEGORIES.map(cat => {
               const best = [...data.currentAudits].sort((a: any, b: any) => (b[cat.key] ?? 0) - (a[cat.key] ?? 0))[0];
-              const bestNome = best ? getNome((best as any).consultor_id).split(' ')[0] : '—';
+              const bestNome = best ? getConsultorLabel(consultores, (best as any).consultor_id, 'first') : '—';
               const avg = data.currentAudits.length
                 ? data.currentAudits.reduce((s: number, a: any) => s + (a[cat.key] ?? 0), 0) / data.currentAudits.length
                 : 0;
@@ -250,7 +252,7 @@ export default function CategoryGaps({ data }: { data: DashboardData }) {
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <span style={{ fontSize: 11, color: T.textSub, fontWeight: 600, width: 50, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {getNome(r.consultor_id).split(' ')[0]}
+                          {getConsultorLabel(consultores, r.consultor_id, 'first')}
                         </span>
                         <div style={{ flex: 1, height: 4, background: T.border, borderRadius: 99, overflow: 'hidden' }}>
                           <div style={{ width: `${score}%`, height: '100%', background: catColor, opacity: 0.8, borderRadius: 99, transition: 'width 0.8s ease' }} />

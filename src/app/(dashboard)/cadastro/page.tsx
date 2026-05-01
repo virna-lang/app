@@ -7,14 +7,18 @@ import { getVorpColaboradores, getVorpProdutos, getVorpProjetosAtivos } from '@/
 import type { VorpColaboradorRow, VorpProjetoRow } from '@/lib/supabase';
 import { COLORS } from '@/types/dashboard';
 import dynamic from 'next/dynamic';
+import { useAuth } from '@/components/AuthContext';
+import { CADASTRO_TAB_PERMISSIONS } from '@/lib/permissions';
 
 const VorpSection = dynamic(() => import('@/components/dashboard/VorpSection'));
+const UserPermissionsPanel = dynamic(() => import('@/components/cadastro/UserPermissionsPanel'));
 
 type Tab = 'time-completo' | 'produtos' | 'projetos' | 'vorp-system';
 
 function CadastroInner() {
   const searchParams = useSearchParams();
   const router       = useRouter();
+  const { hasPermission } = useAuth();
   const tabParam     = (searchParams.get('tab') ?? 'time-completo') as Tab;
 
   const [activeTab, setActiveTab] = useState<Tab>(tabParam);
@@ -26,6 +30,7 @@ function CadastroInner() {
   const [busca,    setBusca]    = useState('');
 
   const changeTab = (tab: Tab) => {
+    if (!hasPermission(CADASTRO_TAB_PERMISSIONS[tab])) return;
     setActiveTab(tab);
     router.replace(`/cadastro?tab=${tab}`);
     setBusca('');
@@ -55,6 +60,14 @@ function CadastroInner() {
   };
 
   useEffect(() => { load(activeTab); }, [activeTab]);
+
+  useEffect(() => {
+    if (hasPermission(CADASTRO_TAB_PERMISSIONS[activeTab])) return;
+    const fallback = (Object.keys(CADASTRO_TAB_PERMISSIONS) as Tab[])
+      .find(tab => hasPermission(CADASTRO_TAB_PERMISSIONS[tab]));
+    if (fallback) changeTab(fallback);
+    else router.replace('/');
+  }, [activeTab, hasPermission, router]);
 
   const refresh = async () => {
     setLoading(true);
@@ -103,7 +116,7 @@ function CadastroInner() {
 
       {/* Tab bar */}
       <div className="tab-bar">
-        {tabs.map(t => (
+        {tabs.filter(t => hasPermission(CADASTRO_TAB_PERMISSIONS[t.id])).map(t => (
           <button
             key={t.id}
             className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
@@ -140,6 +153,8 @@ function CadastroInner() {
         <>
           {/* ── Time Completo ── */}
           {activeTab === 'time-completo' && (
+            <>
+            {hasPermission('admin.usuarios') && <UserPermissionsPanel />}
             <div className="table-wrap card">
               <table className="cad-table">
                 <thead>
@@ -171,6 +186,7 @@ function CadastroInner() {
               </table>
               <p className="table-footer">{colabsFiltrados.length} colaboradores</p>
             </div>
+            </>
           )}
 
           {/* ── Produtos ── */}
@@ -198,7 +214,7 @@ function CadastroInner() {
 
           {/* ── Vorp System ── */}
           {activeTab === 'vorp-system' && (
-            <VorpSection consultorNome="all" />
+            <VorpSection vorpColaboradorId="all" />
           )}
 
           {/* ── Projetos Ativos ── */}

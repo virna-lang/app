@@ -7,11 +7,11 @@ import { useDashboard } from '@/context/DashboardContext';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { addConsultor, toggleConsultor, getMesAnterior } from '@/lib/api';
 import type { AuditoriaMensal, ViewConformidadeConsultor } from '@/lib/supabase';
+import { getConsultorLabel } from '@/lib/consultor-label';
+import { DASHBOARD_SECTION_PERMISSIONS } from '@/lib/permissions';
 
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader';
 import EmptyState from '@/components/dashboard/EmptyState';
-import { COLORS } from '@/types/dashboard';
-
 import SummaryKPIs from '@/components/dashboard/SummaryKPIs';
 
 const EvolutionSection    = dynamic(() => import('@/components/dashboard/EvolutionSection'));
@@ -21,6 +21,7 @@ const MeetingsSection     = dynamic(() => import('@/components/dashboard/Meeting
 const GoalsSection        = dynamic(() => import('@/components/dashboard/GoalsSection'));
 const ChurnSection        = dynamic(() => import('@/components/dashboard/ChurnSection'));
 const CorrelacaoSection   = dynamic(() => import('@/components/dashboard/CorrelacaoSection'));
+const InsightsSection     = dynamic(() => import('@/components/dashboard/InsightsSection'));
 const VorpSection         = dynamic(() => import('@/components/dashboard/VorpSection'));
 const AdminManagement     = dynamic(() => import('@/components/dashboard/AdminManagement'));
 
@@ -39,13 +40,20 @@ function SectionWrapper({
   id,
   label,
   title,
+  visible = true,
   children,
 }: {
   id: string;
   label: string;
   title: string;
+  visible?: boolean;
   children: React.ReactNode;
 }) {
+  const { hasPermission } = useAuth();
+  const permission = DASHBOARD_SECTION_PERMISSIONS[id];
+  if (permission && !hasPermission(permission)) return null;
+  if (!visible) return null;
+
   return (
     <section id={id} data-screen-label={label} className="dash-section">
       <div className="section-header">
@@ -88,16 +96,23 @@ function SectionWrapper({
 
 // ── Main dashboard ─────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { role } = useAuth();
+  const { profile, hasPermission } = useAuth();
   const {
     activeTab, consultores, setConsultores,
     loadingConsultores, filters: activeFilters,
     availableProducts: products,
   } = useDashboard();
 
+  const effectiveConsultantId = hasPermission('filters.consultores.todos')
+    ? activeFilters.consultantId
+    : profile?.consultor_id ?? '__sem_consultor__';
+
+  const canViewSection = (id: keyof typeof DASHBOARD_SECTION_PERMISSIONS) =>
+    hasPermission(DASHBOARD_SECTION_PERMISSIONS[id]);
+
   const { data: raw, isLoading } = useDashboardData(
     activeFilters.month,
-    activeFilters.consultantId,
+    effectiveConsultantId,
   );
 
   const enrich = useCallback(
@@ -127,7 +142,6 @@ export default function Dashboard() {
           if (k) obj[k] = i.score_categoria;
         });
 
-        const consultor    = consultores.find(c => c.id === a.consultor_id);
         const resultado    = safeTScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Resultado');
         const conformidade = safeTScores.find(t => t.consultor_id === a.consultor_id && t.tipo === 'Conformidade');
         const scoreR = resultado?.score    ?? 0;
@@ -138,7 +152,7 @@ export default function Dashboard() {
 
         return {
           ...obj,
-          consultor_nome:    consultor?.nome ?? 'Consultor',
+          consultor_nome:    getConsultorLabel(consultores, a.consultor_id, 'full'),
           score_resultado:   scoreR,
           score_conformidade: scoreC,
           score_geral:       scoreGeral,
@@ -220,73 +234,79 @@ export default function Dashboard() {
         {isEmpty ? <EmptyState /> : (
           <div className="dash-sections">
 
-            {/* 01 Visão Geral — KPIs sem header (são o topo da página) */}
-            <section id="visao-geral" data-screen-label="01 Visão Geral" style={{ paddingTop: 32 }}>
+            <SectionWrapper id="correlacao" label="01 Correlação" title="Correlação da Carteira">
+              <CorrelacaoSection key={`correlacao-${activeFilters.month}-${effectiveConsultantId}`} />
+            </SectionWrapper>
+
+            <div className="section-divider" />
+
+            <SectionWrapper id="insights-ia" label="02 Insights IA" title="Leitura Estratégica da Carteira">
+              <InsightsSection key={`insights-${activeFilters.month}-${effectiveConsultantId}`} />
+            </SectionWrapper>
+
+            <div className="section-divider" />
+
+            {/* 03 Visão Geral — KPIs sem header */}
+            <section id="visao-geral" data-screen-label="03 Visão Geral" style={{ paddingTop: 32 }}>
               <SummaryKPIs data={data!} />
             </section>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="evolucao" label="02 Evolução" title="Evolução Histórica da Conformidade">
+            <SectionWrapper id="evolucao" label="04 Evolução" title="Evolução Histórica da Conformidade">
               <EvolutionSection data={data!} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="conformidade" label="03 Conformidade" title="Conformidade por Categoria">
+            <SectionWrapper id="conformidade" visible={canViewSection('conformidade')} label="05 Conformidade" title="Conformidade por Categoria">
               <CategoryGaps data={data!} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="processos" label="04 Processos" title="Monitoramento de Processos">
+            <SectionWrapper id="processos" visible={canViewSection('processos')} label="06 Processos" title="Monitoramento de Processos">
               <PerformanceRankings data={data!} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="reunioes" label="05 Reuniões" title="Ranking de Reuniões Realizadas">
+            <SectionWrapper id="reunioes" label="07 Reuniões" title="Ranking de Reuniões Realizadas">
               <MeetingsSection data={data!} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="metas" label="06 Metas" title="Batimento de Metas">
+            <SectionWrapper id="metas" visible={canViewSection('metas')} label="08 Metas" title="Batimento de Metas">
               <GoalsSection data={data!} filterProducts={activeFilters.products} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="nps" label="07 NPS" title="NPS por Consultor">
+            <SectionWrapper id="nps" visible={canViewSection('nps')} label="09 NPS" title="NPS por Consultor">
               <NPSSection auditorias={data!.currentAudits} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="churn" label="08 Churn" title="Monitoramento de Churn">
+            <SectionWrapper id="churn" visible={canViewSection('churn')} label="10 Churn" title="Monitoramento de Churn">
               <ChurnSection churn={data!.currentChurn} />
             </SectionWrapper>
 
             <div className="section-divider" />
 
-            <SectionWrapper id="correlacao" label="09 Correlação" title="Correlação por Consultor">
-              <CorrelacaoSection />
-            </SectionWrapper>
-
-            <div className="section-divider" />
-
-            <SectionWrapper id="vorp-system" label="10 Vorp System" title="Vorp System">
+            <SectionWrapper id="vorp-system" visible={canViewSection('vorp-system')} label="11 Vorp System" title="Vorp System">
               <VorpSection
-                vorpColaboradorId={activeFilters.consultantId === 'all'
+                vorpColaboradorId={effectiveConsultantId === 'all'
                   ? undefined
-                  : consultores.find(c => c.id === activeFilters.consultantId)?.vorp_colaborador_id ?? null}
+                  : consultores.find(c => c.id === effectiveConsultantId)?.vorp_colaborador_id ?? null}
               />
             </SectionWrapper>
 
-            {role === 'Administrador' && (
+            {hasPermission('admin.usuarios') && (
               <>
                 <div className="section-divider" />
-                <SectionWrapper id="time-completo" label="11 Time Completo" title="Gestão de Time e Produtos">
+                <SectionWrapper id="time-completo" label="12 Time Completo" title="Gestão de Time e Produtos">
                   <AdminManagement
                     consultants={consultores}
                     products={products}
@@ -361,7 +381,7 @@ function NPSSection({ auditorias }: { auditorias: any[] }) {
         const nota  = a.nps_nota ?? 0;
         const color = npsAccent(nota);
         const bg    = npsBgFor(nota);
-        const nome  = consultores.find(c => c.id === a.consultor_id)?.nome ?? 'Consultor';
+        const nome  = getConsultorLabel(consultores, a.consultor_id, 'full');
 
         return (
           <div key={a.id} className="nps-card">

@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
-import { getVorpProjetosAtivos, setTrativaCS } from '@/lib/api';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw, ChevronDown } from 'lucide-react';
+import { getVorpProjetosAtivos, getConsultoresParaFiltro, setTrativaCS } from '@/lib/api';
 import { COLORS } from '@/types/dashboard';
 import type { VorpProjetoRow } from '@/lib/supabase';
+
+type StatusFiltro = 'Ativo' | 'Churn' | 'Concluído' | 'todos';
 
 interface Props {
   vorpColaboradorId?: string | null;
@@ -17,34 +19,72 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
   const [salvando, setSalvando]   = useState<string | null>(null);
   const [filtroCS, setFiltroCS]   = useState<'todos' | 'auditaveis' | 'tratativa'>('todos');
 
+  // ── Novos filtros ──────────────────────────────────────
+  const isAdminView = !vorpColaboradorId || vorpColaboradorId === 'all';
+
+  const [filtroConsultor, setFiltroConsultor] = useState('all');  // vorp_colaborador_id | 'all'
+  const [filtroProduto,   setFiltroProduto]   = useState('all');  // produto_nome | 'all'
+  const [filtroStatus,    setFiltroStatus]    = useState<StatusFiltro>('Ativo');
+
+  const [consultoresOpcoes, setConsultoresOpcoes] = useState<
+    { vorp_colaborador_id: string; nome: string }[]
+  >([]);
+
+  // Opções de produto derivadas dos dados carregados (sem chamada extra)
+  const produtosOpcoes = useMemo(
+    () =>
+      [...new Set(projetos.map(p => p.produto_nome).filter(Boolean) as string[])].sort(
+        (a, b) => a.localeCompare(b, 'pt-BR'),
+      ),
+    [projetos],
+  );
+
+  // Carrega opções de consultor ao montar (somente na visão admin)
+  useEffect(() => {
+    if (!isAdminView) return;
+    getConsultoresParaFiltro()
+      .then(setConsultoresOpcoes)
+      .catch(console.error);
+  }, [isAdminView]);
+
+  // ── Fetch principal ────────────────────────────────────
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getVorpProjetosAtivos(vorpColaboradorId);
+      // Se a prop já traz um consultor específico, esse tem precedência.
+      // Se estamos na visão admin, usa o filtro local.
+      const colabId = isAdminView
+        ? (filtroConsultor === 'all' ? undefined : filtroConsultor)
+        : vorpColaboradorId;
+
+      const statusParam: string | null =
+        filtroStatus === 'todos' ? null : filtroStatus;
+
+      const data = await getVorpProjetosAtivos(colabId, statusParam);
       setProjetos(data as VorpProjetoRow[]);
     } finally {
       setLoading(false);
     }
-  }, [vorpColaboradorId]);
+  }, [vorpColaboradorId, isAdminView, filtroConsultor, filtroStatus]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  // ── Toggle Tratativa CS ────────────────────────────────
   const toggleCS = async (projeto: VorpProjetoRow) => {
     setSalvando(projeto.vorp_id);
     try {
       await setTrativaCS(projeto.vorp_id, !projeto.tratativa_cs);
       setProjetos(prev =>
         prev.map(p =>
-          p.vorp_id === projeto.vorp_id
-            ? { ...p, tratativa_cs: !p.tratativa_cs }
-            : p
-        )
+          p.vorp_id === projeto.vorp_id ? { ...p, tratativa_cs: !p.tratativa_cs } : p,
+        ),
       );
     } finally {
       setSalvando(null);
     }
   };
 
+  // ── Filtragem client-side ──────────────────────────────
   const filtrados = projetos.filter(p => {
     const matchBusca =
       !busca ||
@@ -52,33 +92,56 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
       (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
       (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase());
 
-    const matchFiltro =
+    const matchFiltroCS =
       filtroCS === 'todos' ||
-      (filtroCS === 'tratativa' && p.tratativa_cs) ||
+      (filtroCS === 'tratativa'  && p.tratativa_cs) ||
       (filtroCS === 'auditaveis' && !p.tratativa_cs);
 
-    return matchBusca && matchFiltro;
+    const matchProduto =
+      filtroProduto === 'all' || p.produto_nome === filtroProduto;
+
+    return matchBusca && matchFiltroCS && matchProduto;
   });
 
+  // ── KPIs sobre o conjunto carregado (após filtro de consultor/status) ──
   const totalAtivos     = projetos.length;
   const totalTratativa  = projetos.filter(p => p.tratativa_cs).length;
   const totalAuditaveis = totalAtivos - totalTratativa;
+
+  // ── Helpers de UI ──────────────────────────────────────
+  const temFiltroAtivo =
+    filtroConsultor !== 'all' || filtroProduto !== 'all' || filtroStatus !== 'Ativo';
+
+  const limparFiltros = () => {
+    setFiltroConsultor('all');
+    setFiltroProduto('all');
+    setFiltroStatus('Ativo');
+    setBusca('');
+    setFiltroCS('todos');
+  };
 
   return (
     <div className="vorp-section section-block">
       {/* ── Cabeçalho ───────────────────────────────────── */}
       <div className="section-anchor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <h2>Projetos Ativos — Vorp System</h2>
-        <button
-          onClick={carregar}
-          className="btn-icon"
-          title="Recarregar"
-          style={{ opacity: loading ? 0.5 : 1 }}
-          disabled={loading}
-        >
-          <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          <span>Atualizar</span>
-        </button>
+        <h2>Projetos — Vorp System</h2>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {temFiltroAtivo && (
+            <button onClick={limparFiltros} className="btn-icon btn-clear">
+              Limpar filtros
+            </button>
+          )}
+          <button
+            onClick={carregar}
+            className="btn-icon"
+            title="Recarregar"
+            style={{ opacity: loading ? 0.5 : 1 }}
+            disabled={loading}
+          >
+            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            <span>Atualizar</span>
+          </button>
+        </div>
       </div>
 
       {/* ── KPI cards ───────────────────────────────────── */}
@@ -87,7 +150,10 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
           <Building2 size={20} color={COLORS.primary} />
           <div>
             <p className="kpi-val">{totalAtivos}</p>
-            <p className="kpi-label">Projetos Ativos</p>
+            <p className="kpi-label">
+              {filtroStatus === 'todos' ? 'Total Projetos' :
+               filtroStatus === 'Ativo' ? 'Projetos Ativos' : `Projetos ${filtroStatus}`}
+            </p>
           </div>
         </div>
 
@@ -118,7 +184,59 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
         </div>
       </div>
 
-      {/* ── Controles de filtro ─────────────────────────── */}
+      {/* ── Filtros principais (consultor / produto / status) ── */}
+      {isAdminView && (
+        <div className="controles-row">
+          {/* Consultor */}
+          <div className="filter-select-wrap">
+            <ChevronDown size={12} className="select-arrow" />
+            <select
+              className="filter-select"
+              value={filtroConsultor}
+              onChange={e => setFiltroConsultor(e.target.value)}
+            >
+              <option value="all">Todos os consultores</option>
+              {consultoresOpcoes.map(c => (
+                <option key={c.vorp_colaborador_id} value={c.vorp_colaborador_id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Produto */}
+          <div className="filter-select-wrap">
+            <ChevronDown size={12} className="select-arrow" />
+            <select
+              className="filter-select"
+              value={filtroProduto}
+              onChange={e => setFiltroProduto(e.target.value)}
+            >
+              <option value="all">Todos os produtos</option>
+              {produtosOpcoes.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div className="filter-select-wrap">
+            <ChevronDown size={12} className="select-arrow" />
+            <select
+              className="filter-select"
+              value={filtroStatus}
+              onChange={e => setFiltroStatus(e.target.value as StatusFiltro)}
+            >
+              <option value="Ativo">Ativos</option>
+              <option value="Churn">Churn</option>
+              <option value="Concluído">Concluídos</option>
+              <option value="todos">Todos os status</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* ── Busca + chips Tratativa CS ───────────────────── */}
       <div className="controles-row">
         <div className="search-box">
           <Search size={14} color={COLORS.textMuted} />
@@ -162,6 +280,7 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
                 <th>Projeto</th>
                 <th>Consultor</th>
                 <th>Produto</th>
+                {filtroStatus !== 'Ativo' && <th>Status</th>}
                 <th style={{ textAlign: 'right' }}>FEE</th>
                 <th style={{ textAlign: 'center' }}>Tratativa CS</th>
               </tr>
@@ -176,6 +295,13 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
                       <span className="badge-produto">{p.produto_nome}</span>
                     )}
                   </td>
+                  {filtroStatus !== 'Ativo' && (
+                    <td>
+                      <span className={`badge-status status-${(p.status ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s/g,'-')}`}>
+                        {p.status ?? '—'}
+                      </span>
+                    </td>
+                  )}
                   <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                     {p.fee != null
                       ? p.fee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -232,12 +358,43 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
           margin-top: 2px;
         }
 
+        /* ── Filtros ──────────────────────────────────── */
         .controles-row {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           flex-wrap: wrap;
         }
+
+        .filter-select-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .filter-select-wrap :global(.select-arrow) {
+          position: absolute;
+          right: 10px;
+          pointer-events: none;
+          color: var(--text-muted);
+        }
+        .filter-select {
+          appearance: none;
+          background: var(--glass-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 8px;
+          padding: 8px 32px 8px 14px;
+          color: var(--text-main);
+          font-size: 0.83rem;
+          font-family: 'Outfit', sans-serif;
+          cursor: pointer;
+          outline: none;
+          transition: border-color 0.15s;
+          min-width: 180px;
+        }
+        .filter-select:hover { border-color: rgba(252,84,0,0.4); }
+        .filter-select:focus { border-color: rgba(252,84,0,0.6); }
+        .filter-select option { background: #111827; color: var(--text-main); }
+
         .search-box {
           display: flex;
           align-items: center;
@@ -274,6 +431,7 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
         .chip:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
         .chip-active { background: var(--laranja-vorp); border-color: var(--laranja-vorp); color: #fff; }
 
+        /* ── Botões ───────────────────────────────────── */
         .btn-icon {
           display: flex;
           align-items: center;
@@ -288,7 +446,14 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
           transition: all 0.15s;
         }
         .btn-icon:hover { border-color: var(--laranja-vorp); color: var(--laranja-vorp); }
+        .btn-clear {
+          border-color: rgba(252,84,0,0.3);
+          color: var(--laranja-vorp);
+          font-size: 0.75rem;
+        }
+        .btn-clear:hover { background: rgba(252,84,0,0.08); }
 
+        /* ── Tabela ───────────────────────────────────── */
         .table-wrap { padding: 0; overflow: hidden; }
         .vorp-table {
           width: 100%;
@@ -330,6 +495,27 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
           font-size: 0.72rem;
           font-weight: 700;
           white-space: nowrap;
+        }
+
+        .badge-status {
+          display: inline-block;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        .badge-status.status-ativo {
+          background: color-mix(in srgb, var(--verde, #22c55e) 12%, transparent);
+          color: var(--verde, #22c55e);
+        }
+        .badge-status.status-churn {
+          background: color-mix(in srgb, #ef4444 12%, transparent);
+          color: #ef4444;
+        }
+        .badge-status.status-concluido {
+          background: color-mix(in srgb, #64748b 15%, transparent);
+          color: #94a3b8;
         }
 
         .toggle-cs {

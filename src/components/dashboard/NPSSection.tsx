@@ -1,9 +1,12 @@
 import React from 'react';
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { DashboardData, COLORS } from '@/types/dashboard';
-import { mockConsultants, mockMonths, mockNPS } from '@/lib/mockData';
+import { mockMonths, mockNPS } from '@/lib/mockData';
+import { useDashboard } from '@/context/DashboardContext';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 export default function NPSSection({ data }: { data: DashboardData }) {
+  const { consultores } = useDashboard();
   const ranking = [...data.currentNPS].sort((a, b) => b.nota - a.nota);
 
   return (
@@ -14,7 +17,6 @@ export default function NPSSection({ data }: { data: DashboardData }) {
       <div className="layout-grid-2-1">
         <div className="card nps-ranking-card">
           {ranking.map((r, i) => {
-            const consul = mockConsultants.find(c => c.id === r.consultor_id);
             const tag = r.nota >= 90 ? 'Excelente' : r.nota >= 75 ? 'Bom' : 'Atenção';
             const color = r.nota >= 90 ? COLORS.verde : r.nota >= 75 ? COLORS.primary : COLORS.vermelho;
             return (
@@ -22,7 +24,7 @@ export default function NPSSection({ data }: { data: DashboardData }) {
                 <div className="ri-pos">#{i+1}</div>
                 <div className="ri-content">
                   <div className="ri-up">
-                    <span className="ri-name">{consul?.nome}</span>
+                    <span className="ri-name">{getConsultorLabel(consultores, r.consultor_id, 'full')}</span>
                     <span className="ri-tag" style={{ color: color }}>{tag}</span>
                   </div>
                   <div className="ri-down">

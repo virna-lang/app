@@ -41,8 +41,8 @@ async function fetchAll(month: string, consultorId: string): Promise<RawDashboar
       getAuditoriasMensais(mesAno, consultorId),
       getViewReunioes(mesAno, consultorId),
       getViewMetas(mesAno, consultorId),
-      getMetas(mesAno),
-      getChurn(mesAno),
+      getMetas(mesAno, consultorId),
+      getChurn(mesAno, consultorId),
       getViewConformidade(mesAno, consultorId),
       getScoresPorTipo(mesAno, consultorId),
       getRankingAtendidosMes(mesAno, consultorId),
@@ -57,7 +57,7 @@ async function fetchAll(month: string, consultorId: string): Promise<RawDashboar
   if (prevMesAno) {
     [prevAuds, prevMetas, prevConf, prevTipoScores] = await Promise.all([
       getAuditoriasMensais(prevMesAno, consultorId),
-      getMetas(prevMesAno),
+      getMetas(prevMesAno, consultorId),
       getViewConformidade(prevMesAno, consultorId),
       getScoresPorTipo(prevMesAno, consultorId),
     ]);

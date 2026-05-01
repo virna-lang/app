@@ -34,7 +34,7 @@ export default function AdminManagement({ consultants, products, onAddConsultant
     getVorpColaboradores().then(d => setVorpColabs(d as VorpColaboradorRow[])).catch(console.error).finally(() => setLoadingColabs(false));
   }, []);
 
-  const cargoMap = Object.fromEntries(vorpColabs.map(c => [c.nome.trim().toLowerCase(), c.cargo ?? null]));
+  const cargoMap = Object.fromEntries(vorpColabs.map(c => [c.vorp_id, c.cargo ?? null]));
 
   const handleAddConsultant = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +86,7 @@ export default function AdminManagement({ consultants, products, onAddConsultant
           {[
             { icon: <UserPlus size={18} color={T.orange}/>, title: 'Consultores', placeholder: 'Nome do novo consultor...', val: newConsultant, setVal: setNewConsultant, onSubmit: handleAddConsultant,
               list: consultants.map(c => ({
-                key: c.id, name: c.nome, sub: cargoMap[c.nome.trim().toLowerCase()] ?? undefined,
+                key: c.id, name: c.nome, sub: c.vorp_colaborador_id ? cargoMap[c.vorp_colaborador_id] ?? undefined : undefined,
                 badge: c.status, badgeColor: c.status === 'Ativo' ? T.green : T.textDim,
                 right: (
                   <button onClick={() => onToggleConsultant(c.id, c.status)}

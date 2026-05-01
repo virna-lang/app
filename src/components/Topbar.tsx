@@ -6,11 +6,7 @@ import Image from 'next/image';
 import DashboardFilters from './DashboardFilters';
 
 export default function Topbar() {
-  const { role, setRole, user, signOut } = useAuth();
-
-  const toggleRole = () => {
-    setRole(role === 'Administrador' ? 'Consultor' : 'Administrador');
-  };
+  const { role, user, signOut } = useAuth();
 
   const avatarUrl   = user?.user_metadata?.avatar_url as string | undefined;
   const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
@@ -30,17 +26,16 @@ export default function Topbar() {
 
         <div className="topbar-actions">
           {/* Role badge */}
-          <button
-            onClick={toggleRole}
+          <div
             className={`role-badge ${role === 'Administrador' ? 'is-admin' : ''}`}
-            title="Alternar papel"
+            title="Permissao do login"
           >
             {role === 'Administrador'
               ? <ShieldCheck size={13} />
               : <User size={13} />
             }
             <span>{role === 'Administrador' ? 'Administrador' : 'Consultor'}</span>
-          </button>
+          </div>
 
           {/* Avatar */}
           <div className="user-avatar" title={displayName}>
@@ -108,10 +103,9 @@ export default function Topbar() {
           padding: 6px 14px; border-radius: 99px;
           border: 1px solid #1f2d40; background: #111827;
           color: #64748b; font-family: 'Outfit', sans-serif;
-          font-size: 12px; font-weight: 600; cursor: pointer;
+          font-size: 12px; font-weight: 600;
           transition: all 0.2s; letter-spacing: 0.04em;
         }
-        .role-badge:hover { border-color: #FC5400; color: #94a3b8; }
         .role-badge.is-admin {
           background: rgba(252,84,0,0.12);
           border-color: rgba(252,84,0,0.35);

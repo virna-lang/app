@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
 import { ChevronDown, X, Calendar, User, Package } from 'lucide-react';
+import { getConsultorLabel } from '@/lib/consultor-label';
 
 function FilterSelect({
   label, icon, value, open, onToggle, children,
@@ -78,20 +79,31 @@ function FilterSelect({
 }
 
 export default function DashboardFilters() {
-  const { role } = useAuth();
-  const { meses, consultores, filters, setFilters, availableProducts } = useDashboard();
-  const isAdmin = role === 'Administrador';
+  const { profile, hasPermission } = useAuth();
+  const { meses, consultores, filters, setFilters, availableProducts, setCorrelationMode } = useDashboard();
+  const canSeeAllConsultores = hasPermission('filters.consultores.todos');
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const toggle = (key: string) =>
     setOpen(prev => ({ month: false, consultant: false, product: false, [key]: !prev[key] }));
 
   const clearFilters = () =>
-    setFilters({ month: meses[meses.length - 1], consultantId: 'all', products: availableProducts });
+    setFilters({
+      month: meses[meses.length - 1],
+      consultantId: canSeeAllConsultores ? 'all' : profile?.consultor_id ?? '__sem_consultor__',
+      products: availableProducts,
+    });
+
+  useEffect(() => {
+    const scopedConsultorId = profile?.consultor_id ?? '__sem_consultor__';
+    if (!canSeeAllConsultores && filters.consultantId !== scopedConsultorId) {
+      setFilters(f => ({ ...f, consultantId: scopedConsultorId }));
+    }
+  }, [canSeeAllConsultores, profile?.consultor_id, filters.consultantId, setFilters]);
 
   const consultantLabel = filters.consultantId === 'all'
     ? 'Todos os consultores'
-    : consultores.find(c => String(c.id) === filters.consultantId)?.nome ?? 'Consultor';
+    : getConsultorLabel(consultores, filters.consultantId, 'full');
 
   const productLabel = (filters.products?.length ?? availableProducts.length) === availableProducts.length
     ? 'Todos os produtos'
@@ -122,7 +134,7 @@ export default function DashboardFilters() {
       </FilterSelect>
 
       {/* Consultor (admin only) */}
-      {isAdmin && (
+      {canSeeAllConsultores && (
         <FilterSelect
           label="Consultor" icon={<User size={13}/>}
           value={consultantLabel} open={!!open.consultant}
@@ -132,9 +144,16 @@ export default function DashboardFilters() {
             <div
               key={c.id}
               className={`drop-item ${String(c.id) === filters.consultantId ? 'selected' : ''}`}
-              onClick={() => { setFilters(f => ({ ...f, consultantId: String(c.id) })); setOpen({}); }}
+              onClick={() => {
+                const nextConsultantId = String(c.id);
+                setFilters(f => ({ ...f, consultantId: nextConsultantId }));
+                if (nextConsultantId !== 'all') {
+                  setCorrelationMode('mine');
+                }
+                setOpen({});
+              }}
             >
-              {c.nome}
+              {c.id === 'all' ? c.nome : getConsultorLabel(consultores, String(c.id), 'full')}
             </div>
           ))}
         </FilterSelect>

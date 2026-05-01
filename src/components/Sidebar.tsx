@@ -10,7 +10,7 @@ import {
   Flame, Building2, LogOut, BookOpen, Package,
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { useDashboard } from '@/context/DashboardContext';
+import type { AppPermission } from '@/lib/permissions';
 
 const T = {
   bg:       '#0d0f14',
@@ -26,8 +26,7 @@ const T = {
 function SidebarInner() {
   const pathname     = usePathname();
   const searchParams = useSearchParams();
-  const { role, user, signOut } = useAuth();
-  const { setActiveTab } = useDashboard();
+  const { role, user, signOut, hasPermission } = useAuth();
 
   const isDashboard = pathname === '/';
   const isAuditoria = pathname === '/auditoria';
@@ -40,20 +39,47 @@ function SidebarInner() {
   const dashboardTabs = [
     { name: 'Visão Geral',  id: 'visao-geral',  icon: <BarChart2 size={13} /> },
     { name: 'Evolução',     id: 'evolucao',     icon: <LineChart size={13} /> },
-    { name: 'Conformidade', id: 'conformidade', icon: <ClipboardCheck size={13} /> },
-    { name: 'Processos',    id: 'processos',    icon: <ShieldCheck size={13} /> },
+    { name: 'Conformidade', id: 'conformidade', permission: 'dashboard.conformidade' as AppPermission, icon: <ClipboardCheck size={13} /> },
+    { name: 'Processos',    id: 'processos',    permission: 'dashboard.processos' as AppPermission, icon: <ShieldCheck size={13} /> },
     { name: 'Reuniões',     id: 'reunioes',     icon: <Users size={13} /> },
-    { name: 'Metas',        id: 'metas',        icon: <Target size={13} /> },
-    { name: 'NPS / CSAT',   id: 'nps',          icon: <MessageSquare size={13} /> },
-    { name: 'Churn',        id: 'churn',        icon: <AlertTriangle size={13} /> },
+    { name: 'Metas',        id: 'metas',        permission: 'dashboard.metas' as AppPermission, icon: <Target size={13} /> },
+    { name: 'NPS / CSAT',   id: 'nps',          permission: 'dashboard.nps' as AppPermission, icon: <MessageSquare size={13} /> },
+    { name: 'Churn',        id: 'churn',        permission: 'dashboard.churn' as AppPermission, icon: <AlertTriangle size={13} /> },
     { name: 'Correlação',   id: 'correlacao',   icon: <GitBranch size={13} /> },
   ];
+  dashboardTabs.push({ name: 'Insights IA', id: 'insights-ia', icon: <Flame size={13} /> });
 
   const auditoriaSubItems = [
     { name: 'Edição Completa',  tab: 'edicao', adminOnly: true },
     { name: 'Churn Rápido',     tab: 'churn' },
     { name: 'Auditoria Rápida', tab: 'rapida', adminOnly: true },
   ];
+
+  const dashboardPermissionById: Record<string, AppPermission> = {
+    'visao-geral': 'dashboard.overview',
+    evolucao: 'dashboard.evolution',
+    conformidade: 'dashboard.conformidade',
+    processos: 'dashboard.processos',
+    reunioes: 'dashboard.reunioes',
+    metas: 'dashboard.metas',
+    nps: 'dashboard.nps',
+    churn: 'dashboard.churn',
+    correlacao: 'dashboard.correlacao',
+    'insights-ia': 'dashboard.correlacao',
+  };
+
+  const cadastroPermissionByTab: Record<string, AppPermission> = {
+    'time-completo': 'cadastro.time',
+    produtos: 'cadastro.produtos',
+    projetos: 'cadastro.projetos',
+    'vorp-system': 'cadastro.vorp',
+  };
+
+  const auditoriaPermissionByTab: Record<string, AppPermission> = {
+    edicao: 'auditoria.edicao',
+    churn: 'auditoria.churn',
+    rapida: 'auditoria.rapida',
+  };
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -104,7 +130,7 @@ function SidebarInner() {
           </button>
 
           <div className={`submenu ${openDashboard ? 'open' : ''}`}>
-            {dashboardTabs.map(tab => (
+            {dashboardTabs.filter(tab => hasPermission(dashboardPermissionById[tab.id])).map(tab => (
               <Link
                 key={tab.id}
                 href="/"
@@ -137,7 +163,7 @@ function SidebarInner() {
               { href: '/cadastro?tab=produtos',      tab: 'produtos',      label: 'Produtos',        icon: <Package size={13}/> },
               { href: '/cadastro?tab=projetos',      tab: 'projetos',      label: 'Projetos Ativos', icon: <Building2 size={13}/> },
               { href: '/cadastro?tab=vorp-system',   tab: 'vorp-system',   label: 'Vorp System',     icon: <Building2 size={13}/> },
-            ].map(item => (
+            ].filter(item => hasPermission(cadastroPermissionByTab[item.tab])).map(item => (
               <Link
                 key={item.tab}
                 href={item.href}
@@ -166,7 +192,7 @@ function SidebarInner() {
 
           <div className={`submenu ${openAuditoria ? 'open' : ''}`}>
             {auditoriaSubItems.map(sub => {
-              if (sub.adminOnly && role !== 'Administrador') return null;
+              if (!hasPermission(auditoriaPermissionByTab[sub.tab])) return null;
               const isSubActive = isAuditoria && currentAudTab === sub.tab;
               return (
                 <Link

@@ -11,14 +11,14 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, profile, authError, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && (!user || !profile || profile.status !== 'Ativo' || authError)) {
       router.replace('/login');
     }
-  }, [user, loading, router]);
+  }, [user, profile, authError, loading, router]);
 
   // Tela de carregamento enquanto verifica a sessão
   if (loading) {
@@ -46,7 +46,7 @@ export default function DashboardLayout({
   }
 
   // Não renderiza o dashboard até confirmar que o usuário está autenticado
-  if (!user) return null;
+  if (!user || !profile || profile.status !== 'Ativo' || authError) return null;
 
   return (
     <div className="layout-container">
