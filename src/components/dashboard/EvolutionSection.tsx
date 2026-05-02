@@ -178,7 +178,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
     <div style={{ marginTop: 4 }}>
       <div className="evo-main-grid">
         {/* Gráficos de linha */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="evo-charts-grid">
           <MiniChart chartData={chartResultado}    consultants={consultants} label="Resultado" />
           <MiniChart chartData={chartConformidade} consultants={consultants} label="Conformidade de Processo" />
         </div>
@@ -276,11 +276,19 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
       <style jsx>{`
         .evo-main-grid {
           display: grid;
-          grid-template-columns: 1fr 320px;
+          grid-template-columns: minmax(0, 1fr) 320px;
           gap: 12px;
           align-items: start;
         }
-        @media (max-width: 1200px) { .evo-main-grid { grid-template-columns: 1fr; } }
+
+        .evo-charts-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        @media (max-width: 1400px) { .evo-main-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .evo-charts-grid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );

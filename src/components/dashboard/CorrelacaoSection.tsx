@@ -142,12 +142,16 @@ function WeakPointRow({
   pergunta,
   notaPct,
   impacto,
+  impactoDetalhes = [],
 }: {
   categoria: string;
   pergunta: string;
   notaPct: number;
   impacto?: string;
+  impactoDetalhes?: string[];
 }) {
+  const hasDetails = impactoDetalhes.length > 0;
+
   return (
     <div className="weak-row">
       <div className="weak-row-top">
@@ -158,7 +162,26 @@ function WeakPointRow({
         <div className="weak-bar-fill" style={{ width: `${Math.max(notaPct, 2)}%` }} />
       </div>
       <div className="weak-pergunta">{pergunta}</div>
-      {impacto && <div className="weak-impacto">{impacto}</div>}
+      {impacto && (
+        <div className="weak-impact-wrap">
+          <button
+            type="button"
+            className={`weak-impacto ${hasDetails ? 'weak-impacto-button' : ''}`}
+            title={hasDetails ? impactoDetalhes.join('\n') : undefined}
+          >
+            {impacto}
+          </button>
+          {hasDetails && (
+            <div className="weak-tooltip" role="tooltip">
+              <div className="weak-tooltip-title">Consultores impactados</div>
+              {impactoDetalhes.map((nome) => (
+                <div key={nome} className="weak-tooltip-name">{nome}</div>
+              ))}
+            </div>
+          )}
+          <style jsx>{weakPointRowStyles}</style>
+        </div>
+      )}
     </div>
   );
 }
@@ -202,6 +225,76 @@ function ProjectRiskRow({
     </div>
   );
 }
+
+const weakPointRowStyles = `
+  .weak-impact-wrap {
+    position: relative;
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 2px;
+  }
+
+  .weak-impacto {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: ${T.textSub};
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  .weak-impacto-button {
+    cursor: help;
+    border-bottom: 1px dashed rgba(154,160,176,0.45);
+  }
+
+  .weak-tooltip {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 10px);
+    z-index: 20;
+    width: max-content;
+    min-width: 220px;
+    max-width: 320px;
+    padding: 12px;
+    border: 1px solid rgba(255,92,26,0.24);
+    border-radius: 12px;
+    background: #0a0b0e;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.38);
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+
+  .weak-tooltip-title {
+    margin-bottom: 8px;
+    color: ${T.orange};
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .weak-tooltip-name {
+    color: ${T.text};
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .weak-tooltip-name + .weak-tooltip-name {
+    margin-top: 5px;
+  }
+
+  .weak-impact-wrap:hover .weak-tooltip,
+  .weak-impact-wrap:focus-within .weak-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+`;
 
 export default function CorrelacaoSection() {
   const { profile, hasPermission } = useAuth();
@@ -284,6 +377,10 @@ export default function CorrelacaoSection() {
   const projectRisks = data.projetosPrioritarios.slice(0, 8);
   const showConsultor = resolvedMode === 'operation';
   const flagsDistribuicao = data.dataCoverage.flags.distribuicao.slice(0, 4);
+  const handleOperationProjectsClick = () => {
+    if (ownConsultorId) setCorrelationMode('mine');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="correlation-root">
@@ -421,17 +518,27 @@ export default function CorrelacaoSection() {
             <div className="empty-inline">Nenhum item abaixo de 80% neste recorte.</div>
           ) : (
             <div className="weak-grid">
-              {weakPoints.map((item) => (
-                <WeakPointRow
-                  key={`${item.categoria}:${item.pergunta}`}
-                  categoria={item.categoria}
-                  pergunta={item.pergunta}
-                  notaPct={item.notaPct}
-                  impacto={resolvedMode === 'operation' && item.consultoresImpactados
-                    ? `${item.consultoresImpactados} consultor(es) impactados`
-                    : undefined}
-                />
-              ))}
+              {weakPoints.map((item) => {
+                const impactoDetalhes = Array.from(new Set(
+                  (item.consultorIdsImpactados ?? []).map((id) => {
+                    const nome = getConsultorLabel(consultores, id, 'full');
+                    return nome === 'Consultor' ? `Consultor ${id.slice(0, 8)}` : nome;
+                  }),
+                ));
+
+                return (
+                  <WeakPointRow
+                    key={`${item.categoria}:${item.pergunta}`}
+                    categoria={item.categoria}
+                    pergunta={item.pergunta}
+                    notaPct={item.notaPct}
+                    impacto={resolvedMode === 'operation' && item.consultoresImpactados
+                      ? `${item.consultoresImpactados} consultor(es) impactados`
+                      : undefined}
+                    impactoDetalhes={impactoDetalhes}
+                  />
+                );
+              })}
             </div>
           )}
         </section>
@@ -463,30 +570,49 @@ export default function CorrelacaoSection() {
         </section>
       </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <div>
+      {resolvedMode === 'operation' ? (
+        <section className="panel projects-cta-panel">
+          <div className="projects-cta-copy">
             <div className="panel-title">Projetos prioritários da carteira</div>
-            <div className="panel-subtitle">Os projetos abaixo combinam sinais operacionais e sinais externos de risco.</div>
+            <div className="panel-subtitle">
+              Na visão de operação, a lista detalhada fica concentrada no recorte por consultor para evitar duplicidade.
+            </div>
           </div>
-          <span className="panel-badge">{projectRisks.length} em destaque</span>
-        </div>
+          <button
+            type="button"
+            className="projects-cta-button"
+            onClick={handleOperationProjectsClick}
+          >
+            <FolderKanban size={18} />
+            <span>Ver projetos por consultor</span>
+          </button>
+        </section>
+      ) : (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <div className="panel-title">Projetos prioritários da carteira</div>
+              <div className="panel-subtitle">Os projetos abaixo combinam sinais operacionais e sinais externos de risco.</div>
+            </div>
+            <span className="panel-badge">{projectRisks.length} em destaque</span>
+          </div>
 
-        {projectRisks.length === 0 ? (
-          <div className="empty-inline">Nenhum projeto ativo com risco relevante neste recorte.</div>
-        ) : (
-          <div className="project-list">
-            {projectRisks.map((item) => (
-              <ProjectRiskRow
-                key={item.projetoVorpId}
-                item={item}
-                consultorNome={getConsultorLabel(consultores, item.consultorId, 'full')}
-                showConsultor={showConsultor}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+          {projectRisks.length === 0 ? (
+            <div className="empty-inline">Nenhum projeto ativo com risco relevante neste recorte.</div>
+          ) : (
+            <div className="project-list">
+              {projectRisks.map((item) => (
+                <ProjectRiskRow
+                  key={item.projetoVorpId}
+                  item={item}
+                  consultorNome={getConsultorLabel(consultores, item.consultorId, 'full')}
+                  showConsultor={showConsultor}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-head">
@@ -637,6 +763,49 @@ const baseStyles = `
 
   .panel-badge {
     background: rgba(255,255,255,0.03);
+  }
+
+  .projects-cta-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    background:
+      radial-gradient(circle at 12% 20%, rgba(255,92,26,0.12), transparent 32%),
+      ${T.bg};
+  }
+
+  .projects-cta-copy {
+    max-width: 720px;
+  }
+
+  .projects-cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 22px;
+    border: 1px solid rgba(255,156,69,0.46);
+    border-radius: 16px;
+    background: linear-gradient(135deg, ${T.orange}, #ff8a3d);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 16px 34px rgba(255,92,26,0.18);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  }
+
+  .projects-cta-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 44px rgba(255,92,26,0.25);
+    filter: saturate(1.06);
+  }
+
+  .projects-cta-button:focus-visible {
+    outline: 2px solid rgba(255,156,69,0.55);
+    outline-offset: 3px;
   }
 
   .kpi-grid {
@@ -926,6 +1095,15 @@ const baseStyles = `
 
     .hero-actions {
       justify-content: flex-start;
+    }
+
+    .projects-cta-panel {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .projects-cta-button {
+      width: 100%;
     }
 
     .weak-grid {

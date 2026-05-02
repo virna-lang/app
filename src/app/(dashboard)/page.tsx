@@ -22,7 +22,6 @@ const GoalsSection        = dynamic(() => import('@/components/dashboard/GoalsSe
 const ChurnSection        = dynamic(() => import('@/components/dashboard/ChurnSection'));
 const CorrelacaoSection   = dynamic(() => import('@/components/dashboard/CorrelacaoSection'));
 const InsightsSection     = dynamic(() => import('@/components/dashboard/InsightsSection'));
-const VorpSection         = dynamic(() => import('@/components/dashboard/VorpSection'));
 const AdminManagement     = dynamic(() => import('@/components/dashboard/AdminManagement'));
 
 // ── Design tokens ─────────────────────────────────────────────────────────
@@ -291,16 +290,6 @@ export default function Dashboard() {
 
             <SectionWrapper id="churn" visible={canViewSection('churn')} label="10 Churn" title="Monitoramento de Churn">
               <ChurnSection churn={data!.currentChurn} />
-            </SectionWrapper>
-
-            <div className="section-divider" />
-
-            <SectionWrapper id="vorp-system" visible={canViewSection('vorp-system')} label="11 Vorp System" title="Vorp System">
-              <VorpSection
-                vorpColaboradorId={effectiveConsultantId === 'all'
-                  ? undefined
-                  : consultores.find(c => c.id === effectiveConsultantId)?.vorp_colaborador_id ?? null}
-              />
             </SectionWrapper>
 
             {hasPermission('admin.usuarios') && (

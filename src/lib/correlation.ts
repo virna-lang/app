@@ -31,6 +31,7 @@ export interface CorrelationWeakPoint {
   qtdAvaliados: number;
   qtdConformes: number;
   consultoresImpactados?: number;
+  consultorIdsImpactados?: string[];
 }
 
 export interface CorrelationCategoryScore {
@@ -277,6 +278,7 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
       qtdAvaliados: row.totalAvaliados,
       qtdConformes: row.totalConformes,
       consultoresImpactados: row.consultores.size,
+      consultorIdsImpactados: Array.from(row.consultores).filter(Boolean),
     }))
     .filter((row) => row.notaPct < 80)
     .sort((a, b) => a.notaPct - b.notaPct);
