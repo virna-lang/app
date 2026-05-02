@@ -7,6 +7,7 @@ import React, {
   useState,
   ReactNode,
   useCallback,
+  useRef,
 } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +36,11 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface ApplySessionOptions {
+  silent?: boolean;
+  forceProfileReload?: boolean;
+}
 
 async function bootstrapProfile(accessToken: string): Promise<UsuarioApp | null> {
   try {
@@ -111,20 +117,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UsuarioApp | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const profileRef = useRef<UsuarioApp | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  const authRequestRef = useRef(0);
 
-  const applySession = useCallback(async (nextSession: Session | null) => {
+  const applySession = useCallback(async (
+    nextSession: Session | null,
+    options: ApplySessionOptions = {},
+  ) => {
+    const requestId = authRequestRef.current + 1;
+    authRequestRef.current = requestId;
+    const nextUser = nextSession?.user ?? null;
+    const isSameUser = Boolean(nextUser?.id && userIdRef.current === nextUser.id);
+    const canReuseProfile = Boolean(isSameUser && profileRef.current && !options.forceProfileReload);
+
+    if (!options.silent) {
+      setLoading(true);
+    }
+
     setSession(nextSession);
-    setUser(nextSession?.user ?? null);
+    setUser(nextUser);
+    userIdRef.current = nextUser?.id ?? null;
 
-    if (!nextSession?.user) {
+    if (!nextUser) {
+      profileRef.current = null;
       setProfile(null);
       setAuthError(null);
       setLoading(false);
       return;
     }
 
-    const nextProfile = await loadOrCreateProfile(nextSession.user, nextSession.access_token);
+    if (canReuseProfile) {
+      setAuthError(null);
+      setLoading(false);
+      return;
+    }
+
+    const nextProfile = await loadOrCreateProfile(nextUser, nextSession?.access_token);
+    if (authRequestRef.current !== requestId) {
+      return;
+    }
+
     if (!nextProfile) {
+      profileRef.current = null;
       setProfile(null);
       setAuthError('Nao foi possivel validar o seu acesso ao sistema.');
       await supabase.auth.signOut();
@@ -133,19 +168,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setAuthError(null);
+    profileRef.current = nextProfile;
     setProfile(nextProfile);
     setLoading(false);
   }, []);
 
   useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      applySession(session);
+      applySession(session, { forceProfileReload: true });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setLoading(true);
-        applySession(session);
+      (event, session) => {
+        const sameUser = Boolean(session?.user?.id && userIdRef.current === session.user.id);
+        const hasProfile = Boolean(profileRef.current);
+        const silentRefresh = event === 'TOKEN_REFRESHED'
+          || event === 'USER_UPDATED'
+          || (event === 'SIGNED_IN' && sameUser && hasProfile);
+
+        applySession(session, { silent: silentRefresh });
       },
     );
 
@@ -161,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAuthError(null);
+    profileRef.current = nextProfile;
     setProfile(nextProfile);
   }, [session, user]);
 

@@ -2,7 +2,7 @@ import type { CorrelationInsights, CorrelationOverview } from './correlation';
 import { buildCorrelationInsights } from './correlation';
 
 export const INSIGHTS_AI_MODEL = (process.env.OPENAI_INSIGHTS_MODEL ?? 'gpt-5.5').trim();
-export const INSIGHTS_PROMPT_VERSION = '2026-05-01-v2';
+export const INSIGHTS_PROMPT_VERSION = '2026-05-02-v3';
 
 interface OpenAIResponseTextContent {
   type?: string;
@@ -58,6 +58,11 @@ export function buildInsightsDeveloperPrompt() {
     '5. Priorize leitura operacional: onde esta melhor, onde esta pior, riscos imediatos e o que fazer primeiro.',
     '6. Evite jargoes vagos. Cada frase deve ajudar o consultor a decidir a proxima acao.',
     '7. Use somente a base enviada no contexto estruturado.',
+    '8. Estruture a resposta para alimentar tres blocos visuais principais.',
+    '9. conformidadeNarrativa deve responder ao bloco "Pontos criticos da conformidade".',
+    '10. projetosPrioritarios deve responder ao bloco "Projetos prioritarios da carteira".',
+    '11. planoDeAcao deve responder ao bloco "Estrategias de IA", com acoes praticas e priorizadas.',
+    '12. hipotesesDeCausa deve complementar "Estrategias de IA" com causas provaveis, sem inventar dados.',
   ].join('\n');
 }
 
@@ -91,6 +96,7 @@ export function buildInsightsUserPrompt(overview: CorrelationOverview) {
 
   return [
     'Gere os blocos estruturados de Insights IA com base somente neste contexto.',
+    'Os tres blocos principais da interface serao: Pontos criticos da conformidade, Projetos prioritarios da carteira e Estrategias de IA.',
     'Se a base nao sustentar uma afirmacao, transforme isso em limite explicito.',
     'Contexto estruturado:',
     JSON.stringify(payload, null, 2),

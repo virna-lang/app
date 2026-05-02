@@ -5,9 +5,7 @@ import useSWR from 'swr';
 import {
   AlertTriangle,
   BrainCircuit,
-  Lightbulb,
   ListChecks,
-  Radar,
   RefreshCw,
   Sparkles,
   Target,
@@ -38,6 +36,11 @@ interface InsightsApiResponse {
   generatedAt: string | null;
   promptVersion: string;
   warning: string | null;
+}
+
+interface InsightRequest {
+  id: number;
+  refresh: boolean;
 }
 
 function formatGeneratedAt(value: string | null) {
@@ -73,18 +76,45 @@ function SectionCard({
         <div className="insight-title">{title}</div>
       </div>
       <div className="insight-list">
-        {items.map((item) => (
-          <div key={item} className="insight-item">{item}</div>
-        ))}
+        {items.length > 0 ? items.map((item, index) => (
+          <div key={`${title}-${index}-${item}`} className="insight-item">{item}</div>
+        )) : (
+          <div className="insight-item">Ainda não há dados suficientes para este bloco.</div>
+        )}
       </div>
     </section>
+  );
+}
+
+function GenerateButton({
+  children,
+  onClick,
+  disabled,
+  variant = 'primary',
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  variant?: 'primary' | 'secondary';
+}) {
+  return (
+    <button
+      type="button"
+      className={variant === 'primary' ? 'primary-button' : 'refresh-button'}
+      onClick={onClick}
+      disabled={disabled}
+      aria-busy={disabled}
+    >
+      <Sparkles size={14} />
+      {children}
+    </button>
   );
 }
 
 export default function InsightsSection() {
   const { profile, session, hasPermission } = useAuth();
   const { consultores, filters, correlationMode } = useDashboard();
-  const [refreshCount, setRefreshCount] = useState(0);
+  const [generationRequest, setGenerationRequest] = useState<InsightRequest | null>(null);
   const canViewOperation = hasPermission('filters.consultores.todos');
   const ownConsultorId = profile?.consultor_id ?? null;
   const filteredConsultorId = canViewOperation && filters.consultantId !== 'all'
@@ -101,10 +131,14 @@ export default function InsightsSection() {
         : 'mine';
   const mesAno = labelToMesAno(filters.month);
   const canLoadMine = mode === 'mine' ? Boolean(scopedConsultorId && vorpColaboradorId) : true;
+  const hasRequestedInsights = generationRequest !== null;
+  const insightsKey = hasRequestedInsights && canLoadMine
+    ? ['ai-insights', mode, mesAno, scopedConsultorId ?? 'none', generationRequest.id, generationRequest.refresh] as const
+    : null;
 
-  const { data, isLoading, isValidating } = useSWR(
-    canLoadMine ? ['ai-insights', mode, mesAno, scopedConsultorId ?? 'none', refreshCount] : null,
-    async ([, currentMode, currentMesAno, currentConsultorId, currentRefreshCount]) => {
+  const { data, error, isLoading, isValidating } = useSWR(
+    insightsKey,
+    async ([, currentMode, currentMesAno, currentConsultorId, , shouldRefresh]) => {
       const params = new URLSearchParams({
         mode: currentMode,
         mesAno: currentMesAno,
@@ -114,7 +148,7 @@ export default function InsightsSection() {
         params.set('consultorId', currentConsultorId);
       }
 
-      if (Number(currentRefreshCount) > 0) {
+      if (shouldRefresh) {
         params.set('refresh', '1');
       }
 
@@ -134,15 +168,23 @@ export default function InsightsSection() {
     },
     {
       revalidateOnFocus: false,
+      revalidateOnReconnect: false,
       dedupingInterval: 60_000,
       keepPreviousData: true,
     },
   );
 
+  const requestInsights = (refresh = false) => {
+    setGenerationRequest((current) => ({
+      id: (current?.id ?? 0) + 1,
+      refresh,
+    }));
+  };
+
   if (!session?.access_token) {
     return (
       <div className="state-card">
-        Sua sessao expirou. Entre novamente para carregar os insights.
+        Sua sessão expirou. Entre novamente para carregar os insights.
         <style jsx>{styles}</style>
       </div>
     );
@@ -159,10 +201,47 @@ export default function InsightsSection() {
     );
   }
 
+  if (!hasRequestedInsights && !data) {
+    return (
+      <div className="insights-root">
+        <div className="cta-card">
+          <div>
+            <div className="hero-eyebrow">Insights IA</div>
+            <h3>Gerar leitura estratégica da carteira</h3>
+            <p className="hero-text">
+              A IA vai montar pontos críticos da conformidade, projetos prioritários e estratégias de ação para este recorte.
+            </p>
+          </div>
+          <GenerateButton onClick={() => requestInsights(false)}>
+            Gerar insights IA
+          </GenerateButton>
+        </div>
+        <style jsx>{styles}</style>
+      </div>
+    );
+  }
+
   if (isLoading && !data) {
     return (
-      <div className="state-card">
-        Montando o diagnóstico estratégico da carteira...
+      <div className="insights-root">
+        <div className="state-card status-row">
+          <RefreshCw size={16} className="spin" />
+          Gerando os insights da carteira...
+        </div>
+        <style jsx>{styles}</style>
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="insights-root">
+        <div className="state-card state-stack">
+          <span>{error instanceof Error ? error.message : 'Não foi possível gerar os Insights IA.'}</span>
+          <GenerateButton onClick={() => requestInsights(true)} variant="secondary">
+            Tentar novamente
+          </GenerateButton>
+        </div>
         <style jsx>{styles}</style>
       </div>
     );
@@ -178,6 +257,7 @@ export default function InsightsSection() {
   }
 
   const insights = data.insights;
+  const estrategiasIa = [...insights.planoDeAcao, ...insights.hipotesesDeCausa].slice(0, 6);
   const sourceLabel = data.cached
     ? `Snapshot salvo · ${formatGeneratedAt(data.generatedAt)}`
     : data.source === 'openai'
@@ -198,12 +278,13 @@ export default function InsightsSection() {
             <button
               type="button"
               className="refresh-button"
-              onClick={() => setRefreshCount((current) => current + 1)}
+              onClick={() => requestInsights(true)}
               disabled={isValidating}
+              aria-busy={isValidating}
               title="Gerar uma nova leitura para o mesmo recorte"
             >
               <RefreshCw size={14} className={isValidating ? 'spin' : ''} />
-              Atualizar análise
+              {isValidating ? 'Gerando...' : 'Gerar nova análise'}
             </button>
           </div>
         </div>
@@ -212,39 +293,21 @@ export default function InsightsSection() {
 
       <div className="insights-grid">
         <SectionCard
-          icon={<Target size={16} />}
-          title="Diagnóstico geral"
-          items={insights.diagnosticoGeral}
-          accent={T.green}
-        />
-        <SectionCard
           icon={<BrainCircuit size={16} />}
-          title="O que mais derrubou a conformidade"
+          title="Pontos críticos da conformidade"
           items={insights.conformidadeNarrativa}
           accent={T.orange}
         />
         <SectionCard
-          icon={<Radar size={16} />}
-          title="Principais correlações encontradas"
-          items={insights.correlacoesPrincipais}
-          accent={T.blue}
-        />
-        <SectionCard
-          icon={<Lightbulb size={16} />}
-          title="Projetos que pedem atenção imediata"
+          icon={<Target size={16} />}
+          title="Projetos prioritários da carteira"
           items={insights.projetosPrioritarios}
           accent={T.yellow}
         />
         <SectionCard
-          icon={<Lightbulb size={16} />}
-          title="Hipóteses de causa"
-          items={insights.hipotesesDeCausa}
-          accent={T.blue}
-        />
-        <SectionCard
           icon={<ListChecks size={16} />}
-          title="Plano de ação recomendado"
-          items={insights.planoDeAcao}
+          title="Estratégias de IA"
+          items={estrategiasIa}
           accent={T.green}
         />
       </div>
@@ -261,8 +324,8 @@ export default function InsightsSection() {
           {data.warning && <div className="warning-copy">{data.warning}</div>}
 
           <div className="insight-list">
-            {insights.limitesDaLeitura.map((item) => (
-              <div key={item} className="insight-item">{item}</div>
+            {insights.limitesDaLeitura.map((item, index) => (
+              <div key={`limite-${index}-${item}`} className="insight-item">{item}</div>
             ))}
           </div>
         </section>
@@ -281,6 +344,7 @@ const styles = `
   }
 
   .hero-card,
+  .cta-card,
   .insight-card,
   .limits-card,
   .state-card {
@@ -290,10 +354,31 @@ const styles = `
     padding: 20px;
   }
 
+  .cta-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
   .state-card {
     color: ${T.textSub};
     font-size: 14px;
     line-height: 1.6;
+  }
+
+  .status-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .state-stack {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
   .hero-eyebrow,
@@ -317,11 +402,16 @@ const styles = `
     flex-wrap: wrap;
   }
 
-  .hero-card h3 {
+  .hero-card h3,
+  .cta-card h3 {
     margin: 0;
     color: ${T.text};
     font-size: 26px;
     line-height: 1.15;
+  }
+
+  .cta-card h3 {
+    margin-top: 8px;
   }
 
   .hero-actions {
@@ -333,7 +423,8 @@ const styles = `
   }
 
   .hero-badge,
-  .refresh-button {
+  .refresh-button,
+  .primary-button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -346,9 +437,19 @@ const styles = `
     font-weight: 700;
   }
 
-  .refresh-button {
+  .refresh-button,
+  .primary-button {
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+    transition: border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+  }
+
+  .primary-button {
+    padding: 11px 16px;
+    background: linear-gradient(135deg, rgba(255,92,26,0.95), rgba(245,158,11,0.88));
+    border-color: rgba(255,255,255,0.12);
+    color: #08090d;
+    box-shadow: 0 12px 30px rgba(255,92,26,0.16);
+    white-space: nowrap;
   }
 
   .refresh-button:hover:not(:disabled) {
@@ -356,7 +457,12 @@ const styles = `
     color: ${T.orange};
   }
 
-  .refresh-button:disabled {
+  .primary-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .refresh-button:disabled,
+  .primary-button:disabled {
     cursor: wait;
     opacity: 0.55;
   }
@@ -374,7 +480,7 @@ const styles = `
 
   .insights-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
   }
 
@@ -437,7 +543,7 @@ const styles = `
     to { transform: rotate(360deg); }
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
     .insights-grid {
       grid-template-columns: 1fr;
     }
@@ -445,6 +551,7 @@ const styles = `
 
   @media (max-width: 720px) {
     .hero-card,
+    .cta-card,
     .insight-card,
     .limits-card,
     .state-card {
@@ -453,6 +560,11 @@ const styles = `
 
     .hero-actions {
       justify-content: flex-start;
+    }
+
+    .cta-card {
+      align-items: flex-start;
+      flex-direction: column;
     }
   }
 `;
