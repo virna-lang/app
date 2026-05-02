@@ -12,6 +12,7 @@ import {
   type UserRole,
   normalizePermissions,
 } from '@/lib/permissions';
+import FilterCombobox from '@/components/cadastro/FilterCombobox';
 
 const T = {
   bg: '#111827',
@@ -27,6 +28,27 @@ function permissionsForRole(role: UserRole): AppPermission[] {
   return role === 'Administrador' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_CONSULTOR_PERMISSIONS;
 }
 
+function normalizeText(value?: string | number | null) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function fieldMatches(value: unknown, filter: string) {
+  if (!filter) return true;
+  return normalizeText(value as string | number | null).includes(normalizeText(filter));
+}
+
+function uniqueOptions(values: Array<string | null | undefined>) {
+  return Array.from(new Set(
+    values
+      .map(value => value?.trim())
+      .filter((value): value is string => Boolean(value)),
+  )).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
 export default function UserPermissionsPanel() {
   const [users, setUsers] = useState<UsuarioApp[]>([]);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
@@ -34,6 +56,14 @@ export default function UserPermissionsPanel() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [permissionSearch, setPermissionSearch] = useState('');
+  const [permissionFilters, setPermissionFilters] = useState({
+    nome: '',
+    email: '',
+    papel: '',
+    consultor: '',
+    status: '',
+  });
 
   const consultoresAtivos = useMemo(
     () => consultores.filter(c => c.status === 'Ativo'),
@@ -55,6 +85,31 @@ export default function UserPermissionsPanel() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const getConsultorName = (consultorId?: string | null) =>
+    consultores.find(c => c.id === consultorId)?.nome ?? 'Sem vinculo';
+
+  const usersFiltrados = users.filter(user => {
+    const role = user.role === 'Administrador' ? 'Administrador' : 'Consultor';
+    const consultorNome = getConsultorName(user.consultor_id);
+    const searchable = [user.nome, user.email, role, consultorNome, user.status];
+    const matchBusca = !permissionSearch || searchable.some(value => fieldMatches(value, permissionSearch));
+
+    return matchBusca &&
+      fieldMatches(user.nome || user.email, permissionFilters.nome) &&
+      fieldMatches(user.email, permissionFilters.email) &&
+      fieldMatches(role, permissionFilters.papel) &&
+      fieldMatches(consultorNome, permissionFilters.consultor) &&
+      fieldMatches(user.status, permissionFilters.status);
+  });
+
+  const permissionOptions = {
+    nome: uniqueOptions(users.map(user => user.nome || user.email)),
+    email: uniqueOptions(users.map(user => user.email)),
+    papel: uniqueOptions(users.map(user => user.role === 'Administrador' ? 'Administrador' : 'Consultor')),
+    consultor: uniqueOptions(users.map(user => getConsultorName(user.consultor_id))),
+    status: uniqueOptions(users.map(user => user.status)),
+  };
 
   const saveUser = async (
     user: UsuarioApp,
@@ -120,8 +175,28 @@ export default function UserPermissionsPanel() {
         ) : users.length === 0 ? (
           <div className="empty">Nenhum login encontrado ainda. A pessoa aparece aqui depois de entrar com Google.</div>
         ) : (
-          <div className="users-list">
-            {users.map(user => {
+          <>
+            <div className="permissions-filters">
+              <input
+                className="permission-search"
+                value={permissionSearch}
+                onChange={e => setPermissionSearch(e.target.value)}
+                placeholder="Buscar por nome, e-mail, papel, consultor ou status..."
+              />
+              <div className="permission-filter-row">
+                <FilterCombobox label="Nome" value={permissionFilters.nome} allLabel="Todos os nomes" options={permissionOptions.nome} onChange={value => setPermissionFilters(prev => ({ ...prev, nome: value }))} />
+                <FilterCombobox label="E-mail" value={permissionFilters.email} allLabel="Todos os e-mails" options={permissionOptions.email} onChange={value => setPermissionFilters(prev => ({ ...prev, email: value }))} />
+                <FilterCombobox label="Papel" value={permissionFilters.papel} allLabel="Todos os papeis" options={permissionOptions.papel} onChange={value => setPermissionFilters(prev => ({ ...prev, papel: value }))} />
+                <FilterCombobox label="Consultor" value={permissionFilters.consultor} allLabel="Todos os consultores" options={permissionOptions.consultor} onChange={value => setPermissionFilters(prev => ({ ...prev, consultor: value }))} />
+                <FilterCombobox label="Status" value={permissionFilters.status} allLabel="Todos os status" options={permissionOptions.status} onChange={value => setPermissionFilters(prev => ({ ...prev, status: value }))} />
+              </div>
+            </div>
+
+            {usersFiltrados.length === 0 ? (
+              <div className="empty">Nenhum login encontrado com os filtros atuais.</div>
+            ) : (
+              <div className="users-list">
+                {usersFiltrados.map(user => {
               const role = user.role === 'Administrador' ? 'Administrador' : 'Consultor';
               const permissoes = normalizePermissions(user.permissoes, permissionsForRole(role));
               const saving = savingId === user.id;
@@ -217,8 +292,10 @@ export default function UserPermissionsPanel() {
                   )}
                 </div>
               );
-            })}
-          </div>
+                })}
+              </div>
+            )}
+          </>
         )
       )}
 
@@ -266,6 +343,35 @@ export default function UserPermissionsPanel() {
           padding: 18px;
           font-size: 13px;
           text-align: center;
+        }
+        .permissions-filters {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+        .permission-search {
+          width: 100%;
+          max-width: 560px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid ${T.border};
+          border-radius: 8px;
+          color: ${T.text};
+          padding: 10px 14px;
+          font-size: 13px;
+          outline: none;
+        }
+        .permission-search:focus {
+          border-color: rgba(252,84,0,0.62);
+          background: rgba(255,255,255,0.05);
+        }
+        .permission-search::placeholder {
+          color: ${T.muted};
+        }
+        .permission-filter-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
         }
         .users-list { display: flex; flex-direction: column; gap: 12px; }
         .user-row {

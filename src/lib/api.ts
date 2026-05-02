@@ -13,6 +13,7 @@ import type {
   ViewMetasConsultor,
   ViewFlagsConsultor,
   ViewConformidadeConsultor,
+  VorpProdutoRow,
 } from './supabase';
 import type { AppPermission, UserRole } from './permissions';
 
@@ -841,4 +842,14 @@ export async function getVorpProdutos(): Promise<string[]> {
     .order('nome');
   if (error) throw error;
   return (data ?? []).map((p: { nome: string }) => p.nome);
+}
+
+/** Produtos Growth do Vorp com metadados para tabela e filtros de cadastro */
+export async function getVorpProdutosDetalhados(): Promise<VorpProdutoRow[]> {
+  const { data, error } = await supabase
+    .from('vorp_produtos')
+    .select('*')
+    .order('nome');
+  if (error) throw error;
+  return data ?? [];
 }

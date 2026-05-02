@@ -175,6 +175,7 @@ export interface VorpProdutoRow {
   vorp_id: string;
   nome: string;
   tipo?: string | null;
+  status?: string | null;
   vertical?: string | null;
   synced_at: string;
 }

@@ -1,12 +1,34 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw, ChevronDown } from 'lucide-react';
+import { Building2, Users, AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
 import { getVorpProjetosAtivos, getConsultoresParaFiltro, setTrativaCS } from '@/lib/api';
 import { COLORS } from '@/types/dashboard';
 import type { VorpProjetoRow } from '@/lib/supabase';
+import FilterCombobox from '@/components/cadastro/FilterCombobox';
 
 type StatusFiltro = 'Ativo' | 'Churn' | 'Concluído' | 'todos';
+
+function normalizeText(value?: string | number | null) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function fieldMatches(value: unknown, filter: string) {
+  if (!filter || filter === 'all' || filter === 'todos') return true;
+  return normalizeText(value as string | number | null).includes(normalizeText(filter));
+}
+
+function uniqueOptions(values: Array<string | null | undefined>) {
+  return Array.from(new Set(
+    values
+      .map(value => value?.trim())
+      .filter((value): value is string => Boolean(value)),
+  )).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
 
 interface Props {
   vorpColaboradorId?: string | null;
@@ -23,6 +45,7 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
   const isAdminView = !vorpColaboradorId || vorpColaboradorId === 'all';
 
   const [filtroConsultor, setFiltroConsultor] = useState('all');  // vorp_colaborador_id | 'all'
+  const [filtroProjeto,   setFiltroProjeto]   = useState('all');
   const [filtroProduto,   setFiltroProduto]   = useState('all');  // produto_nome | 'all'
   const [filtroStatus,    setFiltroStatus]    = useState<StatusFiltro>('Ativo');
 
@@ -35,7 +58,11 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
     () =>
       [...new Set(projetos.map(p => p.produto_nome).filter(Boolean) as string[])].sort(
         (a, b) => a.localeCompare(b, 'pt-BR'),
-      ),
+    ),
+    [projetos],
+  );
+  const projetosOpcoes = useMemo(
+    () => uniqueOptions(projetos.map(p => p.nome)),
     [projetos],
   );
 
@@ -90,7 +117,10 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
       !busca ||
       p.nome.toLowerCase().includes(busca.toLowerCase()) ||
       (p.colaborador_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
-      (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase());
+      (p.produto_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
+      (p.status ?? '').toLowerCase().includes(busca.toLowerCase()) ||
+      (p.canal ?? '').toLowerCase().includes(busca.toLowerCase()) ||
+      String(p.fee ?? '').toLowerCase().includes(busca.toLowerCase());
 
     const matchFiltroCS =
       filtroCS === 'todos' ||
@@ -98,9 +128,12 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
       (filtroCS === 'auditaveis' && !p.tratativa_cs);
 
     const matchProduto =
-      filtroProduto === 'all' || p.produto_nome === filtroProduto;
+      fieldMatches(p.produto_nome, filtroProduto);
 
-    return matchBusca && matchFiltroCS && matchProduto;
+    const matchProjeto =
+      fieldMatches(p.nome, filtroProjeto);
+
+    return matchBusca && matchFiltroCS && matchProduto && matchProjeto;
   });
 
   // ── KPIs sobre o conjunto carregado (após filtro de consultor/status) ──
@@ -110,10 +143,11 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
 
   // ── Helpers de UI ──────────────────────────────────────
   const temFiltroAtivo =
-    filtroConsultor !== 'all' || filtroProduto !== 'all' || filtroStatus !== 'Ativo';
+    filtroConsultor !== 'all' || filtroProjeto !== 'all' || filtroProduto !== 'all' || filtroStatus !== 'Ativo';
 
   const limparFiltros = () => {
     setFiltroConsultor('all');
+    setFiltroProjeto('all');
     setFiltroProduto('all');
     setFiltroStatus('Ativo');
     setBusca('');
@@ -187,52 +221,43 @@ export default function VorpSection({ vorpColaboradorId }: Props) {
       {/* ── Filtros principais (consultor / produto / status) ── */}
       {isAdminView && (
         <div className="controles-row">
-          {/* Consultor */}
-          <div className="filter-select-wrap">
-            <ChevronDown size={12} className="select-arrow" />
-            <select
-              className="filter-select"
-              value={filtroConsultor}
-              onChange={e => setFiltroConsultor(e.target.value)}
-            >
-              <option value="all">Todos os consultores</option>
-              {consultoresOpcoes.map(c => (
-                <option key={c.vorp_colaborador_id} value={c.vorp_colaborador_id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FilterCombobox
+            label="Consultor"
+            value={filtroConsultor}
+            allValue="all"
+            allLabel="Todos os consultores"
+            allowCustom={false}
+            options={consultoresOpcoes.map(c => ({ value: c.vorp_colaborador_id, label: c.nome }))}
+            onChange={setFiltroConsultor}
+          />
 
-          {/* Produto */}
-          <div className="filter-select-wrap">
-            <ChevronDown size={12} className="select-arrow" />
-            <select
-              className="filter-select"
-              value={filtroProduto}
-              onChange={e => setFiltroProduto(e.target.value)}
-            >
-              <option value="all">Todos os produtos</option>
-              {produtosOpcoes.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
+          <FilterCombobox
+            label="Projeto"
+            value={filtroProjeto}
+            allValue="all"
+            allLabel="Todos os projetos"
+            options={projetosOpcoes}
+            onChange={setFiltroProjeto}
+          />
 
-          {/* Status */}
-          <div className="filter-select-wrap">
-            <ChevronDown size={12} className="select-arrow" />
-            <select
-              className="filter-select"
-              value={filtroStatus}
-              onChange={e => setFiltroStatus(e.target.value as StatusFiltro)}
-            >
-              <option value="Ativo">Ativos</option>
-              <option value="Churn">Churn</option>
-              <option value="Concluído">Concluídos</option>
-              <option value="todos">Todos os status</option>
-            </select>
-          </div>
+          <FilterCombobox
+            label="Produto"
+            value={filtroProduto}
+            allValue="all"
+            allLabel="Todos os produtos"
+            options={produtosOpcoes}
+            onChange={setFiltroProduto}
+          />
+
+          <FilterCombobox
+            label="Status"
+            value={filtroStatus}
+            allValue="todos"
+            allLabel="Todos os status"
+            options={['Ativo', 'Churn', 'Concluído']}
+            onChange={value => setFiltroStatus(value as StatusFiltro)}
+          />
+
         </div>
       )}
 
