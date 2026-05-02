@@ -416,7 +416,7 @@ const styles = `
 
   .hero-badge,
   .refresh-button,
-  :global(.insights-generate-button) {
+  .insights-generate-button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -430,12 +430,12 @@ const styles = `
   }
 
   .refresh-button,
-  :global(.insights-generate-button) {
+  .insights-generate-button {
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
   }
 
-  :global(.insights-generate-button) {
+  .insights-generate-button {
     min-height: 48px;
     padding: 0 28px;
     background: linear-gradient(135deg, #6d4cff 0%, #8b2de2 100%);
@@ -454,13 +454,13 @@ const styles = `
     color: ${T.orange};
   }
 
-  :global(.insights-generate-button:hover:not(:disabled)) {
+  .insights-generate-button:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 18px 38px rgba(139,45,226,0.34);
   }
 
   .refresh-button:disabled,
-  :global(.insights-generate-button:disabled) {
+  .insights-generate-button:disabled {
     cursor: wait;
     opacity: 0.55;
   }
