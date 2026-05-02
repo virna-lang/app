@@ -32,6 +32,7 @@ export default function UserPermissionsPanel() {
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const consultoresAtivos = useMemo(
@@ -80,9 +81,15 @@ export default function UserPermissionsPanel() {
     saveUser(user, { permissoes: next });
   };
 
+  const togglePermissionsPanel = () => {
+    const nextOpen = !permissionsOpen;
+    setPermissionsOpen(nextOpen);
+    if (!nextOpen) setExpandedUserId(null);
+  };
+
   return (
     <section className="perm-card">
-      <div className="perm-head">
+      <div className={`perm-head ${permissionsOpen ? 'open' : ''}`}>
         <div className="perm-title">
           <ShieldCheck size={18} />
           <div>
@@ -90,115 +97,129 @@ export default function UserPermissionsPanel() {
             <p>Defina o que cada pessoa logada pode ver no sistema.</p>
           </div>
         </div>
-        <button className="refresh-btn" onClick={load} disabled={loading}>
-          Atualizar
-        </button>
+        <div className="head-actions">
+          {permissionsOpen && (
+            <button className="refresh-btn" onClick={load} disabled={loading}>
+              Atualizar
+            </button>
+          )}
+          <button
+            type="button"
+            className="orange-action-btn open-permissions-btn"
+            aria-expanded={permissionsOpen}
+            onClick={togglePermissionsPanel}
+          >
+            {permissionsOpen ? 'Fechar permissões' : 'Abrir permissões'}
+          </button>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="empty">Carregando permissoes...</div>
-      ) : users.length === 0 ? (
-        <div className="empty">Nenhum login encontrado ainda. A pessoa aparece aqui depois de entrar com Google.</div>
-      ) : (
-        <div className="users-list">
-          {users.map(user => {
-            const role = user.role === 'Administrador' ? 'Administrador' : 'Consultor';
-            const permissoes = normalizePermissions(user.permissoes, permissionsForRole(role));
-            const saving = savingId === user.id;
-            const expanded = expandedUserId === user.id;
+      {permissionsOpen && (
+        loading ? (
+          <div className="empty">Carregando permissoes...</div>
+        ) : users.length === 0 ? (
+          <div className="empty">Nenhum login encontrado ainda. A pessoa aparece aqui depois de entrar com Google.</div>
+        ) : (
+          <div className="users-list">
+            {users.map(user => {
+              const role = user.role === 'Administrador' ? 'Administrador' : 'Consultor';
+              const permissoes = normalizePermissions(user.permissoes, permissionsForRole(role));
+              const saving = savingId === user.id;
+              const expanded = expandedUserId === user.id;
 
-            return (
-              <div className="user-row" key={user.id}>
-                <div className="user-main">
-                  <div className="user-avatar"><UserRoundCog size={16} /></div>
-                  <div className="user-copy">
-                    <strong>{user.nome || user.email}</strong>
-                    <span>{user.email}</span>
-                  </div>
-                  {saving && <span className="saving"><Save size={12} /> Salvando</span>}
-                  <button
-                    type="button"
-                    className="details-btn"
-                    aria-expanded={expanded}
-                    onClick={() => setExpandedUserId(expanded ? null : user.id)}
-                  >
-                    Mais detalhes
-                  </button>
-                </div>
-
-                {expanded && (
-                  <div className="user-details">
-                    <div className="selectors">
-                      <label>
-                        Papel
-                        <select
-                          value={role}
-                          onChange={e => {
-                            const nextRole = e.target.value as UserRole;
-                            saveUser(user, {
-                              role: nextRole,
-                              permissoes: permissionsForRole(nextRole),
-                            });
-                          }}
-                        >
-                          <option value="Administrador">Administrador</option>
-                          <option value="Consultor">Consultor</option>
-                        </select>
-                      </label>
-
-                      <label>
-                        Consultor vinculado
-                        <select
-                          value={user.consultor_id ?? ''}
-                          onChange={e => saveUser(user, { consultor_id: e.target.value || null })}
-                        >
-                          <option value="">Sem vinculo</option>
-                          {consultoresAtivos.map(c => (
-                            <option key={c.id} value={c.id}>{c.nome}</option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label>
-                        Status
-                        <select
-                          value={user.status ?? 'Ativo'}
-                          onChange={e => saveUser(user, { status: e.target.value as 'Ativo' | 'Inativo' })}
-                        >
-                          <option value="Ativo">Ativo</option>
-                          <option value="Inativo">Inativo</option>
-                        </select>
-                      </label>
+              return (
+                <div className="user-row" key={user.id}>
+                  <div className="user-main">
+                    <div className="user-avatar"><UserRoundCog size={16} /></div>
+                    <div className="user-copy">
+                      <strong>{user.nome || user.email}</strong>
+                      <span>{user.email}</span>
                     </div>
+                    {saving && <span className="saving"><Save size={12} /> Salvando</span>}
+                    <button
+                      type="button"
+                      className="orange-action-btn details-btn"
+                      aria-expanded={expanded}
+                      onClick={() => setExpandedUserId(expanded ? null : user.id)}
+                    >
+                      Mais detalhes
+                    </button>
+                  </div>
 
-                    <div className="permission-grid">
-                      {PERMISSION_GROUPS.map(group => (
-                        <div className="permission-group" key={group.group}>
-                          <h3>{group.group}</h3>
-                          <div className="checks">
-                            {group.permissions.map(item => {
-                              const checked = permissoes.includes(item.key);
-                              return (
-                                <label className="check" key={item.key}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => togglePermission(user, item.key)}
-                                  />
-                                  <span>{item.label}</span>
-                                </label>
-                              );
-                            })}
+                  {expanded && (
+                    <div className="user-details">
+                      <div className="selectors">
+                        <label>
+                          Papel
+                          <select
+                            value={role}
+                            onChange={e => {
+                              const nextRole = e.target.value as UserRole;
+                              saveUser(user, {
+                                role: nextRole,
+                                permissoes: permissionsForRole(nextRole),
+                              });
+                            }}
+                          >
+                            <option value="Administrador">Administrador</option>
+                            <option value="Consultor">Consultor</option>
+                          </select>
+                        </label>
+
+                        <label>
+                          Consultor vinculado
+                          <select
+                            value={user.consultor_id ?? ''}
+                            onChange={e => saveUser(user, { consultor_id: e.target.value || null })}
+                          >
+                            <option value="">Sem vinculo</option>
+                            {consultoresAtivos.map(c => (
+                              <option key={c.id} value={c.id}>{c.nome}</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          Status
+                          <select
+                            value={user.status ?? 'Ativo'}
+                            onChange={e => saveUser(user, { status: e.target.value as 'Ativo' | 'Inativo' })}
+                          >
+                            <option value="Ativo">Ativo</option>
+                            <option value="Inativo">Inativo</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="permission-grid">
+                        {PERMISSION_GROUPS.map(group => (
+                          <div className="permission-group" key={group.group}>
+                            <h3>{group.group}</h3>
+                            <div className="checks">
+                              {group.permissions.map(item => {
+                                const checked = permissoes.includes(item.key);
+                                return (
+                                  <label className="check" key={item.key}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => togglePermission(user, item.key)}
+                                    />
+                                    <span>{item.label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       <style jsx>{`
@@ -214,11 +235,21 @@ export default function UserPermissionsPanel() {
           align-items: flex-start;
           justify-content: space-between;
           gap: 16px;
+          margin-bottom: 0;
+        }
+        .perm-head.open {
           margin-bottom: 14px;
         }
         .perm-title { display: flex; gap: 10px; color: ${T.orange}; }
         .perm-title h2 { color: ${T.text}; font-size: 16px; margin: 0 0 3px; }
         .perm-title p { color: ${T.muted}; font-size: 12px; margin: 0; }
+        .head-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
         .refresh-btn {
           border: 1px solid ${T.border};
           background: ${T.bgSoft};
@@ -269,7 +300,7 @@ export default function UserPermissionsPanel() {
           align-items: center;
           gap: 5px;
         }
-        .details-btn {
+        .orange-action-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -287,14 +318,17 @@ export default function UserPermissionsPanel() {
           box-shadow: 0 14px 30px rgba(252,84,0,0.16);
           transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
         }
-        .details-btn:hover {
+        .orange-action-btn:hover {
           transform: translateY(-1px);
           box-shadow: 0 18px 40px rgba(252,84,0,0.24);
           filter: saturate(1.06);
         }
-        .details-btn:focus-visible {
+        .orange-action-btn:focus-visible {
           outline: 2px solid rgba(255,156,69,0.55);
           outline-offset: 3px;
+        }
+        .details-btn {
+          margin-left: auto;
         }
         .user-details {
           margin-top: 14px;
@@ -357,6 +391,9 @@ export default function UserPermissionsPanel() {
           .permission-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 720px) {
+          .perm-head { flex-direction: column; }
+          .head-actions,
+          .open-permissions-btn { width: 100%; }
           .user-main { align-items: flex-start; flex-wrap: wrap; }
           .details-btn { width: 100%; margin-left: 42px; }
         }
