@@ -39,9 +39,14 @@ yarn-error.log*
 # cloudflare
 .wrangler
 
+# local agent worktrees
+.claude/worktrees/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
 # Google OAuth credentials — NUNCA commitar
 client_secret_*.json
+
+.vercel

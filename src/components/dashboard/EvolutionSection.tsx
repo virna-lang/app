@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine,
@@ -135,7 +135,7 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
     [data.currentAudits, consultores],
   );
 
-  const buildChart = (scoreField: string) =>
+  const buildChart = useCallback((scoreField: string) =>
     months.map(m => {
       const entry: any = { name: m };
       const audits = m === data.month ? data.currentAudits : data.prevAudits;
@@ -144,10 +144,10 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
         if (audit) entry[c.id] = audit[scoreField] ?? 0;
       });
       return entry;
-    });
+    }), [consultants, data.currentAudits, data.month, data.prevAudits, months]);
 
-  const chartResultado    = useMemo(() => buildChart('score_resultado'),    [months, data.currentAudits, data.prevAudits, consultants]);
-  const chartConformidade = useMemo(() => buildChart('score_conformidade'), [months, data.currentAudits, data.prevAudits, consultants]);
+  const chartResultado    = useMemo(() => buildChart('score_resultado'),    [buildChart]);
+  const chartConformidade = useMemo(() => buildChart('score_conformidade'), [buildChart]);
 
   const topEvolution = useMemo(() =>
     consultants.map(c => {

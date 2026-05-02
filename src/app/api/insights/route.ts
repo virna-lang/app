@@ -400,12 +400,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Voce nao pode consultar outro consultor.' }, { status: 403 });
   }
 
-  const rateLimit = checkRateLimit(
-    `insights:${auth.context.user.id}:${refresh ? 'refresh' : 'read'}`,
-    refresh
-      ? { limit: 6, windowMs: 60_000 }
-      : { limit: 60, windowMs: 60_000 },
-  );
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit(
+      auth.context.supabaseAdmin,
+      `insights:${auth.context.user.id}:${refresh ? 'refresh' : 'read'}`,
+      refresh
+        ? { limit: 6, windowMs: 60_000 }
+        : { limit: 60, windowMs: 60_000 },
+    );
+  } catch (error) {
+    console.error('insights rate limit storage:', error);
+    return NextResponse.json(
+      { ok: false, error: 'Rate limit temporariamente indisponivel. Tente novamente em instantes.' },
+      { status: 503 },
+    );
+  }
+
   if (!rateLimit.ok) {
     return NextResponse.json(
       { ok: false, error: 'Muitas requisicoes para Insights IA. Tente novamente em instantes.' },

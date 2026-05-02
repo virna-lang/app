@@ -15,10 +15,20 @@ export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req, { requiredRole: 'Administrador' });
   if (!auth.ok) return auth.response;
 
-  const rateLimit = checkRateLimit(`sync:post:${auth.context.user.id}`, {
-    limit: 3,
-    windowMs: 60_000,
-  });
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit(auth.context.supabaseAdmin, `sync:post:${auth.context.user.id}`, {
+      limit: 3,
+      windowMs: 60_000,
+    });
+  } catch (error) {
+    console.error('sync POST rate limit storage:', error);
+    return NextResponse.json(
+      { ok: false, error: 'Rate limit temporariamente indisponivel. Tente novamente em instantes.' },
+      { status: 503 },
+    );
+  }
+
   if (!rateLimit.ok) {
     return NextResponse.json(
       { error: 'Muitas tentativas de sincronizacao. Aguarde um pouco.' },
@@ -58,10 +68,20 @@ export async function GET(req: NextRequest) {
   const auth = await authenticateRequest(req, { requiredRole: 'Administrador' });
   if (!auth.ok) return auth.response;
 
-  const rateLimit = checkRateLimit(`sync:get:${auth.context.user.id}`, {
-    limit: 20,
-    windowMs: 60_000,
-  });
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit(auth.context.supabaseAdmin, `sync:get:${auth.context.user.id}`, {
+      limit: 20,
+      windowMs: 60_000,
+    });
+  } catch (error) {
+    console.error('sync GET rate limit storage:', error);
+    return NextResponse.json(
+      { ok: false, error: 'Rate limit temporariamente indisponivel. Tente novamente em instantes.' },
+      { status: 503 },
+    );
+  }
+
   if (!rateLimit.ok) {
     return NextResponse.json(
       { error: 'Muitas consultas ao log de sincronizacao. Aguarde um pouco.' },
