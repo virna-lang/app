@@ -32,6 +32,7 @@ export default function UserPermissionsPanel() {
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const consultoresAtivos = useMemo(
     () => consultores.filter(c => c.status === 'Ativo'),
@@ -104,6 +105,7 @@ export default function UserPermissionsPanel() {
             const role = user.role === 'Administrador' ? 'Administrador' : 'Consultor';
             const permissoes = normalizePermissions(user.permissoes, permissionsForRole(role));
             const saving = savingId === user.id;
+            const expanded = expandedUserId === user.id;
 
             return (
               <div className="user-row" key={user.id}>
@@ -114,73 +116,85 @@ export default function UserPermissionsPanel() {
                     <span>{user.email}</span>
                   </div>
                   {saving && <span className="saving"><Save size={12} /> Salvando</span>}
+                  <button
+                    type="button"
+                    className="details-btn"
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedUserId(expanded ? null : user.id)}
+                  >
+                    Mais detalhes
+                  </button>
                 </div>
 
-                <div className="selectors">
-                  <label>
-                    Papel
-                    <select
-                      value={role}
-                      onChange={e => {
-                        const nextRole = e.target.value as UserRole;
-                        saveUser(user, {
-                          role: nextRole,
-                          permissoes: permissionsForRole(nextRole),
-                        });
-                      }}
-                    >
-                      <option value="Administrador">Administrador</option>
-                      <option value="Consultor">Consultor</option>
-                    </select>
-                  </label>
+                {expanded && (
+                  <div className="user-details">
+                    <div className="selectors">
+                      <label>
+                        Papel
+                        <select
+                          value={role}
+                          onChange={e => {
+                            const nextRole = e.target.value as UserRole;
+                            saveUser(user, {
+                              role: nextRole,
+                              permissoes: permissionsForRole(nextRole),
+                            });
+                          }}
+                        >
+                          <option value="Administrador">Administrador</option>
+                          <option value="Consultor">Consultor</option>
+                        </select>
+                      </label>
 
-                  <label>
-                    Consultor vinculado
-                    <select
-                      value={user.consultor_id ?? ''}
-                      onChange={e => saveUser(user, { consultor_id: e.target.value || null })}
-                    >
-                      <option value="">Sem vinculo</option>
-                      {consultoresAtivos.map(c => (
-                        <option key={c.id} value={c.id}>{c.nome}</option>
-                      ))}
-                    </select>
-                  </label>
+                      <label>
+                        Consultor vinculado
+                        <select
+                          value={user.consultor_id ?? ''}
+                          onChange={e => saveUser(user, { consultor_id: e.target.value || null })}
+                        >
+                          <option value="">Sem vinculo</option>
+                          {consultoresAtivos.map(c => (
+                            <option key={c.id} value={c.id}>{c.nome}</option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <label>
-                    Status
-                    <select
-                      value={user.status ?? 'Ativo'}
-                      onChange={e => saveUser(user, { status: e.target.value as 'Ativo' | 'Inativo' })}
-                    >
-                      <option value="Ativo">Ativo</option>
-                      <option value="Inativo">Inativo</option>
-                    </select>
-                  </label>
-                </div>
-
-                <div className="permission-grid">
-                  {PERMISSION_GROUPS.map(group => (
-                    <div className="permission-group" key={group.group}>
-                      <h3>{group.group}</h3>
-                      <div className="checks">
-                        {group.permissions.map(item => {
-                          const checked = permissoes.includes(item.key);
-                          return (
-                            <label className="check" key={item.key}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => togglePermission(user, item.key)}
-                              />
-                              <span>{item.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                      <label>
+                        Status
+                        <select
+                          value={user.status ?? 'Ativo'}
+                          onChange={e => saveUser(user, { status: e.target.value as 'Ativo' | 'Inativo' })}
+                        >
+                          <option value="Ativo">Ativo</option>
+                          <option value="Inativo">Inativo</option>
+                        </select>
+                      </label>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="permission-grid">
+                      {PERMISSION_GROUPS.map(group => (
+                        <div className="permission-group" key={group.group}>
+                          <h3>{group.group}</h3>
+                          <div className="checks">
+                            {group.permissions.map(item => {
+                              const checked = permissoes.includes(item.key);
+                              return (
+                                <label className="check" key={item.key}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => togglePermission(user, item.key)}
+                                  />
+                                  <span>{item.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -233,7 +247,6 @@ export default function UserPermissionsPanel() {
           display: flex;
           align-items: center;
           gap: 10px;
-          margin-bottom: 12px;
         }
         .user-avatar {
           width: 32px;
@@ -246,16 +259,47 @@ export default function UserPermissionsPanel() {
           justify-content: center;
           flex-shrink: 0;
         }
-        .user-copy { display: flex; flex-direction: column; min-width: 0; }
+        .user-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
         .user-copy strong { color: ${T.text}; font-size: 13px; }
         .user-copy span { color: ${T.muted}; font-size: 12px; }
         .saving {
-          margin-left: auto;
           color: ${T.green};
           font-size: 11px;
           display: inline-flex;
           align-items: center;
           gap: 5px;
+        }
+        .details-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 42px;
+          margin-left: auto;
+          padding: 0 18px;
+          border: 1px solid rgba(255,156,69,0.46);
+          border-radius: 14px;
+          background: linear-gradient(135deg, ${T.orange}, #ff8a3d);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 0 14px 30px rgba(252,84,0,0.16);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+        }
+        .details-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 40px rgba(252,84,0,0.24);
+          filter: saturate(1.06);
+        }
+        .details-btn:focus-visible {
+          outline: 2px solid rgba(255,156,69,0.55);
+          outline-offset: 3px;
+        }
+        .user-details {
+          margin-top: 14px;
+          padding-top: 14px;
+          border-top: 1px solid rgba(255,255,255,0.05);
         }
         .selectors {
           display: grid;
@@ -311,6 +355,10 @@ export default function UserPermissionsPanel() {
         @media (max-width: 1100px) {
           .selectors,
           .permission-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 720px) {
+          .user-main { align-items: flex-start; flex-wrap: wrap; }
+          .details-btn { width: 100%; margin-left: 42px; }
         }
       `}</style>
     </section>
