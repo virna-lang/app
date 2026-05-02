@@ -100,7 +100,7 @@ function GenerateButton({
   return (
     <button
       type="button"
-      className={variant === 'primary' ? 'primary-button' : 'refresh-button'}
+      className={variant === 'primary' ? 'insights-generate-button' : 'refresh-button'}
       onClick={onClick}
       disabled={disabled}
       aria-busy={disabled}
@@ -275,17 +275,9 @@ export default function InsightsSection() {
               <Sparkles size={14} />
               {sourceLabel}
             </span>
-            <button
-              type="button"
-              className="refresh-button"
-              onClick={() => requestInsights(true)}
-              disabled={isValidating}
-              aria-busy={isValidating}
-              title="Gerar uma nova leitura para o mesmo recorte"
-            >
-              <RefreshCw size={14} className={isValidating ? 'spin' : ''} />
-              {isValidating ? 'Gerando...' : 'Gerar nova análise'}
-            </button>
+            <GenerateButton onClick={() => requestInsights(true)} disabled={isValidating}>
+              {isValidating ? 'Gerando...' : 'Gerar insights IA'}
+            </GenerateButton>
           </div>
         </div>
         <p className="hero-text">{insights.resumoExecutivo}</p>
@@ -424,7 +416,7 @@ const styles = `
 
   .hero-badge,
   .refresh-button,
-  .primary-button {
+  :global(.insights-generate-button) {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -438,12 +430,12 @@ const styles = `
   }
 
   .refresh-button,
-  .primary-button {
+  :global(.insights-generate-button) {
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
   }
 
-  .primary-button {
+  :global(.insights-generate-button) {
     padding: 11px 16px;
     background: linear-gradient(135deg, rgba(255,92,26,0.95), rgba(245,158,11,0.88));
     border-color: rgba(255,255,255,0.12);
@@ -457,12 +449,12 @@ const styles = `
     color: ${T.orange};
   }
 
-  .primary-button:hover:not(:disabled) {
+  :global(.insights-generate-button:hover:not(:disabled)) {
     transform: translateY(-1px);
   }
 
   .refresh-button:disabled,
-  .primary-button:disabled {
+  :global(.insights-generate-button:disabled) {
     cursor: wait;
     opacity: 0.55;
   }
