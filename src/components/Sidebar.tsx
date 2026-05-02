@@ -412,6 +412,59 @@ function SidebarInner() {
           background: rgba(224,85,85,0.1);
         }
       `}</style>
+      <style jsx global>{`
+        .sidebar .sub-item {
+          display: grid;
+          grid-template-columns: 18px minmax(0, 1fr);
+          align-items: center;
+          column-gap: 8px;
+          padding: 7px 10px;
+          border-radius: 7px;
+          text-decoration: none !important;
+          color: ${T.textDim} !important;
+          font-size: 12.5px;
+          font-weight: 400;
+          transition: all 0.15s;
+          margin: 1px 0;
+        }
+
+        .sidebar .sub-item:hover {
+          background: rgba(255,92,26,0.07);
+          color: ${T.textSub} !important;
+          font-weight: 500;
+        }
+
+        .sidebar .sub-active {
+          background: rgba(255,92,26,0.12) !important;
+          color: ${T.orange} !important;
+          font-weight: 600 !important;
+        }
+
+        .sidebar .sub-icon {
+          width: 18px;
+          height: 18px;
+          color: inherit;
+          opacity: 0.65;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sidebar .sub-icon svg,
+        .sidebar .nav-icon {
+          display: block;
+        }
+
+        .sidebar .sub-label {
+          min-width: 0;
+          line-height: 1.1;
+        }
+
+        .sidebar .sub-item:hover .sub-icon,
+        .sidebar .sub-active .sub-icon {
+          opacity: 1;
+        }
+      `}</style>
     </aside>
   );
 }

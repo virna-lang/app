@@ -43,6 +43,24 @@ interface InsightRequest {
   refresh: boolean;
 }
 
+const primaryGenerateButtonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+  minHeight: 48,
+  padding: '0 28px',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: 16,
+  background: 'linear-gradient(135deg, #6d4cff 0%, #8b2de2 100%)',
+  color: '#ffffff',
+  boxShadow: '0 16px 34px rgba(109,76,255,0.24)',
+  fontSize: 16,
+  fontWeight: 800,
+  letterSpacing: '-0.01em',
+  whiteSpace: 'nowrap',
+};
+
 function formatGeneratedAt(value: string | null) {
   if (!value) return 'agora';
   const date = new Date(value);
@@ -97,6 +115,14 @@ function GenerateButton({
   disabled?: boolean;
   variant?: 'primary' | 'secondary';
 }) {
+  const buttonStyle = variant === 'primary'
+    ? {
+        ...primaryGenerateButtonStyle,
+        cursor: disabled ? 'wait' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+      }
+    : undefined;
+
   return (
     <button
       type="button"
@@ -104,6 +130,7 @@ function GenerateButton({
       onClick={onClick}
       disabled={disabled}
       aria-busy={disabled}
+      style={buttonStyle}
     >
       <Sparkles size={variant === 'primary' ? 20 : 14} strokeWidth={2.25} />
       {children}
@@ -415,8 +442,7 @@ const styles = `
   }
 
   .hero-badge,
-  .refresh-button,
-  .insights-generate-button {
+  .refresh-button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -429,24 +455,9 @@ const styles = `
     font-weight: 700;
   }
 
-  .refresh-button,
-  .insights-generate-button {
+  .refresh-button {
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
-  }
-
-  .insights-generate-button {
-    min-height: 48px;
-    padding: 0 28px;
-    background: linear-gradient(135deg, #6d4cff 0%, #8b2de2 100%);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    color: #ffffff;
-    box-shadow: 0 16px 34px rgba(109,76,255,0.24);
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    white-space: nowrap;
   }
 
   .refresh-button:hover:not(:disabled) {
@@ -454,13 +465,7 @@ const styles = `
     color: ${T.orange};
   }
 
-  .insights-generate-button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 18px 38px rgba(139,45,226,0.34);
-  }
-
-  .refresh-button:disabled,
-  .insights-generate-button:disabled {
+  .refresh-button:disabled {
     cursor: wait;
     opacity: 0.55;
   }
