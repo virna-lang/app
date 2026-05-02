@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
 import { ChevronDown, X, Calendar, User, Package } from 'lucide-react';
@@ -24,11 +24,11 @@ function FilterSelect({
     };
     if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, onToggle]);
 
   return (
     <div ref={ref} className="filter-wrap">
-      <button className={`filter-btn ${open ? 'active' : ''}`} onClick={onToggle}>
+      <button className={`filter-btn ${open ? 'active' : ''}`} onClick={onToggle} aria-label={label}>
         <span className="filter-icon">{icon}</span>
         <span className="filter-val">{value}</span>
         <ChevronDown size={13} className={`filter-chevron ${open ? 'open' : ''}`} />
@@ -63,10 +63,11 @@ function FilterSelect({
         .filter-dropdown {
           position: absolute; top: calc(100% + 6px); left: 0;
           min-width: 200px;
+          max-height: 340px;
           background: #111827; border: 1px solid #1f2d40;
           border-radius: 10px;
           box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-          z-index: 200; overflow: hidden;
+          z-index: 200; overflow: auto;
           animation: dropIn 0.15s ease-out;
         }
         @keyframes dropIn {
@@ -78,14 +79,28 @@ function FilterSelect({
   );
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 export default function DashboardFilters() {
   const { profile, hasPermission } = useAuth();
   const { meses, consultores, filters, setFilters, availableProducts, setCorrelationMode } = useDashboard();
   const canSeeAllConsultores = hasPermission('filters.consultores.todos');
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState({ month: '', consultant: '', product: '' });
   const toggle = (key: string) =>
     setOpen(prev => ({ month: false, consultant: false, product: false, [key]: !prev[key] }));
+
+  const closeFilters = () => {
+    setOpen({});
+    setSearch({ month: '', consultant: '', product: '' });
+  };
 
   const clearFilters = () =>
     setFilters({
@@ -109,6 +124,30 @@ export default function DashboardFilters() {
     ? 'Todos os produtos'
     : `${filters.products?.length ?? 0} selecionados`;
 
+  const filteredMonths = useMemo(() => {
+    const term = normalizeText(search.month);
+    return term ? meses.filter(m => normalizeText(m).includes(term)) : meses;
+  }, [meses, search.month]);
+
+  const consultantOptions = useMemo(
+    () => [{ id: 'all', nome: 'Todos os consultores' }, ...consultores.filter(c => c.status === 'Ativo')],
+    [consultores],
+  );
+
+  const filteredConsultants = useMemo(() => {
+    const term = normalizeText(search.consultant);
+    if (!term) return consultantOptions;
+    return consultantOptions.filter(c => {
+      const label = c.id === 'all' ? c.nome : getConsultorLabel(consultores, String(c.id), 'full');
+      return normalizeText(label).includes(term);
+    });
+  }, [consultantOptions, consultores, search.consultant]);
+
+  const filteredProducts = useMemo(() => {
+    const term = normalizeText(search.product);
+    return term ? availableProducts.filter(p => normalizeText(p).includes(term)) : availableProducts;
+  }, [availableProducts, search.product]);
+
   const hasActiveFilters =
     filters.consultantId !== 'all' ||
     (filters.products?.length ?? availableProducts.length) !== availableProducts.length;
@@ -122,11 +161,20 @@ export default function DashboardFilters() {
         value={filters.month} open={!!open.month}
         onToggle={() => toggle('month')}
       >
-        {meses.map(m => (
+        <input
+          autoFocus
+          className="drop-search"
+          value={search.month}
+          onChange={e => setSearch(prev => ({ ...prev, month: e.target.value }))}
+          onKeyDown={e => { if (e.key === 'Escape') closeFilters(); }}
+          placeholder="Pesquisar mês..."
+        />
+        {filteredMonths.length === 0 && <div className="drop-empty">Nenhum mês encontrado</div>}
+        {filteredMonths.map(m => (
           <div
             key={m}
             className={`drop-item ${m === filters.month ? 'selected' : ''}`}
-            onClick={() => { setFilters(f => ({ ...f, month: m })); setOpen({}); }}
+            onClick={() => { setFilters(f => ({ ...f, month: m })); closeFilters(); }}
           >
             {m}
           </div>
@@ -140,7 +188,16 @@ export default function DashboardFilters() {
           value={consultantLabel} open={!!open.consultant}
           onToggle={() => toggle('consultant')}
         >
-          {[{ id: 'all', nome: 'Todos os consultores' }, ...consultores.filter(c => c.status === 'Ativo')].map(c => (
+          <input
+            autoFocus
+            className="drop-search"
+            value={search.consultant}
+            onChange={e => setSearch(prev => ({ ...prev, consultant: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Escape') closeFilters(); }}
+            placeholder="Pesquisar consultor..."
+          />
+          {filteredConsultants.length === 0 && <div className="drop-empty">Nenhum consultor encontrado</div>}
+          {filteredConsultants.map(c => (
             <div
               key={c.id}
               className={`drop-item ${String(c.id) === filters.consultantId ? 'selected' : ''}`}
@@ -150,7 +207,7 @@ export default function DashboardFilters() {
                 if (nextConsultantId !== 'all') {
                   setCorrelationMode('mine');
                 }
-                setOpen({});
+                closeFilters();
               }}
             >
               {c.id === 'all' ? c.nome : getConsultorLabel(consultores, String(c.id), 'full')}
@@ -166,7 +223,16 @@ export default function DashboardFilters() {
         onToggle={() => toggle('product')}
       >
         <div className="drop-multi">
-          {availableProducts.map(p => {
+          <input
+            autoFocus
+            className="drop-search"
+            value={search.product}
+            onChange={e => setSearch(prev => ({ ...prev, product: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Escape') closeFilters(); }}
+            placeholder="Pesquisar produto..."
+          />
+          {filteredProducts.length === 0 && <div className="drop-empty">Nenhum produto encontrado</div>}
+          {filteredProducts.map(p => {
             const checked = (filters.products ?? availableProducts).includes(p);
             return (
               <label key={p} className="check-item">
@@ -209,9 +275,36 @@ export default function DashboardFilters() {
         }
         :global(.drop-item:hover)    { background: rgba(252,84,0,0.08); color: #f1f5f9; }
         :global(.drop-item.selected) { color: #FC5400; font-weight: 600; background: rgba(252,84,0,0.06); }
+        :global(.drop-search) {
+          width: calc(100% - 12px);
+          margin: 6px;
+          padding: 9px 10px;
+          background: rgba(255,255,255,0.035);
+          border: 1px solid #1f2d40;
+          border-radius: 8px;
+          color: #f1f5f9;
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px;
+          outline: none;
+        }
+        :global(.drop-search:focus) {
+          border-color: rgba(252,84,0,0.6);
+          background: rgba(255,255,255,0.055);
+        }
+        :global(.drop-search::placeholder) { color: #64748b; }
+        :global(.drop-empty) {
+          padding: 10px 14px 13px;
+          color: #64748b;
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px;
+        }
 
         /* Multi-select */
         :global(.drop-multi) { padding: 6px; }
+        :global(.drop-multi .drop-search) {
+          width: 100%;
+          margin: 0 0 6px;
+        }
         :global(.check-item) {
           display: flex; align-items: center; gap: 10px;
           padding: 8px 10px; border-radius: 7px; cursor: pointer;
