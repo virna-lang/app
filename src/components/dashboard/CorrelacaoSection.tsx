@@ -163,23 +163,17 @@ function WeakPointRow({
       </div>
       <div className="weak-pergunta">{pergunta}</div>
       {impacto && (
-        <div className="weak-impact-wrap">
-          <button
-            type="button"
-            className={`weak-impacto ${hasDetails ? 'weak-impacto-button' : ''}`}
-            title={hasDetails ? impactoDetalhes.join('\n') : undefined}
-          >
-            {impacto}
-          </button>
-          {hasDetails && (
-            <div className="weak-tooltip" role="tooltip">
-              <div className="weak-tooltip-title">Consultores impactados</div>
-              {impactoDetalhes.map((nome) => (
-                <div key={nome} className="weak-tooltip-name">{nome}</div>
-              ))}
-            </div>
-          )}
-          <style jsx>{weakPointRowStyles}</style>
+        <div
+          className="weak-impacto"
+          title={hasDetails ? `Consultores impactados:\n${impactoDetalhes.join('\n')}` : undefined}
+          style={{
+            color: T.textSub,
+            cursor: hasDetails ? 'help' : 'default',
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          {impacto}
         </div>
       )}
     </div>
@@ -225,76 +219,6 @@ function ProjectRiskRow({
     </div>
   );
 }
-
-const weakPointRowStyles = `
-  .weak-impact-wrap {
-    position: relative;
-    display: inline-flex;
-    width: fit-content;
-    margin-top: 2px;
-  }
-
-  .weak-impacto {
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: ${T.textSub};
-    font: inherit;
-    font-size: 12px;
-    line-height: 1.5;
-    text-align: left;
-  }
-
-  .weak-impacto-button {
-    cursor: help;
-    border-bottom: 1px dashed rgba(154,160,176,0.45);
-  }
-
-  .weak-tooltip {
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 10px);
-    z-index: 20;
-    width: max-content;
-    min-width: 220px;
-    max-width: 320px;
-    padding: 12px;
-    border: 1px solid rgba(255,92,26,0.24);
-    border-radius: 12px;
-    background: #0a0b0e;
-    box-shadow: 0 18px 50px rgba(0,0,0,0.38);
-    opacity: 0;
-    transform: translateY(6px);
-    pointer-events: none;
-    transition: opacity 0.16s ease, transform 0.16s ease;
-  }
-
-  .weak-tooltip-title {
-    margin-bottom: 8px;
-    color: ${T.orange};
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .weak-tooltip-name {
-    color: ${T.text};
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .weak-tooltip-name + .weak-tooltip-name {
-    margin-top: 5px;
-  }
-
-  .weak-impact-wrap:hover .weak-tooltip,
-  .weak-impact-wrap:focus-within .weak-tooltip {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-`;
 
 export default function CorrelacaoSection() {
   const { profile, hasPermission } = useAuth();
