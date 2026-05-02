@@ -105,7 +105,7 @@ function GenerateButton({
       disabled={disabled}
       aria-busy={disabled}
     >
-      <Sparkles size={14} />
+      <Sparkles size={variant === 'primary' ? 20 : 14} strokeWidth={2.25} />
       {children}
     </button>
   );
@@ -436,11 +436,16 @@ const styles = `
   }
 
   :global(.insights-generate-button) {
-    padding: 11px 16px;
-    background: linear-gradient(135deg, rgba(255,92,26,0.95), rgba(245,158,11,0.88));
-    border-color: rgba(255,255,255,0.12);
-    color: #08090d;
-    box-shadow: 0 12px 30px rgba(255,92,26,0.16);
+    min-height: 48px;
+    padding: 0 28px;
+    background: linear-gradient(135deg, #6d4cff 0%, #8b2de2 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    color: #ffffff;
+    box-shadow: 0 16px 34px rgba(109,76,255,0.24);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
     white-space: nowrap;
   }
 
@@ -451,6 +456,7 @@ const styles = `
 
   :global(.insights-generate-button:hover:not(:disabled)) {
     transform: translateY(-1px);
+    box-shadow: 0 18px 38px rgba(139,45,226,0.34);
   }
 
   .refresh-button:disabled,

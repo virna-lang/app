@@ -138,7 +138,7 @@ function SidebarInner() {
                 className="sub-item"
               >
                 <span className="sub-icon">{tab.icon}</span>
-                <span>{tab.name}</span>
+                <span className="sub-label">{tab.name}</span>
               </Link>
             ))}
           </div>
@@ -170,7 +170,7 @@ function SidebarInner() {
                 className={`sub-item ${isCadastro && searchParams.get('tab') === item.tab ? 'sub-active' : ''}`}
               >
                 <span className="sub-icon">{item.icon}</span>
-                <span>{item.label}</span>
+                <span className="sub-label">{item.label}</span>
               </Link>
             ))}
           </div>
@@ -201,7 +201,7 @@ function SidebarInner() {
                   className={`sub-item ${isSubActive ? 'sub-active' : ''}`}
                 >
                   <span className="sub-icon"><Zap size={13}/></span>
-                  <span>{sub.name}</span>
+                  <span className="sub-label">{sub.name}</span>
                 </Link>
               );
             })}
@@ -286,7 +286,10 @@ function SidebarInner() {
         }
 
         .nav-parent {
-          display: flex; align-items: center; gap: 10px;
+          display: grid;
+          grid-template-columns: 18px minmax(0, 1fr) 16px;
+          align-items: center;
+          column-gap: 10px;
           width: 100%; padding: 9px 12px;
           background: none; border: none;
           border-left: 2px solid transparent;
@@ -304,13 +307,18 @@ function SidebarInner() {
           border-left-color: ${T.orange};
           color: ${T.orange};
         }
-        .nav-icon { flex-shrink: 0; color: inherit; }
-        .nav-label {
-          flex: 1; font-size: 13px; font-weight: 600;
+        .nav-icon {
           color: inherit;
+          display: block;
+          justify-self: center;
+        }
+        .nav-label {
+          min-width: 0; font-size: 13px; font-weight: 600;
+          color: inherit;
+          line-height: 1;
         }
         .nav-chevron {
-          flex-shrink: 0; display: flex; align-items: center;
+          display: flex; align-items: center; justify-content: center;
           transition: transform 0.22s ease; color: inherit;
         }
         .nav-chevron.open { transform: rotate(90deg); }
@@ -326,7 +334,10 @@ function SidebarInner() {
         .submenu.open { max-height: 500px; }
 
         .sub-item {
-          display: flex; align-items: center; gap: 9px;
+          display: grid;
+          grid-template-columns: 18px minmax(0, 1fr);
+          align-items: center;
+          column-gap: 8px;
           padding: 7px 10px; border-radius: 7px;
           text-decoration: none !important;
           color: ${T.textDim} !important;
@@ -345,8 +356,16 @@ function SidebarInner() {
           font-weight: 600 !important;
         }
         .sub-icon {
-          flex-shrink: 0; color: inherit; opacity: 0.65;
-          display: flex; align-items: center;
+          width: 18px; height: 18px;
+          color: inherit; opacity: 0.65;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .sub-icon :global(svg) {
+          display: block;
+        }
+        .sub-label {
+          min-width: 0;
+          line-height: 1.1;
         }
         .sub-item:hover .sub-icon,
         .sub-active .sub-icon { opacity: 1; }
