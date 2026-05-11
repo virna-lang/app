@@ -21,6 +21,7 @@ import type {
 import { isProjetoAuditavel, normalizeProjetoAuditoriaStatus } from './supabase';
 import { resolveConsultorOperacaoStatus } from './consultor-operacao';
 import type { ConsultorOperacaoHistorico } from './consultor-operacao';
+import { buildImpactoNarrativa, type ImpactoNarrativa } from './conformidade-impactos';
 
 export type CorrelationMode = 'mine' | 'operation';
 export type CorrelationStatus = 'Saudavel' | 'Em atencao' | 'Critica';
@@ -36,6 +37,8 @@ export interface CorrelationWeakPoint {
   qtdConformes: number;
   consultoresImpactados?: number;
   consultorIdsImpactados?: string[];
+  /** Leitura narrativa de impacto operacional (% não-conformidade + consequências). */
+  impactoNarrativa?: ImpactoNarrativa;
 }
 
 export interface CorrelationCategoryScore {
@@ -237,15 +240,21 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
     return rows
       .filter((row) => (row.nota_pct ?? 0) < 80)
       .sort((a, b) => a.nota_pct - b.nota_pct)
-      .map((row) => ({
-        consultorId: row.consultor_id,
-        categoria: row.categoria,
-        pergunta: row.pergunta,
-        tipo: row.tipo,
-        notaPct: row.nota_pct ?? 0,
-        qtdAvaliados: row.qtd_avaliados ?? 0,
-        qtdConformes: row.qtd_conformes ?? 0,
-      }));
+      .map((row) => {
+        const notaPct = row.nota_pct ?? 0;
+        const qtdAvaliados = row.qtd_avaliados ?? 0;
+        const qtdConformes = row.qtd_conformes ?? 0;
+        return {
+          consultorId: row.consultor_id,
+          categoria: row.categoria,
+          pergunta: row.pergunta,
+          tipo: row.tipo,
+          notaPct,
+          qtdAvaliados,
+          qtdConformes,
+          impactoNarrativa: buildImpactoNarrativa(row.pergunta, notaPct, qtdAvaliados, qtdConformes),
+        };
+      });
   }
 
   const grouped = new Map<string, {
@@ -281,17 +290,21 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
   }
 
   return Array.from(grouped.values())
-    .map((row) => ({
-      consultorId: null,
-      categoria: row.categoria,
-      pergunta: row.pergunta,
-      tipo: row.tipo,
-      notaPct: round(row.totalNota / Math.max(row.count, 1)),
-      qtdAvaliados: row.totalAvaliados,
-      qtdConformes: row.totalConformes,
-      consultoresImpactados: row.consultores.size,
-      consultorIdsImpactados: Array.from(row.consultores).filter(Boolean),
-    }))
+    .map((row) => {
+      const notaPct = round(row.totalNota / Math.max(row.count, 1));
+      return {
+        consultorId: null,
+        categoria: row.categoria,
+        pergunta: row.pergunta,
+        tipo: row.tipo,
+        notaPct,
+        qtdAvaliados: row.totalAvaliados,
+        qtdConformes: row.totalConformes,
+        consultoresImpactados: row.consultores.size,
+        consultorIdsImpactados: Array.from(row.consultores).filter(Boolean),
+        impactoNarrativa: buildImpactoNarrativa(row.pergunta, notaPct, row.totalAvaliados, row.totalConformes),
+      };
+    })
     .filter((row) => row.notaPct < 80)
     .sort((a, b) => a.notaPct - b.notaPct);
 }

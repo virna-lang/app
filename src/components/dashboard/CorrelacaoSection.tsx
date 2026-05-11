@@ -212,27 +212,65 @@ function WeakPointRow({
   categoria,
   pergunta,
   notaPct,
+  qtdAvaliados,
+  qtdConformes,
+  impactoHeadline,
+  consequencias = [],
   impacto,
   impactoDetalhes = [],
 }: {
   categoria: string;
   pergunta: string;
   notaPct: number;
+  qtdAvaliados: number;
+  qtdConformes: number;
+  impactoHeadline?: string;
+  consequencias?: string[];
   impacto?: string;
   impactoDetalhes?: string[];
 }) {
   const hasDetails = impactoDetalhes.length > 0;
+  // % de NÃO-conformidade — é essa a leitura "impacto" da carteira.
+  const naoConformesPct = qtdAvaliados > 0
+    ? ((qtdAvaliados - qtdConformes) / qtdAvaliados) * 100
+    : Math.max(0, 100 - notaPct);
 
   return (
     <div className="weak-row">
       <div className="weak-row-top">
         <span className="weak-cat">{categoria}</span>
-        <span className="weak-pct">{notaPct.toFixed(1)}%</span>
+        <span className="weak-pct" title={`Conformidade do item: ${notaPct.toFixed(1)}%`}>
+          {naoConformesPct.toFixed(0)}% fora
+        </span>
       </div>
+
       <div className="weak-bar-track">
-        <div className="weak-bar-fill" style={{ width: `${Math.max(notaPct, 2)}%` }} />
+        <div className="weak-bar-fill" style={{ width: `${Math.max(naoConformesPct, 2)}%` }} />
       </div>
-      <div className="weak-pergunta">{pergunta}</div>
+
+      {impactoHeadline ? (
+        <div className="weak-headline">{impactoHeadline}</div>
+      ) : (
+        <div className="weak-pergunta">{pergunta}</div>
+      )}
+
+      {consequencias.length > 0 && (
+        <div className="weak-consequencias">
+          <span className="weak-consequencias-label">Isso pode causar:</span>
+          <ul>
+            {consequencias.map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {impactoHeadline && (
+        <div className="weak-fonte" title={pergunta}>
+          Fonte: {categoria} · "{pergunta.length > 70 ? pergunta.slice(0, 70) + '…' : pergunta}"
+        </div>
+      )}
+
       {impacto && (
         <div
           className="weak-impacto"
@@ -505,8 +543,8 @@ export default function CorrelacaoSection() {
         <section className="panel">
           <div className="panel-head">
             <div>
-              <div className="panel-title">Pontos críticos da conformidade</div>
-              <div className="panel-subtitle">Itens da auditoria abaixo de 80% que mais estão puxando o score para baixo.</div>
+              <div className="panel-title">Impactos críticos na operação</div>
+              <div className="panel-subtitle">Itens com mais de 20% fora de conformidade — leitura traduzida para risco operacional.</div>
             </div>
             <span className="panel-badge">{weakPoints.length} itens</span>
           </div>
@@ -529,6 +567,10 @@ export default function CorrelacaoSection() {
                     categoria={item.categoria}
                     pergunta={item.pergunta}
                     notaPct={item.notaPct}
+                    qtdAvaliados={item.qtdAvaliados}
+                    qtdConformes={item.qtdConformes}
+                    impactoHeadline={item.impactoNarrativa?.headline}
+                    consequencias={item.impactoNarrativa?.consequencias ?? []}
                     impacto={resolvedMode === 'operation' && item.consultoresImpactados
                       ? `${item.consultoresImpactados} consultor(es) impactados`
                       : undefined}
@@ -997,6 +1039,55 @@ const baseStyles = `
   .alert-card span,
   .category-name {
     color: ${T.text};
+  }
+
+  .weak-headline {
+    color: ${T.text};
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-top: 4px;
+  }
+
+  .weak-consequencias {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(224,85,85,0.06);
+    border-left: 2px solid ${T.red};
+    border-radius: 4px;
+  }
+
+  .weak-consequencias-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: ${T.red};
+    margin-bottom: 6px;
+  }
+
+  .weak-consequencias ul {
+    margin: 0;
+    padding-left: 16px;
+    list-style: disc;
+  }
+
+  .weak-consequencias li {
+    color: ${T.textSub};
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 2px;
+  }
+
+  .weak-fonte {
+    margin-top: 8px;
+    font-size: 11px;
+    color: ${T.textDim};
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .weak-impacto,
