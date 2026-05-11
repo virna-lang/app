@@ -51,6 +51,116 @@ function EndLabel({ x, y, value, index, color, totalMonths }: any) {
   );
 }
 
+/**
+ * Gráfico de barras agrupadas por consultor: barra ghost = mês anterior,
+ * barra cheia = mês atual. Mesma data dos gráficos de linha, leitura
+ * diferente: comparação direta consultor-a-consultor entre os dois meses.
+ */
+function MiniBarComparison({
+  chartData,
+  consultants,
+  label,
+  prevLabel,
+  currLabel,
+}: {
+  chartData: any[]; // [{ name: 'Abril/2026', [consultorId]: 60 }, { name: 'Maio/2026', ... }]
+  consultants: { id: string; nome: string; nomeCompleto: string; color: string }[];
+  label: string;
+  prevLabel: string;
+  currLabel: string;
+}) {
+  // Pivota: array com uma linha por consultor, contendo prev e curr.
+  const pivoted = useMemo(() => {
+    const prev = chartData[0] ?? {};
+    const curr = chartData[chartData.length - 1] ?? {};
+    return consultants.map((c) => ({
+      nome: c.nome,
+      nomeCompleto: c.nomeCompleto,
+      color: c.color,
+      prev: prev[c.id] ?? 0,
+      curr: curr[c.id] ?? 0,
+      diff: (curr[c.id] ?? 0) - (prev[c.id] ?? 0),
+    })).sort((a, b) => b.curr - a.curr);
+  }, [chartData, consultants]);
+
+  const avgDiff = useMemo(() => {
+    if (!pivoted.length) return 0;
+    return pivoted.reduce((acc, p) => acc + p.diff, 0) / pivoted.length;
+  }, [pivoted]);
+
+  return (
+    <div style={{
+      background: T.bg,
+      border: `1px solid ${T.border}`,
+      borderRadius: 10,
+      padding: '20px 20px 16px',
+      flex: 1,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textDim, marginBottom: 4 }}>
+            {label} — comparativo por consultor
+          </div>
+          <div style={{
+            fontSize: 22, fontWeight: 700,
+            color: avgDiff >= 0 ? T.green : T.red,
+            fontFamily: T.mono, lineHeight: 1,
+          }}>
+            Variação média: {avgDiff >= 0 ? '+' : ''}{avgDiff.toFixed(1)}<span style={{ fontSize: 12 }}>pp</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: T.textSub }}>
+            <i style={{ width: 10, height: 10, background: 'rgba(255,255,255,0.18)', borderRadius: 2, display: 'block' }} />
+            {prevLabel}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: T.textSub }}>
+            <i style={{ width: 10, height: 10, background: T.orange, borderRadius: 2, display: 'block' }} />
+            {currLabel}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ height: 240 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={pivoted} margin={{ top: 16, right: 8, bottom: 4, left: 0 }} barGap={2}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+            <XAxis dataKey="nome" axisLine={false} tickLine={false}
+              tick={{ fill: T.textDim, fontSize: 10, fontWeight: 600 }}
+              interval={0} angle={0} />
+            <YAxis domain={[0, 100]} axisLine={false} tickLine={false}
+              tick={{ fill: T.textDim, fontSize: 10 }}
+              tickFormatter={v => `${v}%`} width={34} />
+            <ReferenceLine y={80} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
+              formatter={((v: any, name: any) => [
+                `${(v || 0).toFixed(1)}%`,
+                name === 'prev' ? prevLabel : currLabel,
+              ]) as any}
+              labelFormatter={((label: any, items: any) => {
+                const item: any = items?.[0]?.payload;
+                return item?.nomeCompleto ?? label;
+              }) as any} />
+            <Bar dataKey="prev" fill="rgba(255,255,255,0.18)" radius={[3, 3, 0, 0]}>
+              <LabelList dataKey="prev" position="top"
+                formatter={(v: any) => `${(v || 0).toFixed(0)}%`}
+                style={{ fill: T.textDim, fontSize: 9, fontFamily: T.mono }} />
+            </Bar>
+            <Bar dataKey="curr" radius={[3, 3, 0, 0]}>
+              {pivoted.map((e, i) => (
+                <Cell key={i} fill={semaphor(e.curr)} fillOpacity={0.95} />
+              ))}
+              <LabelList dataKey="curr" position="top"
+                formatter={(v: any) => `${(v || 0).toFixed(0)}%`}
+                style={{ fill: T.text, fontSize: 10, fontWeight: 700, fontFamily: T.mono }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function MiniChart({ chartData, consultants, label }: {
   chartData: any[];
   consultants: { id: string; nome: string; nomeCompleto: string; color: string }[];
@@ -177,10 +287,29 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
   return (
     <div style={{ marginTop: 4 }}>
       <div className="evo-main-grid">
-        {/* Gráficos de linha */}
-        <div className="evo-charts-grid">
-          <MiniChart chartData={chartResultado}    consultants={consultants} label="Resultado" />
-          <MiniChart chartData={chartConformidade} consultants={consultants} label="Conformidade de Processo" />
+        {/* Gráficos de linha + barras comparativas (mesmos dados, leituras diferentes) */}
+        <div className="evo-charts-stack">
+          <div className="evo-charts-grid">
+            <MiniChart chartData={chartResultado}    consultants={consultants} label="Resultado" />
+            <MiniChart chartData={chartConformidade} consultants={consultants} label="Conformidade de Processo" />
+          </div>
+
+          <div className="evo-charts-grid">
+            <MiniBarComparison
+              chartData={chartResultado}
+              consultants={consultants}
+              label="Resultado"
+              prevLabel={data.prevMonth ?? 'Mês anterior'}
+              currLabel={data.month}
+            />
+            <MiniBarComparison
+              chartData={chartConformidade}
+              consultants={consultants}
+              label="Conformidade de Processo"
+              prevLabel={data.prevMonth ?? 'Mês anterior'}
+              currLabel={data.month}
+            />
+          </div>
         </div>
 
         {/* Ranking lateral */}
@@ -279,6 +408,12 @@ export default function EvolutionSection({ data }: { data: DashboardData }) {
           grid-template-columns: minmax(0, 1fr) 320px;
           gap: 12px;
           align-items: start;
+        }
+
+        .evo-charts-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
 
         .evo-charts-grid {
