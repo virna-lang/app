@@ -131,6 +131,9 @@ function AuditoriaPageInner() {
         setProjetosAtivos(updated.filter(p => !p.tratativa_cs).length);
         return updated;
       });
+    } catch (err) {
+      console.error('setTrativaCS falhou:', err);
+      alert(`Não foi possível salvar a alteração:\n${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSalvandoCS(null);
     }

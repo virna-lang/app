@@ -803,11 +803,17 @@ export async function setTrativaCS(
   tratativa_cs: boolean,
   tratativa_cs_obs?: string,
 ) {
-  const { error } = await supabase
+  const patch: { tratativa_cs: boolean; tratativa_cs_obs?: string | null } = { tratativa_cs };
+  if (tratativa_cs_obs !== undefined) patch.tratativa_cs_obs = tratativa_cs_obs;
+  const { data, error } = await supabase
     .from('vorp_projetos')
-    .update({ tratativa_cs, tratativa_cs_obs: tratativa_cs_obs ?? null })
-    .eq('vorp_id', vorpId);
+    .update(patch)
+    .eq('vorp_id', vorpId)
+    .select('vorp_id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(`Nenhuma linha atualizada para vorp_id=${vorpId} (RLS bloqueando UPDATE em vorp_projetos?)`);
+  }
 }
 
 /** HealthScores por projeto e mês (ano/mes no formato numérico) */
