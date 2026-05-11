@@ -18,48 +18,97 @@ const T = {
 
 const tooltipStyle = { background: T.bgDeep, borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 12 };
 
+// Cor da barra no gráfico: Onboarding usa laranja atenuado independente do %
+function getBarColor(pct: number, statusOperacao: string): string {
+  if (statusOperacao === 'Onboarding') return T.orange;
+  return getSemaphorColor(pct);
+}
+
 export default function MeetingsSection({ data }: { data: DashboardData }) {
   const { consultores, filters } = useDashboard();
 
   const ranking = useMemo(() => {
     const source = data.rankingAtendidos.length > 0 ? data.rankingAtendidos : data.currentMeetings;
     const useAudit = data.rankingAtendidos.length > 0;
-    const map: Record<string, { consultor_id: string; atendidos: number; carteira: number }> = {};
+
+    const map: Record<string, {
+      consultor_id: string;
+      atendidos: number;
+      carteira: number;
+      status_operacao: string;
+    }> = {};
 
     const consultoresBase = filters.consultantId === 'all'
       ? consultores.filter(c => c.status === 'Ativo')
       : consultores.filter(c => c.id === filters.consultantId);
 
     consultoresBase.forEach(c => {
-      map[c.id] = { consultor_id: c.id, atendidos: 0, carteira: 0 };
+      map[c.id] = { consultor_id: c.id, atendidos: 0, carteira: 0, status_operacao: 'Ativo' };
     });
 
     source.forEach((r: any) => {
       const cid = r.consultor_id;
       if (!cid) return;
-      if (!map[cid]) map[cid] = { consultor_id: cid, atendidos: 0, carteira: 0 };
+      if (!map[cid]) map[cid] = { consultor_id: cid, atendidos: 0, carteira: 0, status_operacao: 'Ativo' };
       map[cid].atendidos += useAudit ? (r.atendidos ?? 0) : (r.reunioes_realizadas ?? 0);
       map[cid].carteira  += useAudit ? (r.carteira  ?? 0) : (r.clientes_ativos    ?? 0);
+      // status_operacao vem da view; última linha vence (todos os meses do consultor têm o mesmo valor)
+      if (useAudit && r.status_operacao) map[cid].status_operacao = r.status_operacao;
     });
+
     return Object.values(map).map(r => ({
       consultor_id:        r.consultor_id,
       reunioes_realizadas: r.atendidos,
       clientes_ativos:     r.carteira,
       pct_reunioes:        r.carteira > 0 ? Math.round((r.atendidos / r.carteira) * 100) : 0,
+      status_operacao:     r.status_operacao,
       consulName:          getConsultorLabel(consultores, r.consultor_id, 'first'),
       consulNameFull:      getConsultorLabel(consultores, r.consultor_id, 'full'),
-    })).sort((a, b) => b.pct_reunioes - a.pct_reunioes);
+    })).sort((a, b) => {
+      // Onboarding vai ao final, depois ordena por % decrescente
+      if (a.status_operacao === 'Onboarding' && b.status_operacao !== 'Onboarding') return 1;
+      if (b.status_operacao === 'Onboarding' && a.status_operacao !== 'Onboarding') return -1;
+      return b.pct_reunioes - a.pct_reunioes;
+    });
   }, [data.rankingAtendidos, data.currentMeetings, consultores, filters.consultantId]);
 
-  const getStatusLabel = (pct: number) =>
-    pct >= 90 ? 'Excelente' : pct >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta';
+  const getStatusLabel = (pct: number, statusOperacao: string) => {
+    if (statusOperacao === 'Onboarding') return 'Onboarding';
+    return pct >= 90 ? 'Excelente' : pct >= 75 ? 'Dentro do Esperado' : 'Abaixo da Meta';
+  };
+
+  const getStatusBadgeStyle = (pct: number, statusOperacao: string) => {
+    if (statusOperacao === 'Onboarding') {
+      return {
+        display: 'inline-block', padding: '3px 8px', borderRadius: 5,
+        background: `${T.orange}20`, color: T.orange,
+        fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em', whiteSpace: 'nowrap' as const,
+      };
+    }
+    const color = getSemaphorColor(pct);
+    return {
+      display: 'inline-block', padding: '3px 8px', borderRadius: 5,
+      background: `${color}18`, color,
+      fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const,
+      letterSpacing: '0.05em', whiteSpace: 'nowrap' as const,
+    };
+  };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }} className="meet-grid">
       {/* Gráfico */}
       <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 22px' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.textDim, marginBottom: 16 }}>
-          % da Carteira Atendida no Mês
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.textDim }}>
+            % da Carteira Atendida no Mês
+          </span>
+          {ranking.some(r => r.status_operacao === 'Onboarding') && (
+            <span style={{ fontSize: 9, color: T.orange, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: T.orange, display: 'inline-block' }} />
+              Onboarding
+            </span>
+          )}
         </div>
         <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -71,13 +120,20 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
               <YAxis domain={[0, 100]} axisLine={false} tickLine={false}
                 tick={{ fill: T.textDim, fontSize: 10 }} tickFormatter={v => `${v}%`} width={34} />
               <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={tooltipStyle}
-                formatter={(v: any, _: any, props: any) => [
-                  `${v}% (${props.payload.reunioes_realizadas}/${props.payload.clientes_ativos})`,
-                  props.payload.consulNameFull,
-                ]} />
+                formatter={(v: any, _: any, props: any) => {
+                  const isOnboarding = props.payload.status_operacao === 'Onboarding';
+                  return [
+                    `${v}% (${props.payload.reunioes_realizadas}/${props.payload.clientes_ativos})${isOnboarding ? ' · Onboarding' : ''}`,
+                    props.payload.consulNameFull,
+                  ];
+                }} />
               <Bar dataKey="pct_reunioes" radius={[5, 5, 0, 0]} barSize={32}>
                 {ranking.map((e, i) => (
-                  <Cell key={i} fill={getSemaphorColor(e.pct_reunioes)} fillOpacity={0.85} />
+                  <Cell
+                    key={i}
+                    fill={getBarColor(e.pct_reunioes, e.status_operacao)}
+                    fillOpacity={e.status_operacao === 'Onboarding' ? 0.45 : 0.85}
+                  />
                 ))}
                 <LabelList dataKey="pct_reunioes" position="top"
                   formatter={(v: any) => `${v}%`}
@@ -109,29 +165,28 @@ export default function MeetingsSection({ data }: { data: DashboardData }) {
             </tr>
           </thead>
           <tbody>
-            {ranking.map((r, i) => {
-              const color = getSemaphorColor(r.pct_reunioes);
-              return (
-                <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, transition: 'background 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.015)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                  <td style={{ padding: '11px 8px', fontSize: 10, color: T.textDim, fontWeight: 700 }}>#{i + 1}</td>
-                  <td style={{ padding: '11px 8px', fontSize: 12, fontWeight: 600, color: T.textSub }}>{r.consulNameFull}</td>
-                  <td style={{ padding: '11px 8px' }}>
-                    <span style={{
-                      display: 'inline-block', padding: '3px 8px', borderRadius: 5,
-                      background: `${color}18`, color,
-                      fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
-                    }}>
-                      {getStatusLabel(r.pct_reunioes)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '11px 8px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.mono }}>
-                    {r.reunioes_realizadas}/{r.clientes_ativos}
-                  </td>
-                </tr>
-              );
-            })}
+            {ranking.map((r, i) => (
+              <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.015)')}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                <td style={{ padding: '11px 8px', fontSize: 10, color: T.textDim, fontWeight: 700 }}>#{i + 1}</td>
+                <td style={{ padding: '11px 8px', fontSize: 12, fontWeight: 600, color: T.textSub }}>
+                  {r.consulNameFull}
+                </td>
+                <td style={{ padding: '11px 8px' }}>
+                  <span style={getStatusBadgeStyle(r.pct_reunioes, r.status_operacao)}>
+                    {getStatusLabel(r.pct_reunioes, r.status_operacao)}
+                  </span>
+                </td>
+                <td style={{
+                  padding: '11px 8px', textAlign: 'right', fontSize: 14, fontWeight: 700,
+                  color: r.status_operacao === 'Onboarding' ? T.orange : T.text,
+                  fontFamily: T.mono,
+                }}>
+                  {r.reunioes_realizadas}/{r.clientes_ativos}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

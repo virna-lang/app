@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import useSWR from 'swr';
 import {
   AlertTriangle,
@@ -25,6 +25,7 @@ import {
   type CorrelationCoverageMetric,
   type CorrelationOverview,
   type CorrelationProjectRiskItem,
+  type CorrelationConsultorScore,
 } from '@/lib/correlation';
 
 const T = {
@@ -90,21 +91,91 @@ function KpiCard({
   icon,
   accent,
   helper,
+  breakdown,
+  consultores: consultoresBreakdown,
 }: {
   label: string;
   value: string;
   icon: React.ReactNode;
   accent: string;
   helper?: string;
+  breakdown?: CorrelationConsultorScore[];
+  consultores?: { id: string; nome: string }[];
 }) {
+  const [hovered, setHovered] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hasBreakdown = breakdown && breakdown.length > 0 && consultoresBreakdown && consultoresBreakdown.length > 0;
+
+  const rows = hasBreakdown
+    ? [...breakdown!]
+        .filter(r => r.score_conformidade != null)
+        .map(r => ({
+          nome: consultoresBreakdown!.find(c => c.id === r.consultor_id)?.nome ?? r.consultor_id,
+          score: r.score_conformidade!,
+        }))
+        .sort((a, b) => b.score - a.score)
+    : [];
+
   return (
-    <div className="kpi-card">
+    <div
+      className="kpi-card"
+      style={{ position: 'relative', cursor: hasBreakdown ? 'default' : undefined }}
+      onMouseEnter={() => {
+        if (hasBreakdown) {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          setHovered(true);
+        }
+      }}
+      onMouseLeave={() => {
+        timerRef.current = setTimeout(() => setHovered(false), 120);
+      }}
+    >
       <div className="kpi-icon" style={{ color: accent }}>{icon}</div>
       <div className="kpi-copy">
-        <div className="kpi-label">{label}</div>
+        <div className="kpi-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {label}
+          {hasBreakdown && (
+            <span style={{ fontSize: 9, color: T.textDim, fontWeight: 500, letterSpacing: '0.03em' }}>
+              (passe o cursor)
+            </span>
+          )}
+        </div>
         <div className="kpi-value" style={{ color: accent }}>{value}</div>
         {helper && <div className="kpi-helper">{helper}</div>}
       </div>
+
+      {hasBreakdown && hovered && rows.length > 0 && (
+        <div
+          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); setHovered(true); }}
+          onMouseLeave={() => { timerRef.current = setTimeout(() => setHovered(false), 120); }}
+          style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
+            background: T.bgDeep, border: `1px solid ${T.border}`, borderRadius: 10,
+            padding: '12px 0', minWidth: 260, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          }}
+        >
+          <div style={{ padding: '0 14px 8px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.textDim }}>
+            % Conformidade por Consultor
+          </div>
+          {rows.map((r, i) => {
+            const barColor = r.score >= 80 ? T.green : r.score >= 60 ? '#f59e0b' : T.red;
+            return (
+              <div key={i} style={{ padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 11, color: T.textSub, minWidth: 130, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {r.nome}
+                </span>
+                <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(r.score, 100)}%`, height: '100%', background: barColor, borderRadius: 2, transition: 'width 0.3s' }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: barColor, minWidth: 40, textAlign: 'right', fontFamily: T.mono }}>
+                  {r.score.toFixed(1)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -204,7 +275,7 @@ function ProjectRiskRow({
           <span>{item.produto ?? 'Sem produto'}</span>
           <span>{item.status ?? 'Sem status'}</span>
           {showConsultor && <span>{consultorNome}</span>}
-          <span>{item.tratativaCS ? 'Tratativa CS' : 'Auditável'}</span>
+          <span>{item.auditoriaStatus}</span>
         </div>
       </div>
       <div className="project-stats">
@@ -349,6 +420,8 @@ export default function CorrelacaoSection() {
           icon={<ShieldCheck size={18} />}
           accent={tone.color}
           helper={deltaLabel(data.deltaConformidade)}
+          breakdown={data.scopeType === 'operation' ? data.consultorBreakdown : undefined}
+          consultores={consultores}
         />
         <KpiCard
           label="Score de resultado"

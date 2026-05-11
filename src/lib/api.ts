@@ -16,6 +16,7 @@ import type {
   VorpProdutoRow,
 } from './supabase';
 import type { AppPermission, UserRole } from './permissions';
+import type { ConsultorOperacaoHistorico, ConsultorOperacaoStatus } from './consultor-operacao';
 
 function toNonNegativeInt(value: number | null | undefined): number {
   const n = Number(value ?? 0);
@@ -58,6 +59,56 @@ export async function toggleConsultor(id: string, status: 'Ativo' | 'Inativo'): 
     .update({ status })
     .eq('id', id);
   if (error) console.error('toggleConsultor:', error);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTÓRICO OPERACIONAL DO CONSULTOR (status Ativo / Onboarding / Desativado)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getConsultorOperacaoHistorico(
+  consultorId?: string,
+): Promise<ConsultorOperacaoHistorico[]> {
+  let query = supabase
+    .from('consultor_operacao_historico')
+    .select('*')
+    .order('consultor_id')
+    .order('mes_inicio', { ascending: false });
+
+  if (consultorId) {
+    query = query.eq('consultor_id', consultorId);
+  }
+
+  const { data, error } = await query;
+  if (error) { console.error('getConsultorOperacaoHistorico:', error); return []; }
+  return (data ?? []) as ConsultorOperacaoHistorico[];
+}
+
+export async function upsertConsultorOperacaoHistorico(
+  payload: {
+    consultor_id: string;
+    mes_inicio: string;
+    status_operacao: ConsultorOperacaoStatus;
+    observacao?: string | null;
+  },
+): Promise<ConsultorOperacaoHistorico | null> {
+  const { data, error } = await supabase
+    .from('consultor_operacao_historico')
+    .upsert(payload, { onConflict: 'consultor_id,mes_inicio' })
+    .select()
+    .single();
+
+  if (error) { console.error('upsertConsultorOperacaoHistorico:', error); return null; }
+  return (data ?? null) as ConsultorOperacaoHistorico | null;
+}
+
+export async function deleteConsultorOperacaoHistorico(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('consultor_operacao_historico')
+    .delete()
+    .eq('id', id);
+
+  if (error) { console.error('deleteConsultorOperacaoHistorico:', error); return false; }
+  return true;
 }
 
 export async function getUsuariosApp(): Promise<UsuarioApp[]> {
@@ -542,10 +593,10 @@ export async function getViewConformidade(
 export async function getRankingAtendidosMes(
   mesAno: string,
   consultorId?: string,
-): Promise<{ consultor_id: string; atendidos: number; carteira: number }[]> {
+): Promise<{ consultor_id: string; atendidos: number; carteira: number; status_operacao: string }[]> {
   let query = supabase
     .from('view_ranking_atendidos')
-    .select('consultor_id, atendidos, carteira')
+    .select('consultor_id, atendidos, carteira, status_operacao')
     .eq('mes_ano', mesAno);
 
   if (consultorId && consultorId !== 'all') {
@@ -556,9 +607,10 @@ export async function getRankingAtendidosMes(
   if (error) { console.error('getRankingAtendidosMes:', error); return []; }
 
   return (data ?? []).map((row: any) => ({
-    consultor_id: row.consultor_id ?? '',
-    atendidos:    row.atendidos    ?? 0,
-    carteira:     row.carteira     ?? 0,
+    consultor_id:    row.consultor_id    ?? '',
+    atendidos:       row.atendidos       ?? 0,
+    carteira:        row.carteira        ?? 0,
+    status_operacao: row.status_operacao ?? 'Ativo',
   }));
 }
 

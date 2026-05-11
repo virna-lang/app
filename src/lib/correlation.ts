@@ -17,6 +17,7 @@ import type {
   VorpMetaRow,
   VorpProjetoRow,
 } from './supabase';
+import { isProjetoAuditavel, normalizeProjetoAuditoriaStatus } from './supabase';
 
 export type CorrelationMode = 'mine' | 'operation';
 export type CorrelationStatus = 'Saudavel' | 'Em atencao' | 'Critica';
@@ -46,6 +47,7 @@ export interface CorrelationProjectRiskItem {
   nome: string;
   produto: string | null;
   status: string | null;
+  auditoriaStatus: string;
   tratativaCS: boolean;
   healthscore: number | null;
   healthClassificacao: string | null;
@@ -82,6 +84,12 @@ export interface CorrelationDataCoverage {
   };
 }
 
+export interface CorrelationConsultorScore {
+  consultor_id: string;
+  score_conformidade: number | null;
+  score_resultado: number | null;
+}
+
 export interface CorrelationOverview {
   mode: CorrelationMode;
   mesAno: string;
@@ -102,6 +110,7 @@ export interface CorrelationOverview {
   alertas: string[];
   resumoStatus: CorrelationStatus;
   resumoTexto: string;
+  consultorBreakdown: CorrelationConsultorScore[];
 }
 
 export interface CorrelationInsights {
@@ -462,9 +471,11 @@ function buildProjectRiskItems(
         reasons.push(healthRisk.reason);
       }
 
-      if (projeto.tratativa_cs) {
+      const auditoriaStatus = normalizeProjetoAuditoriaStatus(projeto.auditoria_status, projeto.tratativa_cs);
+
+      if (!isProjetoAuditavel(projeto.auditoria_status, projeto.tratativa_cs)) {
         riskScore += 2;
-        reasons.push('Projeto em Tratativa CS');
+        reasons.push(`Projeto fora da amostragem (${auditoriaStatus})`);
       }
 
       if (hasCompleteMeta(meta) && (meta?.meta_realizada ?? 0) < (meta?.meta_projetada ?? 0)) {
@@ -493,6 +504,7 @@ function buildProjectRiskItems(
         nome: projeto.nome,
         produto: projeto.produto_nome ?? null,
         status: projeto.status ?? null,
+        auditoriaStatus,
         tratativaCS: projeto.tratativa_cs,
         healthscore: health?.pontuacao ?? null,
         healthClassificacao: health?.classificacao ?? null,
@@ -768,6 +780,14 @@ export async function getCorrelationOverview({
     churnsPeriodo,
   );
 
+  // Breakdown por consultor — usado no tooltip do KPI de Conformidade
+  const consultorIds = [...new Set(currentScores.map((s) => s.consultor_id))];
+  const consultorBreakdown: CorrelationConsultorScore[] = consultorIds.map((id) => ({
+    consultor_id: id,
+    score_conformidade: currentScores.find((s) => s.consultor_id === id && s.tipo === 'Conformidade')?.score ?? null,
+    score_resultado:    currentScores.find((s) => s.consultor_id === id && s.tipo === 'Resultado')?.score ?? null,
+  }));
+
   return {
     mode,
     mesAno,
@@ -788,5 +808,6 @@ export async function getCorrelationOverview({
     alertas: buildAlerts(weakPoints, projetosPrioritarios, categoryScores, churnsPeriodo, dataCoverage),
     resumoStatus,
     resumoTexto,
+    consultorBreakdown,
   };
 }
