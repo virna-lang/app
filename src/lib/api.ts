@@ -459,6 +459,7 @@ export interface AuditoriaPontoDetalhado {
   nota_pct: number;
   qtd_avaliados: number;
   qtd_conformes: number;
+  observacao: string | null;
 }
 
 export async function getAuditoriaPontosDetalhados(
@@ -467,7 +468,7 @@ export async function getAuditoriaPontosDetalhados(
 ): Promise<AuditoriaPontoDetalhado[]> {
   let query = supabase
     .from('auditoria_itens')
-    .select('categoria, pergunta, tipo, nota_pct, qtd_avaliados, qtd_conformes, auditoria_mensal!inner(mes_ano, consultor_id)')
+    .select('categoria, pergunta, tipo, nota_pct, qtd_avaliados, qtd_conformes, observacao, auditoria_mensal!inner(mes_ano, consultor_id)')
     .eq('auditoria_mensal.mes_ano', mesAno)
     .gt('qtd_avaliados', 0);
 
@@ -490,6 +491,7 @@ export async function getAuditoriaPontosDetalhados(
     nota_pct: row.nota_pct ?? 0,
     qtd_avaliados: row.qtd_avaliados ?? 0,
     qtd_conformes: row.qtd_conformes ?? 0,
+    observacao: row.observacao ?? null,
   }));
 }
 

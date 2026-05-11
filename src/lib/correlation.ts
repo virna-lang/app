@@ -39,6 +39,20 @@ export interface CorrelationWeakPoint {
   consultorIdsImpactados?: string[];
   /** Leitura narrativa de impacto operacional (% não-conformidade + consequências). */
   impactoNarrativa?: ImpactoNarrativa;
+  /** Detalhe por consultor — usado pelo botão "Ver origem" e pelo ranking inline. */
+  consultoresDetalhe?: CorrelationWeakPointConsultor[];
+}
+
+export interface CorrelationWeakPointConsultor {
+  consultorId: string;
+  qtdAvaliados: number;
+  qtdConformes: number;
+  notaPct: number;
+  /** Equivalente a (qtdAvaliados − qtdConformes) / qtdAvaliados × 100. */
+  naoConformesPct: number;
+  /** Observações concatenadas das linhas desse consultor para essa pergunta. */
+  observacoes: string[];
+  mesAno: string;
 }
 
 export interface CorrelationCategoryScore {
@@ -266,6 +280,14 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
     totalConformes: number;
     consultores: Set<string>;
     count: number;
+    /** Detalhe acumulado por consultor — somando múltiplas linhas se o mesmo
+     *  consultor tiver registros duplicados da mesma pergunta. */
+    porConsultor: Map<string, {
+      qtdAvaliados: number;
+      qtdConformes: number;
+      observacoes: string[];
+      mesAno: string;
+    }>;
   }>();
 
   for (const row of rows) {
@@ -279,6 +301,7 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
       totalConformes: 0,
       consultores: new Set<string>(),
       count: 0,
+      porConsultor: new Map(),
     };
 
     current.totalNota += row.nota_pct ?? 0;
@@ -286,12 +309,51 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
     current.totalConformes += row.qtd_conformes ?? 0;
     current.consultores.add(row.consultor_id);
     current.count += 1;
+
+    // Acumula por consultor
+    const cid = row.consultor_id;
+    if (cid) {
+      const consultorAcc = current.porConsultor.get(cid) ?? {
+        qtdAvaliados: 0,
+        qtdConformes: 0,
+        observacoes: [],
+        mesAno: row.mes_ano,
+      };
+      consultorAcc.qtdAvaliados += row.qtd_avaliados ?? 0;
+      consultorAcc.qtdConformes += row.qtd_conformes ?? 0;
+      if (row.observacao && row.observacao.trim()) {
+        consultorAcc.observacoes.push(row.observacao.trim());
+      }
+      current.porConsultor.set(cid, consultorAcc);
+    }
+
     grouped.set(key, current);
   }
 
   return Array.from(grouped.values())
     .map((row) => {
       const notaPct = round(row.totalNota / Math.max(row.count, 1));
+      const consultoresDetalhe: CorrelationWeakPointConsultor[] = Array.from(row.porConsultor.entries())
+        .map(([consultorId, acc]) => {
+          const consultorNota = acc.qtdAvaliados > 0
+            ? round((acc.qtdConformes / acc.qtdAvaliados) * 100)
+            : 0;
+          const consultorNaoConf = acc.qtdAvaliados > 0
+            ? round(((acc.qtdAvaliados - acc.qtdConformes) / acc.qtdAvaliados) * 100)
+            : 0;
+          return {
+            consultorId,
+            qtdAvaliados: acc.qtdAvaliados,
+            qtdConformes: acc.qtdConformes,
+            notaPct: consultorNota,
+            naoConformesPct: consultorNaoConf,
+            observacoes: acc.observacoes,
+            mesAno: acc.mesAno,
+          };
+        })
+        // Ordena por NÃO-conformidade desc — pior primeiro (igual ao request).
+        .sort((a, b) => b.naoConformesPct - a.naoConformesPct);
+
       return {
         consultorId: null,
         categoria: row.categoria,
@@ -303,6 +365,7 @@ function aggregateWeakPoints(mode: CorrelationMode, rows: AuditoriaPontoDetalhad
         consultoresImpactados: row.consultores.size,
         consultorIdsImpactados: Array.from(row.consultores).filter(Boolean),
         impactoNarrativa: buildImpactoNarrativa(row.pergunta, notaPct, row.totalAvaliados, row.totalConformes),
+        consultoresDetalhe,
       };
     })
     .filter((row) => row.notaPct < 80)

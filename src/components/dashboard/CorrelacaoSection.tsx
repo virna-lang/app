@@ -26,6 +26,7 @@ import {
   type CorrelationOverview,
   type CorrelationProjectRiskItem,
   type CorrelationConsultorScore,
+  type CorrelationWeakPointConsultor,
 } from '@/lib/correlation';
 
 const T = {
@@ -216,8 +217,8 @@ function WeakPointRow({
   qtdConformes,
   impactoHeadline,
   consequencias = [],
-  impacto,
-  impactoDetalhes = [],
+  consultoresDetalhe = [],
+  consultoresLabel,
 }: {
   categoria: string;
   pergunta: string;
@@ -226,10 +227,12 @@ function WeakPointRow({
   qtdConformes: number;
   impactoHeadline?: string;
   consequencias?: string[];
-  impacto?: string;
-  impactoDetalhes?: string[];
+  /** Detalhe ordenado por consultor (já vem desc por naoConformesPct). */
+  consultoresDetalhe?: CorrelationWeakPointConsultor[];
+  /** Função para resolver consultor_id → nome legível. */
+  consultoresLabel: (id: string) => string;
 }) {
-  const hasDetails = impactoDetalhes.length > 0;
+  const [origemAberta, setOrigemAberta] = useState(false);
   // % de NÃO-conformidade — é essa a leitura "impacto" da carteira.
   const naoConformesPct = qtdAvaliados > 0
     ? ((qtdAvaliados - qtdConformes) / qtdAvaliados) * 100
@@ -255,8 +258,12 @@ function WeakPointRow({
       )}
 
       {qtdAvaliados > 0 && (
-        <div className="weak-evidencia">
-          Base: <strong>{qtdAvaliados - qtdConformes}</strong> de <strong>{qtdAvaliados}</strong> avaliado(s) fora de conformidade
+        <div
+          className="weak-evidencia"
+          title={`Pergunta original na auditoria:\n"${pergunta}"`}
+          style={{ cursor: 'help' }}
+        >
+          Base: <strong>{qtdAvaliados - qtdConformes}</strong> de <strong>{qtdAvaliados}</strong> avaliado(s) fora de conformidade <span className="weak-help-icon">ⓘ</span>
         </div>
       )}
 
@@ -271,24 +278,72 @@ function WeakPointRow({
         </div>
       )}
 
-      {impactoHeadline && (
-        <div className="weak-fonte" title={pergunta}>
-          Fonte: {categoria} · "{pergunta.length > 70 ? pergunta.slice(0, 70) + '…' : pergunta}"
+      {consultoresDetalhe.length > 0 && (
+        <div className="weak-ranking">
+          <div className="weak-ranking-label">% fora por consultor (maior → menor):</div>
+          <ul className="weak-ranking-list">
+            {consultoresDetalhe.map((c) => (
+              <li key={c.consultorId}>
+                <span className="weak-ranking-nome">{consultoresLabel(c.consultorId)}</span>
+                <span className="weak-ranking-num">
+                  <strong>{c.naoConformesPct.toFixed(0)}%</strong>
+                  <span className="weak-ranking-base"> · {c.qtdAvaliados - c.qtdConformes} de {c.qtdAvaliados}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {impacto && (
-        <div
-          className="weak-impacto"
-          title={hasDetails ? `Consultores impactados:\n${impactoDetalhes.join('\n')}` : undefined}
-          style={{
-            color: T.textSub,
-            cursor: hasDetails ? 'help' : 'default',
-            fontSize: 12,
-            lineHeight: 1.5,
-          }}
+      {consultoresDetalhe.length > 0 && (
+        <button
+          type="button"
+          className="weak-ver-origem"
+          onClick={() => setOrigemAberta((v) => !v)}
         >
-          {impacto}
+          {origemAberta ? '▲ Ocultar origem' : '▼ Ver origem'}
+        </button>
+      )}
+
+      {origemAberta && consultoresDetalhe.length > 0 && (
+        <div className="weak-origem">
+          <div className="weak-origem-head">Linhas de auditoria que compõem este card</div>
+          <div className="weak-origem-meta">
+            Pergunta original: <em>"{pergunta}"</em><br />
+            Categoria: <strong>{categoria}</strong>
+          </div>
+          <table className="weak-origem-table">
+            <thead>
+              <tr>
+                <th>Consultor</th>
+                <th>Mês</th>
+                <th className="num">Avaliados</th>
+                <th className="num">Conformes</th>
+                <th className="num">Nota</th>
+                <th>Observação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {consultoresDetalhe.map((c) => (
+                <tr key={c.consultorId}>
+                  <td>{consultoresLabel(c.consultorId)}</td>
+                  <td className="mono">{c.mesAno}</td>
+                  <td className="num mono">{c.qtdAvaliados}</td>
+                  <td className="num mono">{c.qtdConformes}</td>
+                  <td className="num mono">{c.notaPct.toFixed(1)}%</td>
+                  <td className="obs">
+                    {c.observacoes.length > 0 ? c.observacoes.join(' · ') : <span className="weak-origem-empty">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {impactoHeadline && (
+        <div className="weak-fonte" title={pergunta}>
+          Fonte: {categoria} · "{pergunta.length > 70 ? pergunta.slice(0, 70) + '…' : pergunta}"
         </div>
       )}
     </div>
@@ -560,12 +615,10 @@ export default function CorrelacaoSection() {
           ) : (
             <div className="weak-grid">
               {weakPoints.map((item) => {
-                const impactoDetalhes = Array.from(new Set(
-                  (item.consultorIdsImpactados ?? []).map((id) => {
-                    const nome = getConsultorLabel(consultores, id, 'full');
-                    return nome === 'Consultor' ? `Consultor ${id.slice(0, 8)}` : nome;
-                  }),
-                ));
+                const labelFor = (id: string) => {
+                  const nome = getConsultorLabel(consultores, id, 'full');
+                  return nome === 'Consultor' ? `Consultor ${id.slice(0, 8)}` : nome;
+                };
 
                 return (
                   <WeakPointRow
@@ -577,10 +630,8 @@ export default function CorrelacaoSection() {
                     qtdConformes={item.qtdConformes}
                     impactoHeadline={item.impactoNarrativa?.headline}
                     consequencias={item.impactoNarrativa?.consequencias ?? []}
-                    impacto={resolvedMode === 'operation' && item.consultoresImpactados
-                      ? `${item.consultoresImpactados} consultor(es) impactados`
-                      : undefined}
-                    impactoDetalhes={impactoDetalhes}
+                    consultoresDetalhe={resolvedMode === 'operation' ? item.consultoresDetalhe ?? [] : []}
+                    consultoresLabel={labelFor}
                   />
                 );
               })}
@@ -1065,6 +1116,134 @@ const baseStyles = `
     font-family: ${T.mono};
     font-weight: 700;
   }
+  .weak-help-icon {
+    color: ${T.textDim};
+    font-size: 11px;
+    margin-left: 2px;
+  }
+
+  .weak-ranking {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid ${T.border};
+    border-radius: 6px;
+  }
+  .weak-ranking-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: ${T.textSub};
+    margin-bottom: 8px;
+  }
+  .weak-ranking-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .weak-ranking-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: ${T.text};
+    padding: 2px 0;
+  }
+  .weak-ranking-nome {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .weak-ranking-num {
+    flex-shrink: 0;
+    color: ${T.orange};
+    font-family: ${T.mono};
+  }
+  .weak-ranking-num strong { font-weight: 700; }
+  .weak-ranking-base { color: ${T.textSub}; font-size: 11px; }
+
+  .weak-ver-origem {
+    margin-top: 8px;
+    background: transparent;
+    border: 1px solid ${T.border};
+    border-radius: 6px;
+    color: ${T.textSub};
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    align-self: flex-start;
+    transition: all 0.15s;
+  }
+  .weak-ver-origem:hover {
+    color: ${T.orange};
+    border-color: ${T.orange};
+    background: rgba(255,92,26,0.06);
+  }
+
+  .weak-origem {
+    margin-top: 8px;
+    padding: 12px;
+    background: ${T.bgDeep};
+    border: 1px solid ${T.border};
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .weak-origem-head {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: ${T.orange};
+    margin-bottom: 8px;
+  }
+  .weak-origem-meta {
+    font-size: 11px;
+    color: ${T.textSub};
+    line-height: 1.5;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid ${T.border};
+  }
+  .weak-origem-meta em {
+    color: ${T.text};
+    font-style: italic;
+  }
+  .weak-origem-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .weak-origem-table th {
+    text-align: left;
+    color: ${T.textDim};
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 6px 8px;
+    border-bottom: 1px solid ${T.border};
+  }
+  .weak-origem-table th.num { text-align: right; }
+  .weak-origem-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: ${T.text};
+    vertical-align: top;
+  }
+  .weak-origem-table td.num { text-align: right; }
+  .weak-origem-table td.mono { font-family: ${T.mono}; }
+  .weak-origem-table td.obs {
+    color: ${T.textSub};
+    font-size: 11px;
+    max-width: 280px;
+  }
+  .weak-origem-empty { color: ${T.textDim}; }
 
   .weak-consequencias {
     margin-top: 10px;

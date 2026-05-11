@@ -54,10 +54,10 @@ function extractProdutoSuffix(pergunta: string): string | null {
 }
 
 const RULES: ImpactoRule[] = [
-  // ── Drive: gravações de reunião ─────────────────────────────────────────
+  // ── Gravações de reunião (Drive ou ClickUp, depende do cadastro) ───────
   {
     match: ['gravacoes', 'reunioes'],
-    headline: (pct) => `${pct} dos projetos avaliados estão sem gravações de reunião arquivadas no Drive`,
+    headline: (pct) => `${pct} dos projetos avaliados estão sem gravações de reunião arquivadas`,
     consequencias: [
       'perda de rastreabilidade do que foi alinhado com o cliente',
       'consultor sem material para revisar antes da próxima reunião',
