@@ -2,8 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Consultor, VorpColaboradorRow } from '@/lib/supabase';
-import { getVorpColaboradores } from '@/lib/api';
-import { UserPlus, PackagePlus, ToggleLeft, ToggleRight, Plus, Users, Mail, Phone, Briefcase, RefreshCw } from 'lucide-react';
+import { mutate } from 'swr';
+import {
+  deleteConsultorOperacaoHistorico,
+  gerarMeses,
+  getConsultorOperacaoHistorico,
+  getVorpColaboradores,
+  labelToMesAno,
+  mesAnoToLabel,
+  upsertConsultorOperacaoHistorico,
+} from '@/lib/api';
+import type { ConsultorOperacaoHistorico, ConsultorOperacaoStatus } from '@/lib/consultor-operacao';
+import { CONSULTOR_OPERACAO_STATUS_OPTIONS } from '@/lib/consultor-operacao';
+import {
+  UserPlus, PackagePlus, ToggleLeft, ToggleRight, Plus, Users, Mail, Phone, Briefcase, RefreshCw,
+  Save, Trash2, ShieldCheck,
+} from 'lucide-react';
 
 const T = {
   bg: '#0f1117', bgDark: '#0d0f14', border: '#1a1d24', borderHov: '#2a2f3d',
@@ -28,13 +42,45 @@ export default function AdminManagement({ consultants, products, onAddConsultant
   const [newProduct,    setNewProduct]    = useState('');
   const [vorpColabs,    setVorpColabs]    = useState<VorpColaboradorRow[]>([]);
   const [loadingColabs, setLoadingColabs] = useState(false);
+  const [historyRows, setHistoryRows] = useState<ConsultorOperacaoHistorico[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [savingHistory, setSavingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const historyMonths = gerarMeses(24);
+  const [historyConsultorId, setHistoryConsultorId] = useState('');
+  const [historyMonth, setHistoryMonth] = useState(historyMonths[historyMonths.length - 1] ?? '');
+  const [historyStatus, setHistoryStatus] = useState<ConsultorOperacaoStatus>('Ativo');
+  const [historyNote, setHistoryNote] = useState('');
 
   useEffect(() => {
     setLoadingColabs(true);
     getVorpColaboradores().then(d => setVorpColabs(d as VorpColaboradorRow[])).catch(console.error).finally(() => setLoadingColabs(false));
   }, []);
 
-  const cargoMap = Object.fromEntries(vorpColabs.map(c => [c.nome.trim().toLowerCase(), c.cargo ?? null]));
+  useEffect(() => {
+    if (!historyConsultorId && consultants.length > 0) {
+      setHistoryConsultorId(consultants[0].id);
+    }
+  }, [consultants, historyConsultorId]);
+
+  const loadHistory = async () => {
+    setLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      setHistoryRows(await getConsultorOperacaoHistorico());
+    } catch (error) {
+      console.error(error);
+      setHistoryError('Nao foi possivel carregar o historico operacional agora.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory().catch(console.error);
+  }, []);
+
+  const cargoMap = Object.fromEntries(vorpColabs.map(c => [c.vorp_id, c.cargo ?? null]));
 
   const handleAddConsultant = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +95,67 @@ export default function AdminManagement({ consultants, products, onAddConsultant
     try { setVorpColabs((await getVorpColaboradores()) as VorpColaboradorRow[]); } catch (e) { console.error(e); } finally { setLoadingColabs(false); }
   };
 
+  const handleSaveHistory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!historyConsultorId || !historyMonth) return;
+
+    setSavingHistory(true);
+    setHistoryError(null);
+    try {
+      const saved = await upsertConsultorOperacaoHistorico({
+        consultor_id: historyConsultorId,
+        mes_inicio: labelToMesAno(historyMonth),
+        status_operacao: historyStatus,
+        observacao: historyNote.trim() || null,
+      });
+
+      if (!saved) {
+        setHistoryError('Nao consegui salvar esse historico agora.');
+        return;
+      }
+
+      setHistoryNote('');
+      await loadHistory();
+      await mutate((key) => Array.isArray(key) && key[0] === 'dashboard');
+    } catch (error) {
+      console.error(error);
+      setHistoryError('Nao consegui salvar esse historico agora.');
+    } finally {
+      setSavingHistory(false);
+    }
+  };
+
+  const handleDeleteHistory = async (id: string) => {
+    setSavingHistory(true);
+    setHistoryError(null);
+    try {
+      const ok = await deleteConsultorOperacaoHistorico(id);
+      if (!ok) {
+        setHistoryError('Nao consegui remover esse historico agora.');
+        return;
+      }
+
+      await loadHistory();
+      await mutate((key) => Array.isArray(key) && key[0] === 'dashboard');
+    } catch (error) {
+      console.error(error);
+      setHistoryError('Nao consegui remover esse historico agora.');
+    } finally {
+      setSavingHistory(false);
+    }
+  };
+
   const formatDate = (d?: string | null) =>
     d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  const getConsultantName = (consultorId: string) =>
+    consultants.find((consultant) => consultant.id === consultorId)?.nome ?? 'Consultor';
+
+  const sortedHistoryRows = [...historyRows].sort((a, b) => {
+    const byConsultant = getConsultantName(a.consultor_id).localeCompare(getConsultantName(b.consultor_id), 'pt-BR');
+    if (byConsultant !== 0) return byConsultant;
+    return b.mes_inicio.localeCompare(a.mes_inicio);
+  });
 
   const inputStyle: React.CSSProperties = {
     flex: 1, background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`,
@@ -82,11 +187,12 @@ export default function AdminManagement({ consultants, products, onAddConsultant
       </div>
 
       {activeTab === 'gestao' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="mgmt-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="mgmt-grid">
           {[
             { icon: <UserPlus size={18} color={T.orange}/>, title: 'Consultores', placeholder: 'Nome do novo consultor...', val: newConsultant, setVal: setNewConsultant, onSubmit: handleAddConsultant,
               list: consultants.map(c => ({
-                key: c.id, name: c.nome, sub: cargoMap[c.nome.trim().toLowerCase()] ?? undefined,
+                key: c.id, name: c.nome, sub: c.vorp_colaborador_id ? cargoMap[c.vorp_colaborador_id] ?? undefined : undefined,
                 badge: c.status, badgeColor: c.status === 'Ativo' ? T.green : T.textDim,
                 right: (
                   <button onClick={() => onToggleConsultant(c.id, c.status)}
@@ -152,7 +258,139 @@ export default function AdminManagement({ consultants, products, onAddConsultant
               </div>
             </div>
           ))}
+          </div>
 
+          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <ShieldCheck size={18} color={T.orange} />
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>Historico da media da operacao</h3>
+                <p style={{ fontSize: 12, color: T.textDim, margin: '4px 0 0' }}>
+                  Aqui voce registra a partir de qual mes o consultor fica em onboarding ou desativado para a media geral, sem impedir a auditoria individual.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveHistory} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.6fr auto', gap: 10 }} className="history-form-grid">
+              <select
+                value={historyConsultorId}
+                onChange={(e) => setHistoryConsultorId(e.target.value)}
+                style={{ ...inputStyle, appearance: 'none' }}
+              >
+                {consultants.map((consultant) => (
+                  <option key={consultant.id} value={consultant.id}>{consultant.nome}</option>
+                ))}
+              </select>
+
+              <select
+                value={historyMonth}
+                onChange={(e) => setHistoryMonth(e.target.value)}
+                style={{ ...inputStyle, appearance: 'none' }}
+              >
+                {historyMonths.map((month) => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+
+              <select
+                value={historyStatus}
+                onChange={(e) => setHistoryStatus(e.target.value as ConsultorOperacaoStatus)}
+                style={{ ...inputStyle, appearance: 'none' }}
+              >
+                {CONSULTOR_OPERACAO_STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="Observacao opcional..."
+                value={historyNote}
+                onChange={(e) => setHistoryNote(e.target.value)}
+                style={inputStyle}
+              />
+
+              <button
+                type="submit"
+                disabled={savingHistory || !historyConsultorId || !historyMonth}
+                style={{
+                  background: T.orange, color: 'white', border: 'none',
+                  borderRadius: 7, padding: '0 16px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+                  transition: 'filter 0.2s, transform 0.2s', whiteSpace: 'nowrap',
+                  opacity: savingHistory ? 0.7 : 1,
+                }}
+              >
+                <Save size={14} /> Salvar regra
+              </button>
+            </form>
+
+            {historyError && (
+              <div style={{ fontSize: 12, color: '#ff8a65', background: 'rgba(255,92,26,0.08)', border: `1px solid rgba(255,92,26,0.2)`, borderRadius: 8, padding: '10px 12px' }}>
+                {historyError}
+              </div>
+            )}
+
+            <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: `1px solid ${T.border}` }}>
+                    {['Consultor', 'Vale a partir de', 'Status na media', 'Entra na media?', 'Observacao', 'Atualizado', 'Acao'].map((label) => (
+                      <th key={label} style={{ padding: '12px 14px', textAlign: 'left', color: T.textDim, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingHistory ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '24px 14px', color: T.textDim, textAlign: 'center' }}>
+                        Carregando historico operacional...
+                      </td>
+                    </tr>
+                  ) : sortedHistoryRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '24px 14px', color: T.textDim, textAlign: 'center' }}>
+                        Nenhuma regra cadastrada ainda.
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedHistoryRows.map((row) => {
+                      const activeColor = row.status_operacao === 'Ativo' ? T.green : row.status_operacao === 'Onboarding' ? T.orange : T.textDim;
+                      const activeBg = row.status_operacao === 'Ativo' ? T.greenDim : row.status_operacao === 'Onboarding' ? T.orangeDim : 'rgba(255,255,255,0.06)';
+                      return (
+                        <tr key={row.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                          <td style={{ padding: '12px 14px', fontWeight: 600, color: T.text }}>{getConsultantName(row.consultor_id)}</td>
+                          <td style={{ padding: '12px 14px', color: T.textSub }}>{mesAnoToLabel(row.mes_inicio)}</td>
+                          <td style={{ padding: '12px 14px' }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 999, background: activeBg, color: activeColor }}>
+                              {row.status_operacao}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 14px', color: row.status_operacao === 'Ativo' ? T.green : T.textDim, fontWeight: 700 }}>
+                            {row.status_operacao === 'Ativo' ? 'Sim' : 'Nao'}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: T.textSub }}>{row.observacao || '—'}</td>
+                          <td style={{ padding: '12px 14px', color: T.textDim, whiteSpace: 'nowrap' }}>{formatDate(row.updated_at ?? row.created_at)}</td>
+                          <td style={{ padding: '12px 14px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteHistory(row.id)}
+                              disabled={savingHistory}
+                              style={{ background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 7, color: '#ff8a65', padding: '6px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -242,6 +480,8 @@ export default function AdminManagement({ consultants, products, onAddConsultant
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1000px) { .mgmt-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 1200px) { .history-form-grid { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 720px) { .history-form-grid { grid-template-columns: 1fr !important; } }
       `}</style>
     </div>
   );

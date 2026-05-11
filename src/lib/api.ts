@@ -13,6 +13,7 @@ import type {
   ViewFlagsConsultor,
   ViewConformidadeConsultor,
 } from './supabase';
+import type { ConsultorOperacaoHistorico, ConsultorOperacaoStatus } from './consultor-operacao';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSULTORES
@@ -43,6 +44,56 @@ export async function toggleConsultor(id: string, status: 'Ativo' | 'Inativo'): 
     .update({ status })
     .eq('id', id);
   if (error) console.error('toggleConsultor:', error);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTÓRICO OPERACIONAL DO CONSULTOR (status Ativo / Onboarding / Desativado)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getConsultorOperacaoHistorico(
+  consultorId?: string,
+): Promise<ConsultorOperacaoHistorico[]> {
+  let query = supabase
+    .from('consultor_operacao_historico')
+    .select('*')
+    .order('consultor_id')
+    .order('mes_inicio', { ascending: false });
+
+  if (consultorId && consultorId !== 'all') {
+    query = query.eq('consultor_id', consultorId);
+  }
+
+  const { data, error } = await query;
+  if (error) { console.error('getConsultorOperacaoHistorico:', error); return []; }
+  return (data ?? []) as ConsultorOperacaoHistorico[];
+}
+
+export async function upsertConsultorOperacaoHistorico(
+  payload: {
+    consultor_id: string;
+    mes_inicio: string;
+    status_operacao: ConsultorOperacaoStatus;
+    observacao?: string | null;
+  },
+): Promise<ConsultorOperacaoHistorico | null> {
+  const { data, error } = await supabase
+    .from('consultor_operacao_historico')
+    .upsert(payload, { onConflict: 'consultor_id,mes_inicio' })
+    .select()
+    .single();
+
+  if (error) { console.error('upsertConsultorOperacaoHistorico:', error); return null; }
+  return (data ?? null) as ConsultorOperacaoHistorico | null;
+}
+
+export async function deleteConsultorOperacaoHistorico(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('consultor_operacao_historico')
+    .delete()
+    .eq('id', id);
+
+  if (error) { console.error('deleteConsultorOperacaoHistorico:', error); return false; }
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
