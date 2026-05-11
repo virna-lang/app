@@ -168,6 +168,7 @@ export interface VorpProjetoRow {
   canal?: string | null;
   tratativa_cs: boolean;
   tratativa_cs_obs?: string | null;
+  auditoria_status?: string | null;
   synced_at: string;
 }
 
@@ -267,4 +268,30 @@ export interface ViewConformidadeConsultor {
   categoria: CategoriaAudit;
   score_categoria: number;
   total_itens: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers de status de auditoria de projeto
+// (referenciados por correlation.ts; ainda não há coluna `auditoria_status`
+// dedicada — derivamos do flag legado `tratativa_cs`.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ProjetoAuditoriaStatus = 'Auditavel' | 'Tratativa CS' | 'Onboarding';
+
+export function normalizeProjetoAuditoriaStatus(
+  status: string | null | undefined,
+  tratativa_cs?: boolean | null,
+): ProjetoAuditoriaStatus {
+  const raw = (status ?? '').toString().trim().toLowerCase();
+  if (raw === 'onboarding') return 'Onboarding';
+  if (raw === 'tratativa cs' || raw === 'tratativa_cs') return 'Tratativa CS';
+  if (raw === 'auditavel' || raw === 'auditável') return 'Auditavel';
+  return tratativa_cs ? 'Tratativa CS' : 'Auditavel';
+}
+
+export function isProjetoAuditavel(
+  status: string | null | undefined,
+  tratativa_cs?: boolean | null,
+): boolean {
+  return normalizeProjetoAuditoriaStatus(status, tratativa_cs) === 'Auditavel';
 }
