@@ -1,5 +1,6 @@
 import {
   getAuditoriaPontosDetalhados,
+  getConsultorOperacaoHistorico,
   getScoresPorTipo,
   getViewConformidade,
   getVorpChurn,
@@ -18,6 +19,8 @@ import type {
   VorpProjetoRow,
 } from './supabase';
 import { isProjetoAuditavel, normalizeProjetoAuditoriaStatus } from './supabase';
+import { resolveConsultorOperacaoStatus } from './consultor-operacao';
+import type { ConsultorOperacaoHistorico } from './consultor-operacao';
 
 export type CorrelationMode = 'mine' | 'operation';
 export type CorrelationStatus = 'Saudavel' | 'Em atencao' | 'Critica';
@@ -732,14 +735,15 @@ export async function getCorrelationOverview({
   const vorpScopeId = mode === 'mine' ? vorpColaboradorId ?? undefined : undefined;
 
   const [
-    currentScores,
-    previousScores,
-    currentCategories,
-    auditItems,
+    currentScoresRaw,
+    previousScoresRaw,
+    currentCategoriesRaw,
+    auditItemsRaw,
     projetos,
     healthscores,
     metas,
     churns,
+    opHist,
   ] = await Promise.all([
     getScoresPorTipo(mesAno, scoreConsultorId),
     getScoresPorTipo(previousMesAno, scoreConsultorId),
@@ -749,7 +753,23 @@ export async function getCorrelationOverview({
     getVorpHealthScores(ano, mes, vorpScopeId),
     getVorpMetas(ano, mes, vorpScopeId),
     getVorpChurn(vorpScopeId),
+    getConsultorOperacaoHistorico(),
   ]);
+
+  // No modo 'operation' (visão GERAL), filtra consultores Onboarding/Desativado.
+  // No modo 'mine' (consultor específico), passa direto: o usuário escolheu ver
+  // os dados dele e os filtros de consultor_id já foram aplicados nos fetches.
+  const allKnownIds = new Set(opHist.map((h: ConsultorOperacaoHistorico) => h.consultor_id));
+  const isActiveInMonth = (cid: string | null | undefined, monthAno: string) => {
+    if (!cid) return true;
+    if (!allKnownIds.has(cid)) return true;
+    return resolveConsultorOperacaoStatus(opHist, cid, monthAno) === 'Ativo';
+  };
+  const shouldFilter = mode === 'operation';
+  const currentScores      = shouldFilter ? currentScoresRaw.filter(s => isActiveInMonth(s.consultor_id, mesAno))         : currentScoresRaw;
+  const previousScores     = shouldFilter ? previousScoresRaw.filter(s => isActiveInMonth(s.consultor_id, previousMesAno)) : previousScoresRaw;
+  const currentCategories  = shouldFilter ? currentCategoriesRaw.filter(c => isActiveInMonth(c.consultor_id, mesAno))     : currentCategoriesRaw;
+  const auditItems         = shouldFilter ? auditItemsRaw.filter(a => isActiveInMonth(a.consultor_id, mesAno))            : auditItemsRaw;
 
   const conformidadeCarteira = aggregateTypeScore(currentScores, 'Conformidade');
   const resultadoCarteira = aggregateTypeScore(currentScores, 'Resultado');
