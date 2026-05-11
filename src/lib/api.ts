@@ -409,10 +409,10 @@ export async function getViewConformidade(
 export async function getRankingAtendidosMes(
   mesAno: string,
   consultorId?: string,
-): Promise<{ consultor_id: string; atendidos: number; carteira: number }[]> {
+): Promise<{ consultor_id: string; atendidos: number; carteira: number; status_operacao: string }[]> {
   let query = supabase
     .from('view_ranking_atendidos')
-    .select('consultor_id, atendidos, carteira')
+    .select('consultor_id, atendidos, carteira, status_operacao')
     .eq('mes_ano', mesAno);
 
   if (consultorId && consultorId !== 'all') {
@@ -423,9 +423,10 @@ export async function getRankingAtendidosMes(
   if (error) { console.error('getRankingAtendidosMes:', error); return []; }
 
   return (data ?? []).map((row: any) => ({
-    consultor_id: row.consultor_id ?? '',
-    atendidos:    row.atendidos    ?? 0,
-    carteira:     row.carteira     ?? 0,
+    consultor_id:    row.consultor_id    ?? '',
+    atendidos:       row.atendidos       ?? 0,
+    carteira:        row.carteira        ?? 0,
+    status_operacao: row.status_operacao ?? 'Ativo',
   }));
 }
 
