@@ -254,6 +254,12 @@ function WeakPointRow({
         <div className="weak-pergunta">{pergunta}</div>
       )}
 
+      {qtdAvaliados > 0 && (
+        <div className="weak-evidencia">
+          Base: <strong>{qtdAvaliados - qtdConformes}</strong> de <strong>{qtdAvaliados}</strong> avaliado(s) fora de conformidade
+        </div>
+      )}
+
       {consequencias.length > 0 && (
         <div className="weak-consequencias">
           <span className="weak-consequencias-label">Isso pode causar:</span>
@@ -1047,6 +1053,17 @@ const baseStyles = `
     font-weight: 600;
     line-height: 1.4;
     margin-top: 4px;
+  }
+
+  .weak-evidencia {
+    margin-top: 6px;
+    font-size: 12px;
+    color: ${T.textSub};
+  }
+  .weak-evidencia strong {
+    color: ${T.text};
+    font-family: ${T.mono};
+    font-weight: 700;
   }
 
   .weak-consequencias {

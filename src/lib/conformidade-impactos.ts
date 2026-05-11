@@ -36,8 +36,21 @@ function pctStr(pct: number): string {
  */
 interface ImpactoRule {
   match: string[];
-  headline: (pct: string) => string;
+  /** Recebe o % de não-conformidade já formatado e a pergunta original
+   *  (para extrair contexto como produto entre parênteses). */
+  headline: (pct: string, pergunta: string) => string;
   consequencias: string[];
+}
+
+/** Extrai conteúdo entre parênteses no final da pergunta — geralmente o produto.
+ *  Ex.: "Quantos % … operação? (Aliança Pro)" → "Aliança Pro"
+ *  Retorna null se não houver, ou se for "Todos os produtos". */
+function extractProdutoSuffix(pergunta: string): string | null {
+  const match = pergunta.match(/\(([^)]+)\)\s*$/);
+  if (!match) return null;
+  const produto = match[1].trim();
+  if (/todos/i.test(produto)) return null; // "Todos os produtos" = recorte agregado
+  return produto;
 }
 
 const RULES: ImpactoRule[] = [
@@ -73,11 +86,17 @@ const RULES: ImpactoRule[] = [
   // ── Vorp System: meta batida ───────────────────────────────────────────
   {
     match: ['meta batida'],
-    headline: (pct) => `${pct} dos clientes avaliados estão sem bater a meta do produto`,
+    headline: (pct, pergunta) => {
+      const produto = extractProdutoSuffix(pergunta);
+      if (produto) {
+        return `${pct} dos clientes avaliados em ${produto} não bateram a meta do produto neste recorte`;
+      }
+      return `${pct} dos clientes avaliados não bateram a meta consolidada da operação neste recorte`;
+    },
     consequencias: [
-      'risco direto de churn por percepção de não-entrega',
+      'risco de churn por percepção de não-entrega no produto auditado',
       'pressiona o resultado consolidado da carteira no mês',
-      'dificulta a renovação e a expansão de fee',
+      'dificulta renovação e expansão de fee neste produto',
     ],
   },
   // ── Vorp System: flags Care / Safe / Danger ────────────────────────────
@@ -127,9 +146,15 @@ const RULES: ImpactoRule[] = [
   // ── Vorp System: realizados da meta preenchidos ────────────────────────
   {
     match: ['realizados da meta'],
-    headline: (pct) => `${pct} das metas avaliadas estão sem o valor realizado preenchido`,
+    headline: (pct, pergunta) => {
+      const produto = extractProdutoSuffix(pergunta);
+      if (produto) {
+        return `${pct} das metas avaliadas em ${produto} estão sem o valor realizado preenchido`;
+      }
+      return `${pct} das metas avaliadas estão sem o valor realizado preenchido`;
+    },
     consequencias: [
-      'KPIs de batimento de meta ficam distorcidos',
+      'KPIs de batimento de meta ficam distorcidos neste produto',
       'cliente não vê evolução numérica do trabalho',
     ],
   },
@@ -249,7 +274,7 @@ export function buildImpactoNarrativa(
   const rule = findRule(normalize(pergunta));
   if (rule) {
     return {
-      headline: rule.headline(pct),
+      headline: rule.headline(pct, pergunta),
       consequencias: rule.consequencias,
     };
   }
