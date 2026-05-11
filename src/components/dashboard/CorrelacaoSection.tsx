@@ -639,31 +639,6 @@ export default function CorrelacaoSection() {
           )}
         </section>
 
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <div className="panel-title">Conformidade por categoria</div>
-              <div className="panel-subtitle">Onde a operação está mais forte e onde ainda falta consistência.</div>
-            </div>
-          </div>
-
-          <div className="category-list">
-            {data.categoryScores.map((category) => (
-              <div key={category.categoria} className="category-row">
-                <div className="category-copy">
-                  <span className="category-name">{category.categoria}</span>
-                  <span className="category-items">{category.totalItens} item(ns)</span>
-                </div>
-                <div className="category-bar">
-                  <div className="category-track">
-                    <div className="category-fill" style={{ width: `${Math.max(category.score, 2)}%` }} />
-                  </div>
-                  <span className="category-score">{category.score.toFixed(1)}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
 
       {resolvedMode === 'operation' ? (
@@ -949,11 +924,10 @@ const baseStyles = `
 
   .content-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
   }
 
-  .weak-grid,
   .project-list,
   .category-list,
   .alerts-grid,
@@ -966,7 +940,9 @@ const baseStyles = `
 
   .weak-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
   }
 
   .weak-row,
@@ -1352,6 +1328,12 @@ const baseStyles = `
 
   .empty-inline {
     margin-top: 16px;
+  }
+
+  @media (max-width: 1280px) {
+    .weak-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (max-width: 1100px) {
