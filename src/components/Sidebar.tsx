@@ -31,6 +31,7 @@ function SidebarInner() {
   const isDashboard = pathname === '/';
   const isAuditoria = pathname === '/auditoria';
   const isCadastro  = pathname === '/cadastro';
+  const isCentralProcessos = pathname === '/central-de-processos';
 
   const [openDashboard, setOpenDashboard] = useState(isDashboard);
   const [openAuditoria, setOpenAuditoria] = useState(isAuditoria);
@@ -142,6 +143,18 @@ function SidebarInner() {
               </Link>
             ))}
           </div>
+        </div>
+
+        <div className="nav-group">
+          <div className="nav-section-label">PROCESSOS</div>
+          <Link
+            href="/central-de-processos"
+            className={`nav-parent nav-link ${isCentralProcessos ? 'active' : ''}`}
+          >
+            <BookOpen size={16} className="nav-icon" />
+            <span className="nav-label">Central de Processos</span>
+            <span className="nav-link-spacer" />
+          </Link>
         </div>
 
         {/* Cadastro */}
@@ -296,6 +309,14 @@ function SidebarInner() {
           border-radius: 9px;
           cursor: pointer; text-align: left;
           color: ${T.textDim}; transition: all 0.15s;
+        }
+        .nav-link {
+          text-decoration: none;
+        }
+        .nav-link-spacer {
+          display: block;
+          width: 16px;
+          height: 16px;
         }
         .nav-parent:hover {
           background: rgba(255,255,255,0.03);

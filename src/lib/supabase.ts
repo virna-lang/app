@@ -16,6 +16,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+export type ProjetoAuditoriaStatus = 'Auditável' | 'Tratativa CS' | 'Onboarding' | 'Transicionado';
+export type CentralProcessoRole = 'consultor' | 'cs' | 'treinador';
+
 export type StatusConsultor = 'Ativo' | 'Inativo';
 export type StatusCliente = 'Ativo' | 'Tratativa' | 'Churn';
 export type StatusReuniao = 'Concluída' | 'Sem reunião' | 'Cancelada';
@@ -24,6 +27,40 @@ export type MotivoChurn = 'Preço' | 'Resultado' | 'Sumiu' | 'Concorrente' | 'Ou
 export type CategoriaAudit = 'ClickUp' | 'Drive' | 'WhatsApp' | 'Dados' | 'Flags';
 export type TipoAmostragem = 'Totalidade' | '30% da carteira';
 export type StatusItem = 'Conforme' | 'Não conforme';
+
+export function normalizeProjetoAuditoriaStatus(
+  value?: string | null,
+  tratativaCs = false,
+): ProjetoAuditoriaStatus {
+  const normalized = (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+  if (normalized === 'tratativa cs' || normalized === 'tratativa') return 'Tratativa CS';
+  if (normalized === 'onboarding') return 'Onboarding';
+  if (normalized === 'transicionado') return 'Transicionado';
+  if (normalized === 'auditavel' || normalized === 'auditável') return 'Auditável';
+  return tratativaCs ? 'Tratativa CS' : 'Auditável';
+}
+
+export function isProjetoAuditavel(status?: string | null, tratativaCs = false): boolean {
+  return normalizeProjetoAuditoriaStatus(status, tratativaCs) === 'Auditável';
+}
+
+export function getProjetoAuditoriaMotivoExclusao(status?: string | null, tratativaCs = false): string | null {
+  switch (normalizeProjetoAuditoriaStatus(status, tratativaCs)) {
+    case 'Tratativa CS':
+      return 'tratativa_cs';
+    case 'Onboarding':
+      return 'onboarding';
+    case 'Transicionado':
+      return 'transicionado';
+    default:
+      return null;
+  }
+}
 
 export interface Consultor {
   id: string;
@@ -43,6 +80,28 @@ export interface UsuarioApp {
   consultor_id?: string | null;
   permissoes: string[];
   status: 'Ativo' | 'Inativo';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CentralProcesso {
+  id: string;
+  slug: string;
+  role: CentralProcessoRole;
+  title: string;
+  summary: string;
+  cadence: string;
+  deliverable: string;
+  tools: string[];
+  spotlight_title: string;
+  spotlight: string;
+  checkpoints: string[];
+  caution: string[];
+  gold_rule: string;
+  sort_order: number;
+  is_active: boolean;
+  created_by?: string | null;
+  updated_by?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -159,6 +218,7 @@ export interface VorpProjetoRow {
   nome: string;
   empresa_nome?: string | null;
   status?: string | null;
+  auditoria_status?: ProjetoAuditoriaStatus | null;
   produto_nome?: string | null;
   colaborador_nome?: string | null;
   colaborador_vorp_id?: string | null;
