@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type {
+  CentralProcesso,
   Consultor,
   Cliente,
   AuditoriaMensal,
@@ -18,6 +19,23 @@ import type {
 import type { AppPermission, UserRole } from './permissions';
 import type { ConsultorOperacaoHistorico, ConsultorOperacaoStatus } from './consultor-operacao';
 
+export type CentralProcessoUpsertPayload = {
+  id?: string;
+  slug?: string;
+  role: CentralProcesso['role'];
+  title: string;
+  summary: string;
+  cadence: string;
+  deliverable: string;
+  tools: string[];
+  spotlight_title: string;
+  spotlight: string;
+  checkpoints: string[];
+  caution: string[];
+  gold_rule: string;
+  sort_order: number;
+};
+
 function toNonNegativeInt(value: number | null | undefined): number {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n) || n < 0) return 0;
@@ -28,6 +46,37 @@ function normalizeAuditoriaQuantidades(qtdAvaliados: number, qtdConformes: numbe
   const avaliados = toNonNegativeInt(qtdAvaliados);
   const conformes = Math.min(toNonNegativeInt(qtdConformes), avaliados);
   return { avaliados, conformes };
+}
+
+async function getAccessToken(): Promise<string | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  return sessionData.session?.access_token ?? null;
+}
+
+async function fetchAuthedJson<T>(input: string, init?: RequestInit): Promise<T> {
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    throw new Error('Sessao expirada. Faca login novamente para continuar.');
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers: {
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers ?? {}),
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = payload && typeof payload === 'object' && 'error' in payload
+      ? String(payload.error)
+      : response.statusText;
+    throw new Error(message || 'Falha na requisicao.');
+  }
+
+  return payload as T;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,8 +161,7 @@ export async function deleteConsultorOperacaoHistorico(id: string): Promise<bool
 }
 
 export async function getUsuariosApp(): Promise<UsuarioApp[]> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
+  const accessToken = await getAccessToken();
   if (!accessToken) return [];
 
   const response = await fetch('/api/admin/users', {
@@ -141,8 +189,7 @@ export async function updateUsuarioApp(
     status?: 'Ativo' | 'Inativo';
   },
 ): Promise<UsuarioApp | null> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
+  const accessToken = await getAccessToken();
   if (!accessToken) return null;
 
   const response = await fetch('/api/admin/users', {
@@ -162,6 +209,38 @@ export async function updateUsuarioApp(
 
   const body = await response.json();
   return body.user ?? null;
+}
+
+export async function listCentralProcessos(): Promise<CentralProcesso[]> {
+  const payload = await fetchAuthedJson<{ processes: CentralProcesso[] }>('/api/central-processos');
+  return payload.processes ?? [];
+}
+
+export async function createCentralProcesso(
+  process: CentralProcessoUpsertPayload,
+): Promise<CentralProcesso> {
+  const payload = await fetchAuthedJson<{ process: CentralProcesso }>('/api/central-processos', {
+    method: 'POST',
+    body: JSON.stringify(process),
+  });
+  return payload.process;
+}
+
+export async function updateCentralProcesso(
+  process: CentralProcessoUpsertPayload & { id: string },
+): Promise<CentralProcesso> {
+  const payload = await fetchAuthedJson<{ process: CentralProcesso }>('/api/central-processos', {
+    method: 'PATCH',
+    body: JSON.stringify(process),
+  });
+  return payload.process;
+}
+
+export async function deleteCentralProcesso(id: string): Promise<void> {
+  await fetchAuthedJson<{ success: boolean }>('/api/central-processos', {
+    method: 'DELETE',
+    body: JSON.stringify({ id }),
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

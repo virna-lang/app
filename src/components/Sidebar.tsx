@@ -145,6 +145,18 @@ function SidebarInner() {
           </div>
         </div>
 
+        <div className="nav-group">
+          <div className="nav-section-label">PROCESSOS</div>
+          <Link
+            href="/central-de-processos"
+            className={`nav-parent nav-link ${isCentralProcessos ? 'active' : ''}`}
+          >
+            <BookOpen size={16} className="nav-icon" />
+            <span className="nav-label">Central de Processos</span>
+            <span className="nav-link-spacer" />
+          </Link>
+        </div>
+
         {/* Cadastro */}
         <div className="nav-group">
           <div className="nav-section-label">CADASTRO</div>
