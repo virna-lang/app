@@ -1,15 +1,26 @@
 'use client';
 
 import { useAuth } from './AuthContext';
+import { usePathname } from 'next/navigation';
 import { LogOut, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
 import DashboardFilters from './DashboardFilters';
 
+const ROUTE_LABELS: Record<string, string> = {
+  '/': 'Recursos de Auditoria',
+  '/auditoria': 'Auditorias',
+  '/cadastro': 'Cadastro',
+  '/central-de-processos': 'Central de Processos',
+};
+
 export default function Topbar() {
   const { role, user, signOut } = useAuth();
+  const pathname = usePathname();
 
   const avatarUrl   = user?.user_metadata?.avatar_url as string | undefined;
   const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '';
+  const currentLabel = ROUTE_LABELS[pathname] ?? 'Recursos de Auditoria';
+  const showDashboardFilters = pathname !== '/central-de-processos';
 
   return (
     <header className="topbar">
@@ -17,12 +28,12 @@ export default function Topbar() {
       <div className="breadcrumb">
         <span className="bc-root">Vorp</span>
         <ChevronRight size={13} className="bc-sep" />
-        <span className="bc-current">Recursos de Auditoria</span>
+        <span className="bc-current">{currentLabel}</span>
       </div>
 
       {/* Filters + actions */}
       <div className="topbar-right">
-        <DashboardFilters />
+        {showDashboardFilters ? <DashboardFilters /> : null}
 
         <div className="topbar-actions">
           {/* Role badge */}
