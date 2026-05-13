@@ -1191,17 +1191,17 @@ export default function CentralDeProcessosPage() {
 
         .hero-copy h1 {
           margin: 0;
-          font-size: clamp(1.65rem, 2.3vw, 2.35rem);
-          line-height: 1.08;
-          letter-spacing: -0.04em;
+          font-size: clamp(1.35rem, 1.8vw, 1.8rem);
+          line-height: 1.18;
+          letter-spacing: -0.03em;
           color: #fcfdff;
         }
 
         .detail-title-wrap h2 {
           margin: 0;
-          font-size: clamp(1.95rem, 2.6vw, 2.7rem);
-          line-height: 1.04;
-          letter-spacing: -0.04em;
+          font-size: clamp(1.55rem, 2vw, 2.1rem);
+          line-height: 1.12;
+          letter-spacing: -0.03em;
           color: #fcfdff;
         }
 
@@ -1214,8 +1214,8 @@ export default function CentralDeProcessosPage() {
         .detail-empty p {
           margin: 0;
           color: #9fb2d3;
-          line-height: 1.75;
-          font-size: 15px;
+          line-height: 1.65;
+          font-size: 14px;
         }
 
         .hero-copy p {
@@ -1330,8 +1330,8 @@ export default function CentralDeProcessosPage() {
 
         .panel-head h2,
         .editor-header h2 {
-          font-size: 24px;
-          line-height: 1.12;
+          font-size: 21px;
+          line-height: 1.18;
           letter-spacing: -0.03em;
         }
 
@@ -1370,7 +1370,7 @@ export default function CentralDeProcessosPage() {
 
         .role-button strong {
           margin-top: 6px;
-          font-size: 18px;
+          font-size: 16px;
           color: #f8fbff;
         }
 
@@ -1561,7 +1561,7 @@ export default function CentralDeProcessosPage() {
         }
 
         .metric-card strong {
-          font-size: 18px;
+          font-size: 16px;
           line-height: 1.28;
           letter-spacing: -0.03em;
           color: #f8fbff;
@@ -1577,8 +1577,8 @@ export default function CentralDeProcessosPage() {
         .gold-card p {
           margin-top: 10px;
           color: #f4f7ff;
-          font-size: 16px;
-          line-height: 1.6;
+          font-size: 14px;
+          line-height: 1.65;
         }
 
         .detail-columns {
@@ -1595,7 +1595,7 @@ export default function CentralDeProcessosPage() {
 
         .list-card h3 {
           margin-bottom: 18px;
-          font-size: 19px;
+          font-size: 17px;
           letter-spacing: -0.02em;
         }
 
@@ -1800,7 +1800,7 @@ export default function CentralDeProcessosPage() {
 
           .hero-copy h1,
           .detail-title-wrap h2 {
-            font-size: 1.85rem;
+            font-size: 1.45rem;
           }
         }
       `}</style>
