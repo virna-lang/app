@@ -147,7 +147,7 @@ function SidebarInner() {
 
         <Link
           href="/central-de-processos"
-          className={`nav-parent nav-link ${isCentralProcessos ? 'active' : ''}`}
+          className={`nav-parent nav-link nav-central-link ${isCentralProcessos ? 'active' : ''}`}
         >
           <BookOpen size={16} className="nav-icon" />
           <span className="nav-label">Central de Processos</span>
@@ -324,6 +324,11 @@ function SidebarInner() {
           background: ${T.orangeDim};
           border-left-color: ${T.orange};
           color: ${T.orange};
+        }
+        .nav-central-link.active {
+          background: rgba(255,255,255,0.03);
+          border-left-color: rgba(255,92,26,0.3);
+          color: ${T.textSub};
         }
         .nav-icon {
           color: inherit;
