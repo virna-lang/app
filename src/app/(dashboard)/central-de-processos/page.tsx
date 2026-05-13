@@ -800,7 +800,7 @@ export default function CentralDeProcessosPage() {
       <section className="hero-panel">
         <div className="hero-copy">
           <span className="eyebrow">Operacao Vorp</span>
-          <h1>Central de Processos</h1>
+          <h1>Selecione a trilha e abra o processo.</h1>
           <p>
             Primeiro a pessoa escolhe a trilha. Depois ela entra em cards objetivos para abrir o processo
             exato que precisa, sem navegar por texto cru ou ficar perdida no fluxo.
@@ -1192,8 +1192,8 @@ export default function CentralDeProcessosPage() {
         .hero-copy h1,
         .detail-title-wrap h2 {
           margin: 0;
-          font-size: clamp(2rem, 4vw, 3.35rem);
-          line-height: 0.98;
+          font-size: clamp(1.8rem, 2.8vw, 2.9rem);
+          line-height: 1.02;
           letter-spacing: -0.04em;
           color: #fcfdff;
         }
@@ -1323,8 +1323,8 @@ export default function CentralDeProcessosPage() {
 
         .panel-head h2,
         .editor-header h2 {
-          font-size: 30px;
-          line-height: 1.05;
+          font-size: 24px;
+          line-height: 1.12;
           letter-spacing: -0.03em;
         }
 
@@ -1554,7 +1554,7 @@ export default function CentralDeProcessosPage() {
         }
 
         .metric-card strong {
-          font-size: 22px;
+          font-size: 18px;
           line-height: 1.28;
           letter-spacing: -0.03em;
           color: #f8fbff;
@@ -1570,7 +1570,7 @@ export default function CentralDeProcessosPage() {
         .gold-card p {
           margin-top: 10px;
           color: #f4f7ff;
-          font-size: 18px;
+          font-size: 16px;
           line-height: 1.6;
         }
 
@@ -1588,7 +1588,7 @@ export default function CentralDeProcessosPage() {
 
         .list-card h3 {
           margin-bottom: 18px;
-          font-size: 22px;
+          font-size: 19px;
           letter-spacing: -0.02em;
         }
 
@@ -1793,7 +1793,7 @@ export default function CentralDeProcessosPage() {
 
           .hero-copy h1,
           .detail-title-wrap h2 {
-            font-size: 2.2rem;
+            font-size: 1.95rem;
           }
         }
       `}</style>
