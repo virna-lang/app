@@ -1191,16 +1191,16 @@ export default function CentralDeProcessosPage() {
 
         .hero-copy h1 {
           margin: 0;
-          font-size: clamp(1.35rem, 1.8vw, 1.8rem);
-          line-height: 1.18;
+          font-size: clamp(1.18rem, 1.45vw, 1.48rem);
+          line-height: 1.24;
           letter-spacing: -0.03em;
           color: #fcfdff;
         }
 
         .detail-title-wrap h2 {
           margin: 0;
-          font-size: clamp(1.55rem, 2vw, 2.1rem);
-          line-height: 1.12;
+          font-size: clamp(1.28rem, 1.6vw, 1.7rem);
+          line-height: 1.2;
           letter-spacing: -0.03em;
           color: #fcfdff;
         }
@@ -1330,7 +1330,7 @@ export default function CentralDeProcessosPage() {
 
         .panel-head h2,
         .editor-header h2 {
-          font-size: 21px;
+          font-size: 18px;
           line-height: 1.18;
           letter-spacing: -0.03em;
         }
@@ -1363,14 +1363,14 @@ export default function CentralDeProcessosPage() {
         }
 
         .role-button span {
-          font-size: 12px;
+          font-size: 11px;
           line-height: 1.4;
           color: #9fb2d3;
         }
 
         .role-button strong {
           margin-top: 6px;
-          font-size: 16px;
+          font-size: 15px;
           color: #f8fbff;
         }
 
@@ -1412,7 +1412,7 @@ export default function CentralDeProcessosPage() {
         }
 
         .process-order {
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 800;
           letter-spacing: 0.16em;
           color: #89a4d1;
@@ -1442,10 +1442,10 @@ export default function CentralDeProcessosPage() {
         }
 
         .process-card h3 {
-          margin: 26px 0 22px;
-          min-height: 88px;
-          font-size: 20px;
-          line-height: 1.35;
+          margin: 22px 0 18px;
+          min-height: 72px;
+          font-size: 16px;
+          line-height: 1.4;
           letter-spacing: -0.02em;
         }
 
@@ -1477,7 +1477,7 @@ export default function CentralDeProcessosPage() {
         }
 
         .detail-pill {
-          padding: 9px 12px;
+          padding: 8px 11px;
           border: 1px solid rgba(109, 134, 183, 0.18);
           background: rgba(11, 17, 29, 0.74);
           color: #a9bddf;
@@ -1515,6 +1515,7 @@ export default function CentralDeProcessosPage() {
         .close-button {
           padding: 11px 14px;
           border-radius: 14px;
+          font-size: 13px;
           font-weight: 700;
           background: rgba(11, 17, 29, 0.72);
           color: #d7e3f6;
@@ -1561,8 +1562,8 @@ export default function CentralDeProcessosPage() {
         }
 
         .metric-card strong {
-          font-size: 16px;
-          line-height: 1.28;
+          font-size: 15px;
+          line-height: 1.34;
           letter-spacing: -0.03em;
           color: #f8fbff;
         }
@@ -1595,7 +1596,7 @@ export default function CentralDeProcessosPage() {
 
         .list-card h3 {
           margin-bottom: 18px;
-          font-size: 17px;
+          font-size: 15px;
           letter-spacing: -0.02em;
         }
 
@@ -1800,7 +1801,7 @@ export default function CentralDeProcessosPage() {
 
           .hero-copy h1,
           .detail-title-wrap h2 {
-            font-size: 1.45rem;
+            font-size: 1.2rem;
           }
         }
       `}</style>
