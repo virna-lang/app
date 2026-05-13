@@ -1189,11 +1189,18 @@ export default function CentralDeProcessosPage() {
           color: #ff6d2d;
         }
 
-        .hero-copy h1,
+        .hero-copy h1 {
+          margin: 0;
+          font-size: clamp(1.65rem, 2.3vw, 2.35rem);
+          line-height: 1.08;
+          letter-spacing: -0.04em;
+          color: #fcfdff;
+        }
+
         .detail-title-wrap h2 {
           margin: 0;
-          font-size: clamp(1.8rem, 2.8vw, 2.9rem);
-          line-height: 1.02;
+          font-size: clamp(1.95rem, 2.6vw, 2.7rem);
+          line-height: 1.04;
           letter-spacing: -0.04em;
           color: #fcfdff;
         }
@@ -1793,7 +1800,7 @@ export default function CentralDeProcessosPage() {
 
           .hero-copy h1,
           .detail-title-wrap h2 {
-            font-size: 1.95rem;
+            font-size: 1.85rem;
           }
         }
       `}</style>
